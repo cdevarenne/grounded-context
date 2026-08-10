@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.ipynb_checkpoints
+.venv
+__pycache__/
+corpus/raw/
+
+# Private working files — not for publication
+backlog.csv
+
+

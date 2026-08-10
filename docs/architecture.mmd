@@ -1,0 +1,55 @@
+%% Grounded Context Layer — reference architecture
+%% Left-to-right request path. Two consumers prove model-agnosticism via one MCP tool.
+%% The router sends exact facts to the deterministic path and exploration to Elasticsearch;
+%% on ambiguity it queries BOTH and lets the exact hit win.
+%% Agent Builder and Workflows/SOAR are described, not built (dashed).
+flowchart LR
+    U["User / calling app"]
+
+    subgraph AGENT["Agent layer — model-agnostic"]
+        direction TB
+        CL["Claude<br/>(primary)"]
+        AV["Antigravity<br/>(second consumer)"]
+    end
+
+    M["MCP server<br/>retrieval tool"]
+    R{"Router<br/>exact fact, or exploration?"}
+
+    subgraph DET["Deterministic path — no cloud dependency"]
+        direction TB
+        KB["knowledge/ bundle<br/>YAML front-matter + wiki-style links"]
+        LK["Exact lookup<br/>canonical field + link traversal"]
+        KB --> LK
+    end
+
+    subgraph ES["Elasticsearch — semantic path"]
+        direction TB
+        BM["BM25<br/>lexical"]
+        EL["ELSER<br/>learned sparse"]
+        HF["RRF<br/>rank fusion"]
+        BM --> HF
+        EL --> HF
+    end
+
+    G["Grounded context + provenance<br/>source · locator · path · method · score · last_verified"]
+    A["Answer WITH citation block<br/>or 'Not found in the grounded sources'"]
+
+    AB["Agent Builder<br/>native productization"]
+    WF["Workflows / SOAR<br/>action execution"]
+
+    U --> CL
+    U --> AV
+    CL -->|MCP| M
+    AV -->|MCP| M
+    M --> R
+    R -->|"canonical / precision"| DET
+    R -->|"exploratory"| ES
+    LK --> G
+    HF --> G
+    R -.->|"decision + rationale (audit trail)"| G
+    G --> A
+    A -.->|described, not built| AB
+    A -.->|described, not built| WF
+
+    classDef notbuilt fill:#f7f7f7,stroke:#999,stroke-dasharray:5 5,color:#666;
+    class AB,WF notbuilt;
