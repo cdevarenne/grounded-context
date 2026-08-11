@@ -58,7 +58,7 @@ stage-3 addition via a metered API key — not needed for v1.
 ## Source of truth
 - Task list: `backlog.csv` — authoritative; work top-to-bottom by id.
 - Detailed specs live in `docs/specs/` and are read on demand:
-  - `okf-bundle.md` — canonical bundle format (YAML front-matter, [[link]] convention) + compatibility-matrix schema
+  - `okf-bundle.md` — canonical bundle format (OKF v0.2: YAML front-matter, Markdown-link convention) + compatibility-matrix schema
   - `provenance.md` — the exact citation-block shape
   - `router.md` — classification rules + interface
   - `eval.md` — the ~12-question eval set + expected engine per question

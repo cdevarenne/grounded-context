@@ -53,7 +53,7 @@ flowchart LR
 
     subgraph DET["Deterministic path — no cloud dependency"]
         direction TB
-        KB["knowledge/ bundle<br/>YAML front-matter + wiki-style links"]
+        KB["knowledge/ bundle<br/>YAML front-matter + Markdown links"]
         LK["Exact lookup<br/>canonical field + link traversal"]
         KB --> LK
     end
@@ -97,7 +97,7 @@ Source: [`docs/architecture.mmd`](docs/architecture.mmd)
 
 **Deterministic path.** A curated `knowledge/` bundle of structured Markdown — YAML
 front-matter carrying a `canonical:` block of fields that must never be guessed, plus
-wiki-style links for multi-hop traversal. Lookup is an exact match on a field, returning the
+ordinary Markdown links for multi-hop traversal. Lookup is an exact match on a field, returning the
 value with its `source_url` and `last_verified` date. Pure Python over Markdown, no network,
 no ranking, no embedding. **Markdown is the source of truth; any index is a rebuildable
 projection of it — never the reverse.**
@@ -111,6 +111,33 @@ without changing callers. Queries naming an entity and asking for a field go det
 open-ended questions go semantic; **on ambiguity it queries both and lets the exact hit win.**
 The router's decision and its rationale are part of the audit trail, not just an internal
 detail.
+
+## Built on OKF — and where it extends it
+
+The canonical layer follows
+**[OKF, the Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)**
+(v0.2, published by Google Cloud) — *"a universal, vendor-neutral format for representing
+knowledge as plain markdown files with YAML frontmatter."* A *knowledge bundle* is a directory
+of those files.
+
+Vendor-neutrality is the point, and it's why OKF belongs **alongside** an Elasticsearch
+architecture rather than competing with one. The canonical layer stays portable and
+inspectable; Elasticsearch's job is to be the best index, projection, and observability surface
+over it — not to own the format. Markdown remains the source of truth and the index is
+rebuildable from it.
+
+**Where this repo extends v0.2, and why.** OKF's frontmatter targets what you want to query and
+filter on — `type`, `resource`, `tags`, `status`. It does not specify **field-level provenance**
+for facts that must be exact. So [`docs/specs/okf-bundle.md`](docs/specs/okf-bundle.md) adds:
+
+- a **`canonical:` block** — the fields that must never be inferred (model string, context
+  window, endpoint path)
+- **`source_url` + `last_verified`** per file, inherited by every canonical field
+- a **staleness threshold**, so an aged field raises a warning instead of quietly serving a
+  stale "authoritative" answer
+
+That extension is the reason the deterministic path can be trusted at all, and it's the part
+worth taking back to the spec.
 
 ## Provenance is mandatory
 
@@ -139,6 +166,40 @@ index. The canonical layer is **governed**: a field whose `last_verified` date h
 threshold surfaces a staleness warning, because a stale "authoritative" layer undercuts the
 whole point.
 
+## The tradeoff, and the open question
+
+The deterministic path does not eliminate the data-preparation problem. It **relocates** it —
+from chunking strategy and embedding drift to **curation governance.** Someone has to decide
+which facts are canonical and keep them fresh. That cost is real, and it's the honest price of
+determinism.
+
+It's the right trade for facts where a confident wrong answer is worse than no answer. But it
+raises the question this project exists to answer:
+
+> **Does curation scale?** A 30–60 page corpus is hand-curatable by one person. At ten thousand
+> documents, is a canonical layer still viable — or does it become the bottleneck that makes the
+> whole approach un-shippable in production?
+
+That's an open question here, not a settled one. I'd rather instrument it than have an opinion
+about it — which is what the next piece is for.
+
+## Observability — how the open question gets answered
+
+The retrieval layer emits its own telemetry into Elasticsearch, the same platform serving the
+semantic path:
+
+| Signal | What it tells you |
+|---|---|
+| Router decisions + rationale | What fraction of real queries actually need the deterministic path |
+| Canonical hit / miss rate | How often a precision query finds no canonical field — the curation backlog, measured |
+| Staleness warnings fired | Whether governance is keeping up or falling behind |
+| Refusal rate | How often "not found in the grounded sources" fires |
+| Per-path latency | What routing to `BOTH` actually costs |
+
+Those five series turn "does curation scale?" from an argument into a dashboard, and they make
+the context layer *itself* observable. Lessons from that instrumentation are what should decide
+whether this approach is production-worthy, and what the alternatives are if it isn't.
+
 ## Status
 
 Built in public, first person. Honest state of things:
@@ -154,6 +215,7 @@ Built in public, first person. Honest state of things:
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
 | Router | ⬜ planned |
 | Eval harness | ⬜ planned |
+| Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
 
 Specs are read on demand and are the contract that implementation follows:
 
