@@ -235,8 +235,11 @@ Naming what this *isn't* is part of the design, not an apology for it:
   copyrighted document text is not committed to this repo.
 - **Small-n evaluation.** The eval set is illustrative, showing which engine answers and that
   provenance is present. It is **not** a benchmark and no performance claims are made from it.
-- **Agent Builder and Workflows/SOAR are described, not built.** This demo is the hand-rolled
-  version of what Agent Builder does natively; the writeup explains the mapping.
+- **Agent Builder and Workflows/SOAR are described, not built.**
+  [SOAR](https://www.elastic.co/what-is/soar) — security orchestration, automation and response —
+  is the action half of the pattern: the agent reasons over grounded context, Workflows executes.
+  This demo is the hand-rolled version of what Agent Builder does natively; the writeup explains
+  the mapping.
 
 ## License
 
