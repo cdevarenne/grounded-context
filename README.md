@@ -154,6 +154,24 @@ retrieval contract, since bundles *"can be consumed by anything that reads markd
 - the **router** that decides when a question deserves that path at all, plus the uniform citation
   contract shared with the semantic path
 
+### Two bodies of content, two different rules
+
+The two retrieval paths read from two different corpora, and the split is deliberate — they carry
+different governance obligations, so conflating them would be a licensing problem as much as an
+architectural one:
+
+| | `knowledge/` — canonical layer | `corpus/` — semantic layer |
+|---|---|---|
+| Holds | My own structured facts: exact values with sources and verification dates | Third-party documentation prose |
+| Produced by | Hand-curation, one concept per file | A fetch script, from public docs |
+| In git? | **Yes** — it *is* the source of truth | **No** — `corpus/raw/` is gitignored; the script is what ships |
+| Governed by | Every exact fact carries `sources`, `verified`, `stale_after` | Never scrape whole sites; never commit copyrighted text |
+| Size driver | Small because each fact is hand-verified | ~30–60 pages because curation is the scope lever |
+| Status | Built — 4 concepts | Planned |
+
+This is why the canonical layer is small and the semantic corpus is fetched rather than vendored:
+one is mine to govern, the other isn't mine to redistribute.
+
 ## Provenance is mandatory
 
 No answer is emitted without at least one citation. If retrieval returns nothing, the answer
@@ -212,7 +230,7 @@ semantic path:
 | Refusal rate | How often "not found in the grounded sources" fires |
 | Per-path latency | What routing to `BOTH` actually costs |
 
-Those five series turn "does curation scale?" from an argument into a dashboard, and they make
+Those six signals turn "does curation scale?" from an argument into a dashboard, and they make
 the context layer *itself* observable. Lessons from that instrumentation are what should decide
 whether this approach is production-worthy, and what the alternatives are if it isn't.
 
@@ -231,6 +249,7 @@ Built in public, first person. Honest state of things:
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
 | Test suite | ✅ 59 tests |
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
+| Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
 | MCP server | ⬜ planned |
 | Eval harness | ⬜ planned |
@@ -262,9 +281,12 @@ Naming what this *isn't* is part of the design, not an apology for it:
 
 - **Read-only.** No writes, no actions, no tool execution.
 - **No auth, no multi-tenancy, no scale story.** Single user, single index.
-- **Curated corpus, not a crawl.** A hand-picked subset of public Elastic / Anthropic / OpenAI
-  developer docs — roughly 30–60 pages, fetched by script. Whole sites are not scraped and
-  copyrighted document text is not committed to this repo.
+- **Curated corpus, not a crawl.** Two rules that hold regardless of build state: whole sites are
+  never scraped, and third-party document text is never committed to this repo. The semantic
+  path's corpus *will be* a hand-picked subset of public Elastic / Anthropic / OpenAI developer
+  docs on the order of 30–60 pages, retrieved by a fetch script — see the status table for where
+  that stands, and the two-corpora table above for why it is governed differently from
+  `knowledge/`.
 - **Small-n evaluation.** The eval set is illustrative, showing which engine answers and that
   provenance is present. It is **not** a benchmark and no performance claims are made from it.
 - **Agent Builder and Workflows/SOAR are described, not built.**
