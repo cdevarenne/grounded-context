@@ -224,14 +224,27 @@ Built in public, first person. Honest state of things:
 |---|---|
 | Specs — bundle format, provenance contract, router, eval set | ✅ committed, see [`docs/specs/`](docs/specs/) |
 | Reference architecture diagram | ✅ committed |
-| Canonical knowledge bundle + compatibility matrix | 🚧 in progress |
-| Deterministic lookup path | 🚧 in progress |
-| Provenance rendering | 🚧 in progress |
-| MCP server | 🚧 in progress |
+| Canonical knowledge bundle (`knowledge/`) | ✅ 4 concepts, OKF v0.2, values sourced from live docs |
+| Deterministic lookup path + link traversal | ✅ pure Python, no network |
+| Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
+| Router | ✅ deterministic side live; semantic branch stubbed |
+| CLI (`gc lookup` / `ask` / `route` / `entities`) | ✅ |
+| Test suite | ✅ 59 tests |
+| Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
-| Router | ⬜ planned |
+| MCP server | ⬜ planned |
 | Eval harness | ⬜ planned |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
+
+Run it with no cloud account and no API key:
+
+```bash
+pip install -e .
+gc ask "What is the exact context window of claude-opus-5?"
+gc lookup anthropic.claude-opus-5 method          # traverses model → endpoint
+gc --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
+gc entities
+```
 
 Specs are read on demand and are the contract that implementation follows:
 
