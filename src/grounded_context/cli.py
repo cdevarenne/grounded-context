@@ -104,7 +104,7 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="gc", description="Grounded context layer — deterministic path."
+        prog="gctx", description="Grounded context layer — deterministic path."
     )
     parser.add_argument("--bundle", help="path to the knowledge/ bundle")
     parser.add_argument(

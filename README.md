@@ -228,7 +228,7 @@ Built in public, first person. Honest state of things:
 | Deterministic lookup path + link traversal | ✅ pure Python, no network |
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ deterministic side live; semantic branch stubbed |
-| CLI (`gc lookup` / `ask` / `route` / `entities`) | ✅ |
+| CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
 | Test suite | ✅ 59 tests |
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
@@ -240,11 +240,14 @@ Run it with no cloud account and no API key:
 
 ```bash
 pip install -e .
-gc ask "What is the exact context window of claude-opus-5?"
-gc lookup anthropic.claude-opus-5 method          # traverses model → endpoint
-gc --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
-gc entities
+
+gctx ask "What is the exact context window of claude-opus-5?"
+gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
+gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
+gctx entities
 ```
+
+Without installing, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
 
 Specs are read on demand and are the contract that implementation follows:
 

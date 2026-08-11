@@ -13,7 +13,9 @@ dependencies = ["PyYAML>=6"]
 dev = ["pytest>=7"]
 
 [project.scripts]
-gc = "grounded_context.cli:main"
+# `gc` is taken by graphviz on Homebrew — don't reuse it.
+gctx = "grounded_context.cli:main"
+grounded-context = "grounded_context.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
