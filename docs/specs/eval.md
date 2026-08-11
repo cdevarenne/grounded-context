@@ -19,7 +19,7 @@ Columns: id · question · expected_path · correct answer shape · notes
 | Q9 | What does the `<exact_param>` parameter do? | semantic (hybrid) | grounded prose + cited doc | **THE planted proof.** Pure-vector grabs a semantically-adjacent wrong doc; BM25/hybrid nails the exact token. Design the corpus so this reliably reproduces. Rehearse it. |
 | Q10 | Compare \<provider A\> and \<provider B\> on \<exact field\>. | both | merged answer, both cited | cross-entity |
 | Q11 | \<a question whose answer is NOT in the corpus\> | either | "Not found in the grounded sources" | guardrail: tests no-hallucination |
-| Q12 | What is \<an exact fact that changed recently\>? | deterministic | exact value + `last_verified` shown | shows governed / date-stamped canonical data |
+| Q12 | What is \<an exact fact that changed recently\>? | deterministic | exact value + OKF `verified` / `stale_after` shown | shows governed, trust-tiered canonical data |
 
 ## Pass criteria
 - Right path chosen (or BOTH when appropriate), with a logged `rationale`.

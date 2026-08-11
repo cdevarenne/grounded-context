@@ -1,10 +1,19 @@
 # Spec: Canonical Knowledge Bundle (OKF)
 
-Builds on **[OKF — the Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)**
+Conforms to **[OKF — the Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)**
 v0.2 (Google Cloud): *"a universal, vendor-neutral format for representing knowledge as plain
-markdown files with YAML frontmatter."* This spec adds what v0.2 does not define —
-**field-level provenance** for facts that must be exact: the `canonical:` block, per-file
-`source_url` + `last_verified` inherited by every canonical field, and a staleness threshold.
+markdown files with YAML frontmatter."*
+
+**Provenance and freshness come from OKF, not from here.** v0.2 makes *"trust, provenance, and
+freshness… first-class"* and already standardizes exactly what this layer needs: `sources` with
+per-source credibility signals, `generated` and `verified` (from which consumers *"derive a trust
+tier"*), and `status` + `stale_after` for lifecycle. Use those field names and semantics — do not
+invent local equivalents.
+
+What this spec adds is **not format**: OKF is deliberately *"minimally opinionated"* and defines
+no canonical field values and no retrieval contract — bundles *"can be consumed by anything that
+reads markdown."* This spec supplies the missing retrieval half: a `canonical:` block of
+exact-fact values and a deterministic `lookup()` contract over it.
 
 ## Purpose
 The deterministic layer's source of truth. Structured Markdown + YAML files that the
@@ -23,17 +32,36 @@ knowledge/
 ## Concept file format
 Every file = YAML front-matter + optional Markdown body.
 
-Required front-matter:
+Front-matter — OKF v0.2 fields, plus two local extensions (v0.2 is *"freely extensible"*):
 ```yaml
 ---
-id: anthropic.claude-opus            # stable, unique, dotted
-type: model | endpoint | concept
-provider: anthropic | openai | elastic | null
-title: Human Readable Title
-source_url: https://...              # where the facts came from
-last_verified: 2026-08-01            # ISO date — governance; MUST be refreshed
-tags: [ ... ]
-links:                               # explicit cross-references (deterministic traversal)
+type: model                          # OKF: the only always-required key
+title: Claude Opus                   # OKF recommended
+description: One-sentence summary.   # OKF recommended
+resource: https://...                # OKF: URI identifying the underlying asset
+tags: [anthropic, model]             # OKF recommended
+
+sources:                             # OKF provenance family
+  - resource: https://docs.anthropic.com/…
+    title: Anthropic model reference
+    author: Anthropic
+    last_modified: 2026-08-01        # recency signal (YYYY-MM-DD)
+
+generated:                           # OKF trust family — how this content was produced
+  by: human:cdevarenne               # REQUIRED within generated
+  at: 2026-08-01T12:00:00Z
+
+verified:                            # OKF trust family — list of verification events
+  - by: human:cdevarenne
+    at: 2026-08-01T12:00:00Z
+
+status: stable                       # OKF lifecycle: draft | stable | deprecated
+stale_after: 2026-09-01              # OKF lifecycle: absolute date, NOT a relative TTL
+
+# --- local extensions ---
+id: anthropic.claude-opus            # stable lookup key for the deterministic path
+provider: anthropic                  # anthropic | openai | elastic
+links:                               # ordinary Markdown links, traversed for multi-hop lookups
   - "[Anthropic Messages API](../endpoints/anthropic-messages.md)"
 ---
 ```
@@ -50,9 +78,18 @@ canonical:
 ```
 
 ## Rules
-- **Every `canonical` field inherits provenance from its file's `source_url` + `last_verified`.**
-  A field older than a set threshold (e.g., 30 days) should surface a staleness warning — a
-  stale "authoritative" layer undercuts the whole thesis.
+- **Every `canonical` field inherits its document's OKF provenance** — `sources`, `generated`,
+  `verified`, `status`, `stale_after`. Provenance in OKF is per-document; a file with six
+  canonical fields carries one provenance record covering all six. Keep exact facts in
+  small-grained files so that record stays meaningful.
+- **Staleness is OKF's rule, not a local one:** a concept is stale when `today >= stale_after`.
+  Absolute date, not a relative TTL — per the spec, it *"keeps the staleness decision a plain date
+  comparison with no reference to when the concept was read."* A stale hit still answers, but the
+  citation block must carry the staleness warning; a stale "authoritative" layer undercuts the
+  whole thesis.
+- **Trust tier is derived, not declared** — OKF's tiers: no `verified` key → *unverified*;
+  `verified` by non-`human:` actors only → *machine-confirmed*; a `human:<id>` actor →
+  *human-reviewed*. Surface the tier in the citation block.
 - **Links are ordinary Markdown links**, per the OKF v0.2 convention — *"normal markdown links,
   expressing relationships richer than the parent/child implied by the directory layout"* —
   written relative to the containing file. The deterministic path parses and traverses them for
@@ -64,8 +101,19 @@ canonical:
   small curated subset; this bundle holds only your own structured canonical data.
 
 ## Deterministic lookup contract
+This is the part OKF deliberately leaves open — the format defines no retrieval contract.
+
 ```
-lookup(entity_id, field) -> {value, source_url, last_verified, file} | NOT_FOUND
+lookup(entity_id, field) -> {
+  value,
+  sources,          # OKF sources[] — origin + credibility signals
+  verified,         # OKF verified[] — verification events
+  trust_tier,       # derived: unverified | machine-confirmed | human-reviewed
+  status,           # OKF: draft | stable | deprecated
+  stale_after,      # OKF absolute date
+  is_stale,         # today >= stale_after
+  file
+} | NOT_FOUND
 ```
-Exact-fact queries resolve to a `canonical.<field>`; the result is the value plus full
-provenance (see provenance.md).
+Exact-fact queries resolve to a `canonical.<field>`; the result is the value plus its inherited
+OKF provenance (see provenance.md).

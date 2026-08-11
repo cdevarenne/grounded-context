@@ -67,7 +67,7 @@ flowchart LR
         EL --> HF
     end
 
-    G["Grounded context + provenance<br/>source · locator · path · method · score · last_verified"]
+    G["Grounded context + provenance<br/>source · locator · path · method · score · verified · stale_after"]
     A["Answer WITH citation block<br/>or 'Not found in the grounded sources'"]
 
     AB["Agent Builder<br/>native productization"]
@@ -98,7 +98,7 @@ Source: [`docs/architecture.mmd`](docs/architecture.mmd)
 **Deterministic path.** A curated `knowledge/` bundle of structured Markdown — YAML
 front-matter carrying a `canonical:` block of fields that must never be guessed, plus
 ordinary Markdown links for multi-hop traversal. Lookup is an exact match on a field, returning the
-value with its `source_url` and `last_verified` date. Pure Python over Markdown, no network,
+value with its OKF provenance — `sources`, trust tier, `stale_after`. Pure Python over Markdown, no network,
 no ranking, no embedding. **Markdown is the source of truth; any index is a rebuildable
 projection of it — never the reverse.**
 
@@ -112,9 +112,9 @@ open-ended questions go semantic; **on ambiguity it queries both and lets the ex
 The router's decision and its rationale are part of the audit trail, not just an internal
 detail.
 
-## Built on OKF — and where it extends it
+## Built on OKF
 
-The canonical layer follows
+The canonical layer conforms to
 **[OKF, the Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)**
 (v0.2, published by Google Cloud) — *"a universal, vendor-neutral format for representing
 knowledge as plain markdown files with YAML frontmatter."* A *knowledge bundle* is a directory
@@ -126,18 +126,33 @@ inspectable; Elasticsearch's job is to be the best index, projection, and observ
 over it — not to own the format. Markdown remains the source of truth and the index is
 rebuildable from it.
 
-**Where this repo extends v0.2, and why.** OKF's frontmatter targets what you want to query and
-filter on — `type`, `resource`, `tags`, `status`. It does not specify **field-level provenance**
-for facts that must be exact. So [`docs/specs/okf-bundle.md`](docs/specs/okf-bundle.md) adds:
+**Provenance and freshness come from the format, not from this repo.** OKF v0.2 makes *"trust,
+provenance, and freshness… first-class"* and standardizes precisely what a grounded layer needs:
 
-- a **`canonical:` block** — the fields that must never be inferred (model string, context
+| OKF field | What it carries |
+|---|---|
+| `sources` | Where a fact came from, with per-source credibility signals |
+| `generated` | How the content was produced — actor and timestamp |
+| `verified` | Verification events, from which a **trust tier** is derived: unverified · machine-confirmed · human-reviewed |
+| `status` | `draft` · `stable` · `deprecated` |
+| `stale_after` | Absolute date — a concept is stale when `today >= stale_after` |
+
+Those flow straight into the citation block, which is why the provenance contract here is
+thinner than it would otherwise have to be. An earlier draft of this repo invented its own
+`source_url` and `last_verified` fields; aligning to OKF's was a strict improvement, and the
+`stale_after` absolute date is a better design than the relative TTL it replaced.
+
+**What this repo adds is the retrieval half, which OKF deliberately leaves open.** The spec is
+*"minimally opinionated, freely extensible"* — it defines no canonical field values and no
+retrieval contract, since bundles *"can be consumed by anything that reads markdown."* So
+[`docs/specs/okf-bundle.md`](docs/specs/okf-bundle.md) supplies:
+
+- a **`canonical:` block** — exact-fact values that must never be inferred (model string, context
   window, endpoint path)
-- **`source_url` + `last_verified`** per file, inherited by every canonical field
-- a **staleness threshold**, so an aged field raises a warning instead of quietly serving a
-  stale "authoritative" answer
-
-That extension is the reason the deterministic path can be trusted at all, and it's the part
-worth taking back to the spec.
+- a deterministic **`lookup(entity, field)` contract** returning the value plus its inherited OKF
+  provenance, trust tier, and staleness state
+- the **router** that decides when a question deserves that path at all, plus the uniform citation
+  contract shared with the semantic path
 
 ## Provenance is mandatory
 
@@ -162,9 +177,9 @@ Answer: <answer text>
 ```
 
 Format is illustrative — real values come from the date-stamped canonical files and the live
-index. The canonical layer is **governed**: a field whose `last_verified` date has aged past a
-threshold surfaces a staleness warning, because a stale "authoritative" layer undercuts the
-whole point.
+index. The canonical layer is **governed**: OKF's `verified` events yield a trust tier, and once
+`today >= stale_after` the citation carries a staleness warning — because a stale
+"authoritative" layer undercuts the whole point.
 
 ## The tradeoff, and the open question
 
@@ -192,7 +207,8 @@ semantic path:
 |---|---|
 | Router decisions + rationale | What fraction of real queries actually need the deterministic path |
 | Canonical hit / miss rate | How often a precision query finds no canonical field — the curation backlog, measured |
-| Staleness warnings fired | Whether governance is keeping up or falling behind |
+| Concepts past `stale_after` | Whether governance is keeping up or falling behind |
+| Trust-tier distribution | What share of the corpus is human-reviewed vs machine-confirmed vs unverified |
 | Refusal rate | How often "not found in the grounded sources" fires |
 | Per-path latency | What routing to `BOTH` actually costs |
 

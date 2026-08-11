@@ -14,11 +14,14 @@ is the auditability guarantee and the visual signature of the whole artifact.
     {
       "path": "deterministic | semantic",
       "source_id": "anthropic.claude-opus | <es_doc_id>",
-      "source_url": "https://…",
+      "source_url": "https://…",   // deterministic: from OKF sources[].resource
       "locator": "canonical.context_window_tokens | section:Hybrid search | chunk:12",
       "method": "exact-lookup | hybrid(bm25+elser,rrf)",
       "score": null,          // null for exact deterministic; float for semantic
-      "last_verified": "2026-08-01 | <index_time>",
+      "verified_at": "2026-08-01 | <index_time>",   // OKF verified[].at (latest)
+      "trust_tier": "human-reviewed",               // OKF-derived; null on the semantic path
+      "stale_after": "2026-09-01",                  // OKF lifecycle; null on the semantic path
+      "is_stale": false,                            // today >= stale_after
       "snippet": "…"
     }
   ]
@@ -31,8 +34,12 @@ Deterministic:
 Answer: The context window is 200,000 tokens.
 
   ↳ source: anthropic.claude-opus · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · verified 2026-08-01
+    path: deterministic (exact-lookup) · human-reviewed 2026-08-01 · fresh until 2026-09-01
     https://docs.anthropic.com/…
+```
+When `today >= stale_after`, the same block carries the warning inline:
+```
+    path: deterministic (exact-lookup) · human-reviewed 2026-08-01 · ⚠ STALE since 2026-09-01
 ```
 Semantic (show score + method):
 ```
