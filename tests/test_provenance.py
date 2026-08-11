@@ -43,7 +43,7 @@ def test_citation_carries_full_okf_provenance(bundle):
     assert cite["method"] == "exact-lookup"
     assert cite["score"] is None  # deterministic hits are not ranked
     assert cite["trust_tier"] == "human-reviewed"
-    assert cite["stale_after"] == "2026-09-10"
+    assert cite["stale_after"] == "2026-09-09"
     assert cite["is_stale"] is False
     assert cite["source_url"].startswith("https://")
 
@@ -66,8 +66,8 @@ def test_render_shows_source_trust_and_freshness(bundle):
     text = render(envelope_for(bundle, "anthropic.claude-opus-5", "context_window_tokens"))
     assert "anthropic.claude-opus-5 · canonical.context_window_tokens" in text
     assert "deterministic (exact-lookup)" in text
-    assert "human-reviewed 2026-08-11" in text
-    assert "fresh until 2026-09-10" in text
+    assert "human-reviewed 2026-08-10" in text
+    assert "fresh until 2026-09-09" in text
 
 
 def test_render_warns_when_the_fact_has_aged_out(bundle):
@@ -75,7 +75,7 @@ def test_render_warns_when_the_fact_has_aged_out(bundle):
     text = render(
         envelope_for(bundle, "anthropic.claude-opus-5", "context_window_tokens", LATER)
     )
-    assert "⚠ STALE since 2026-09-10" in text
+    assert "⚠ STALE since 2026-09-09" in text
     assert "fresh until" not in text
 
 

@@ -12,14 +12,14 @@ sources:
 
 generated:
   by: human:cdevarenne
-  at: 2026-08-11T02:06:23Z
+  at: 2026-08-10T19:06:23-07:00
 
 verified:
   - by: human:cdevarenne
-    at: 2026-08-11T02:06:23Z
+    at: 2026-08-10T19:06:23-07:00
 
 status: stable
-stale_after: 2026-09-10
+stale_after: 2026-09-09
 
 # --- local extensions ---
 id: anthropic.claude-sonnet-5
