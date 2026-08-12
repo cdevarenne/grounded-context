@@ -3,6 +3,7 @@
 .ipynb_checkpoints
 .venv
 __pycache__/
+*.egg-info/
 corpus/raw/
 
 # Private working files — not for publication

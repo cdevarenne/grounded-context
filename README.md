@@ -247,7 +247,7 @@ Built in public, first person. Honest state of things:
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ deterministic side live; semantic branch stubbed |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 59 tests |
+| Test suite | ✅ 63 tests, incl. a packaging smoke test of the installed script |
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
@@ -258,15 +258,27 @@ Built in public, first person. Honest state of things:
 Run it with no cloud account and no API key:
 
 ```bash
-pip install -e .
+uv sync --extra dev      # builds .venv from uv.lock on the pinned Python (.python-version)
 
-gctx ask "What is the exact context window of claude-opus-5?"
-gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
-gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
-gctx entities
+uv run gctx ask "What is the exact context window of claude-opus-5?"
+uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
+uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
+uv run gctx entities
+
+uv run pytest -q         # 63 tests
 ```
 
-Without installing, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
+The interpreter version and the exact dependency set are properties of the repo, not of your
+shell — that's the *repeatable* property applied to the build itself.
+
+No uv? The standard path works and is not a second-class citizen:
+
+```bash
+python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/gctx entities
+```
+
+Without installing at all, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
 
 Specs are read on demand and are the contract that implementation follows:
 
