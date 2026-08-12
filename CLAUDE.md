@@ -47,6 +47,16 @@ grounded answer with a citation block.
   live docs; treat it as versioned truth. A stale "authoritative" layer undercuts the thesis.
 - **Small + composable:** small scripts, clear interfaces, always demoable.
 
+## Toolchain
+Python **3.14**, pinned in `.python-version`; managed with **uv**. `uv sync --extra dev`,
+then `uv run pytest` / `uv run gctx …`. `uv.lock` is committed: the interpreter and the exact
+dependency set are properties of the repo, not of the shell.
+- Keep the plain `python3.14 -m venv` + `pip install -e ".[dev]"` path working and documented
+  in the README. This is a public artifact — nobody should need uv installed to run the demo.
+- New dependencies that aren't required by the deterministic path go in an **extra**, not in
+  `[project] dependencies`. The zero-cloud-dependency guarantee above is a promise about what
+  a bare install pulls in.
+
 ## Deployment
 Elastic Cloud Serverless, Elasticsearch project type, closest US-West region (unchangeable
 after creation), ELSER for semantic. Fallback: Docker single-node + a local embedding.
