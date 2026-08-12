@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
+import tomllib
 from pathlib import Path
 from typing import Protocol
 
@@ -41,6 +43,18 @@ def gctx(tmp_path: Path) -> Runner:
         )
 
     return run
+
+
+def test_declared_python_floor_matches_the_pin() -> None:
+    """`requires-python` is a public promise — keep it equal to what we actually run."""
+    root = Path(__file__).resolve().parents[1]
+    with (root / "pyproject.toml").open("rb") as handle:
+        requires = tomllib.load(handle)["project"]["requires-python"]
+    pin = (root / ".python-version").read_text().strip()
+    major, minor = (int(part) for part in pin.split("."))
+
+    assert requires == f">={pin}"
+    assert sys.version_info >= (major, minor)
 
 
 @requires_install

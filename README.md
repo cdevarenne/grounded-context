@@ -236,8 +236,6 @@ whether this approach is production-worthy, and what the alternatives are if it 
 
 ## Status
 
-Built in public, first person. Honest state of things:
-
 | Component | Status |
 |---|---|
 | Specs — bundle format, provenance contract, router, eval set | ✅ committed, see [`docs/specs/`](docs/specs/) |
@@ -247,7 +245,7 @@ Built in public, first person. Honest state of things:
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ deterministic side live; semantic branch stubbed |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 63 tests, incl. a packaging smoke test of the installed script |
+| Test suite | ✅ 64 tests, incl. a packaging smoke test of the installed script |
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
@@ -265,7 +263,7 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # 63 tests
+uv run pytest -q         # 64 tests
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your

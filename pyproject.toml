@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "grounded-context"
 version = "0.1.0"
 description = "A grounded, composable, deterministic-where-it-matters context layer for enterprise agents."
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = ["PyYAML>=6"]
 
 [project.optional-dependencies]
