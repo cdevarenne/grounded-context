@@ -44,9 +44,13 @@ When `today >= stale_after`, the same block carries the warning inline:
 Semantic (show score + method):
 ```
   ↳ source: elastic-hybrid-search-guide · section: Reciprocal rank fusion
-    path: semantic (hybrid bm25+elser, rrf) · score 0.87
+    path: semantic (hybrid bm25+elser, rrf) · score 0.0931
     https://www.elastic.co/…
 ```
+The score is a *fused* RRF score, so it is small and it is not a similarity. RRF sums
+`1/(k + rank)` across arms, which puts a top hit near `2/(k+1)` — about 0.09 at `k = 20`,
+whatever the match quality. Displaying it is honest about what ranked the passage; reading it
+as confidence is the mistake [`findings.md`](../findings.md) documents.
 
 ## Notes
 - Keep the block compact and **identical in structure across both paths** — the consistency is

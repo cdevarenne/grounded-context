@@ -25,9 +25,11 @@ RANK_WINDOW_SIZE = 50
 DEFAULT_SIZE = 5
 SNIPPET_CHARS = 320
 
-# Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from a
-# handful of probes against this corpus — clearly out-of-domain questions land at 2.6–4.5,
-# genuine ones at 15+ — not tuned on a labeled set. It is a guardrail, not a classifier.
+# Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from
+# probes against this corpus — off-topic questions land at 1.7–5.9, genuine ones at 14–19.5 —
+# not tuned on a labeled set. It is a guardrail, not a classifier, and the number is a
+# property of this index: re-chunk, re-index, or change the inference model and it means
+# nothing. What ports is the method (read a pre-fusion score), never the constant.
 RELEVANCE_FLOOR = 8.0
 
 METHOD = "hybrid(bm25+elser,rrf)"
@@ -41,9 +43,17 @@ EXACT_TOKEN_BOOST = 3.0
 def _lexical(query: str) -> dict[str, Any]:
     """BM25 over the analyzed text, plus the whitespace-tokenized subfield.
 
-    The second clause is what lets an exact identifier — `rank_constant`, `num_candidates` —
-    match as one token. Without it the standard analyzer splits on the underscore and the
-    lexical arm cannot see the very thing it is supposed to be good at.
+    The two clauses fail in opposite directions, which is the reason both are queried.
+
+    The standard analyzer strips punctuation and splits on hyphens (it keeps underscores:
+    `rank_constant` survives, `claude-opus-5` becomes `claude`/`opus`/`5`). Stripping
+    punctuation collapses a code sample's `"rank_constant":` onto the prose mention, so the
+    chunk that *defines* a term competes with every chunk that merely uses it.
+
+    The `exact` subfield lowercases and splits on whitespace only, so hyphens and punctuation
+    survive. That makes it strict enough to tell those apart — and strict enough to miss an
+    identifier the corpus only ever writes as `"batch_id":`, since the quotes are part of the
+    token. Neither field is reliable alone, so the `should` takes whichever one hits.
     """
     return {
         "standard": {
@@ -109,13 +119,16 @@ def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> b
 
     RRF scores cannot answer this. They are computed from rank position — `1/(k+rank)` — so
     the top hit scores about the same whether it is a perfect match or the least bad of
-    hundreds of irrelevant chunks. Measured here, "what is the capital of France?" fused to
-    0.068 against 0.073 for a real question about the API. The pre-fusion sparse score does
-    retain magnitude, so that is what the floor reads.
+    hundreds of irrelevant chunks. Measured on this index, "how do I bake sourdough bread?"
+    fused to 0.068 against 0.073 for a real question about streaming. The pre-fusion sparse
+    score keeps the magnitude those two share, so that is what the floor reads.
 
-    This catches out-of-domain questions. It does not catch in-domain questions about the
-    wrong entity — "the price of GPT-5" scores high against real pricing prose — and it is
-    not meant to: that is the router's and the canonical layer's job.
+    Two things it does not do, both by construction. It does not catch an in-domain question
+    about the wrong entity — "the price of GPT-5" scores 19.4 against real pricing prose, just
+    the wrong vendor's — which belongs to the router and the canonical layer. And it measures
+    the corpus as *text*, not as subject matter: a question about marathon training clears the
+    floor at 16.1, because Elastic's `semantic_text` page teaches the feature with running and
+    exercise sample documents. The retrieval is correct; only the topic is a surprise.
     """
     top = search_semantic_only(query, size=1, es=es)
     return bool(top) and (top[0]["score"] or 0.0) >= floor

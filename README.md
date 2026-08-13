@@ -57,9 +57,8 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # cluster-dependent tests skip without credentials
+uv run pytest -q         # 117 tests; optional-dependency tests skip when the extra is absent
 ```
-<!-- TODO(devarenne): confirm exact test count before re-adding a number here; last stated 111 but unverified in a 3.14-less env. -->
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
 shell — the *repeatable* property applied to the build itself.
@@ -71,6 +70,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/gctx entities
 ```
 <!-- TODO(devarenne): pyproject pins requires-python >=3.14, so pip refuses <3.14 outright. If you relax the pin, update this line. -->
+
 
 Without installing at all, every command works as
 `PYTHONPATH=src python3 -m grounded_context.cli …`.
@@ -122,7 +122,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ cluster-dependent tests skip without credentials |
+| Test suite | ✅ 117 tests; cluster- and extra-dependent tests skip |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
@@ -136,8 +136,10 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 
 - **[docs/design.md](docs/design.md)** — the five design properties, OKF grounding, the
   two-corpora governance split, the core tradeoff, and the observability plan.
-- **[docs/findings.md](docs/findings.md)** — two things that broke while building the hybrid
-  path, and what they teach about RRF.
+- **[docs/findings.md](docs/findings.md)** — three things that broke while building the hybrid
+  path, including one claim I got wrong and had to correct against the cluster.
+- **[docs/eval-output.md](docs/eval-output.md)** — the captured runs behind every number in the
+  findings, so the claims are checkable without my cluster.
 - **[docs/specs/](docs/specs/)** — the contracts implementation follows:
   [`okf-bundle.md`](docs/specs/okf-bundle.md),
   [`provenance.md`](docs/specs/provenance.md),

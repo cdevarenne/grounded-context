@@ -151,3 +151,64 @@ def test_neither_single_arm_wins_both_phrasings() -> None:
     semantic_on_token = _rank_of_defining_chunk(search_semantic_only(TOKEN, size=20))
     assert lexical_on_sentence is not None and lexical_on_sentence > 1
     assert semantic_on_token is not None and semantic_on_token > 1
+
+
+# --- what the analyzer actually does -------------------------------------------------
+#
+# findings.md once claimed the standard analyzer split `rank_constant` on the underscore.
+# It does not. These pin the real behavior so the claim cannot drift back.
+
+
+def _tokens(field: str, text: str) -> list[str]:
+    from grounded_context.es_client import client
+
+    analyzed = client().indices.analyze(index=INDEX, field=field, text=text)
+    return [token["token"] for token in analyzed["tokens"]]
+
+
+@requires_index
+@pytest.mark.parametrize(
+    ("identifier", "standard"),
+    [
+        ("rank_constant", ["rank_constant"]),
+        ("num_candidates", ["num_candidates"]),
+        ("claude-opus-5", ["claude", "opus", "5"]),
+        ("claude-haiku-4-5", ["claude", "haiku", "4", "5"]),
+    ],
+)
+def test_standard_analysis_keeps_underscores_and_splits_hyphens(
+    identifier: str, standard: list[str]
+) -> None:
+    """UAX #29 treats `_` as a connector and `-` as a break — not the other way around."""
+    assert _tokens("content", identifier) == standard
+    assert _tokens("content.exact", identifier) == [identifier]
+
+
+@requires_index
+def test_the_exact_subfield_separates_prose_from_code_samples() -> None:
+    """Why the subfield earns its place, now that 'it rescues a split token' is disproved.
+
+    Standard analysis strips punctuation, so a code sample's `"rank_constant":` collapses onto
+    the prose mention and the defining chunk competes with every chunk that merely uses the
+    term. The whitespace subfield keeps the punctuation attached, so only the bare mention
+    matches.
+    """
+    from grounded_context.es_client import client
+
+    es = client()
+    broad = es.count(index=INDEX, query={"match": {"content": TOKEN}})["count"]
+    narrow = es.count(index=INDEX, query={"match": {"content.exact": TOKEN}})["count"]
+    assert broad > narrow == 1
+
+
+@requires_index
+def test_the_lexical_arm_needs_both_fields_not_just_the_exact_one() -> None:
+    """The same strictness hides identifiers the corpus only writes inside punctuation."""
+    from grounded_context.es_client import client
+
+    es = client()
+    quoted = "claude-sonnet-4-6"
+    assert es.count(index=INDEX, query={"match": {"content": quoted}})["count"] > 0
+    assert es.count(index=INDEX, query={"match": {"content.exact": quoted}})["count"] == 0
+    # The shipped arm still finds it, because it queries `content` alongside `content.exact`.
+    assert search_lexical_only(quoted, size=1)

@@ -28,9 +28,10 @@ RAW = ROOT / "corpus" / "raw"
 TARGET_CHUNK_CHARS = 1200
 MIN_CHUNK_CHARS = 200
 
-# The standard analyzer splits `rank_constant` into "rank" + "constant", so an exact
-# identifier is unfindable by the lexical arm — the precise failure hybrid search is meant to
-# prevent. A whitespace-tokenized subfield keeps such tokens whole.
+# The standard analyzer strips punctuation and splits on hyphens, so `claude-opus-5` shatters
+# and a code sample's `"rank_constant":` collapses onto the prose mention. This subfield
+# lowercases and splits on whitespace only, keeping both intact, and `content` is queried
+# alongside it because the same strictness hides identifiers written only inside punctuation.
 SETTINGS: dict[str, Any] = {
     "analysis": {
         "analyzer": {
