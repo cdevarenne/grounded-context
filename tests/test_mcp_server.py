@@ -11,6 +11,7 @@ import asyncio
 from datetime import date
 from typing import Any
 
+from grounded_context import service
 from grounded_context.mcp_server import server
 from grounded_context.provenance import NOT_FOUND
 from grounded_context.service import load_bundle, lookup_field
@@ -92,12 +93,36 @@ def test_ask_tool_routes_a_precision_question_deterministically() -> None:
     assert structured["answer"] == "1,000,000"
 
 
-def test_refusal_is_a_grounded_result_not_a_protocol_error() -> None:
-    """An exploratory question must come back as a clean refusal, not a tool failure."""
+def test_refusal_is_a_grounded_result_not_a_protocol_error(monkeypatch) -> None:
+    """With no index reachable, the refusal is a clean result rather than a tool failure."""
+    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [])
     structured = call("ask_grounded", query="How should I chunk documents for retrieval?")
     assert structured["router"]["route"] == "SEMANTIC"
     assert structured["answer"] == NOT_FOUND
     assert structured["citations"] == []
+
+
+def test_semantic_hit_keeps_the_deterministic_citation_shape(monkeypatch) -> None:
+    """One envelope shape across both engines — the point of the dual path."""
+    fake = {
+        "path": "semantic",
+        "source_id": "elastic-rrf",
+        "source_url": "https://example.test",
+        "locator": "chunk:1",
+        "method": "hybrid(bm25+elser,rrf)",
+        "score": 0.09,
+        "verified_at": "2026-08-13T00:00:00-07:00",
+        "trust_tier": None,
+        "status": None,
+        "stale_after": None,
+        "is_stale": False,
+        "hops": [],
+        "snippet": "rank_constant determines influence.",
+    }
+    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [fake])
+    structured = call("ask_grounded", query="How should I chunk documents for retrieval?")
+    assert structured["citations"][0]["method"] == "hybrid(bm25+elser,rrf)"
+    assert "rank_constant" in structured["rendered"]
 
 
 def test_unknown_field_refuses_rather_than_guessing() -> None:

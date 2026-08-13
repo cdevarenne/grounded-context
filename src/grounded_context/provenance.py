@@ -63,24 +63,31 @@ def render(envelope: dict[str, Any]) -> str:
         lines.append(f"router: {router['route']} — {router['rationale']}")
         lines.append("")
 
-    lines.append(f"Answer: {envelope['answer']}")
+    # A retrieved passage is not a synthesized answer, so only an exact hit may be called
+    # one. On a mixed result the exact hit still leads, and still earns the label.
+    citations = envelope["citations"]
+    exact = not citations or citations[0]["path"] == DETERMINISTIC
+    lines.append(f"{'Answer' if exact else 'Top passage'}: {envelope['answer']}")
 
     for cite in envelope["citations"]:
         lines.append("")
         lines.append(f"  ↳ source: {cite['source_id']} · {cite['locator']}")
 
-        trust = cite.get("trust_tier", "unverified")
+        trust = cite.get("trust_tier")
         verified_at = (cite.get("verified_at") or "")[:10]
-        freshness = _freshness(cite)
         detail = f"{cite['path']} ({cite['method']})"
-        if verified_at:
+        if trust and verified_at:
             detail += f" · {trust} {verified_at}"
-        else:
+        elif trust:
             detail += f" · {trust}"
+        elif verified_at:
+            # The semantic path has no OKF trust tier — only the date it was retrieved.
+            detail += f" · indexed {verified_at}"
         if cite.get("score") is not None:
-            detail += f" · score {cite['score']}"
+            detail += f" · score {cite['score']:.4f}"
         lines.append(f"    path: {detail}")
-        lines.append(f"    {freshness}")
+        if cite.get("stale_after"):
+            lines.append(f"    {_freshness(cite)}")
 
         hops = cite.get("hops") or []
         if len(hops) > 1:

@@ -13,9 +13,12 @@ from typing import Any
 
 from .bundle import Bundle
 from .lookup import find_entity, find_field, resolve
-from .provenance import DETERMINISTIC, SEMANTIC, citation, grounded_answer
+from .provenance import DETERMINISTIC, MIXED, SEMANTIC, citation, grounded_answer
+from .router import BOTH as ROUTE_BOTH
 from .router import SEMANTIC as ROUTE_SEMANTIC
 from .router import Route, route
+
+SEMANTIC_RESULTS = 5
 
 DEFAULT_BUNDLE = Path(__file__).resolve().parents[2] / "knowledge"
 
@@ -63,15 +66,50 @@ def lookup_field(
     )
 
 
+def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> list[dict[str, Any]]:
+    """Hybrid-search citations, or none when Elasticsearch isn't configured.
+
+    Imported lazily so the deterministic path never needs the `es` extra installed.
+    """
+    from .es_client import is_configured
+
+    if not is_configured():
+        return []
+    from .semantic import search
+
+    return search(query, size=size)
+
+
+def _semantic_answer(query: str, decision: Route, path: str = SEMANTIC) -> dict[str, Any]:
+    """Grounded passages, best first. The caller writes prose; this supplies the ground."""
+    citations = semantic_citations(query)
+    answer = citations[0]["snippet"] if citations else ""
+    return grounded_answer(answer, citations, path, decision.as_dict())
+
+
 def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
     """Route a natural-language question, then answer it on the path chosen."""
     decision = route(query)
     if decision.route == ROUTE_SEMANTIC:
-        # The semantic path is not wired yet. Refusing is the honest answer.
-        return grounded_answer("", [], SEMANTIC, decision.as_dict())
+        return _semantic_answer(query, decision)
 
     entity = find_entity(bundle, query)
     field = find_field(bundle, query, entity)
-    if entity is None or field is None:
-        return grounded_answer("", [], DETERMINISTIC, decision.as_dict())
-    return lookup_field(bundle, entity, field, as_of, decision)
+    exact = (
+        lookup_field(bundle, entity, field, as_of, decision)
+        if entity and field
+        else grounded_answer("", [], DETERMINISTIC, decision.as_dict())
+    )
+
+    if decision.route != ROUTE_BOTH:
+        return exact
+
+    # router.md: query both, prefer an exact hit where one exists, never drop provenance.
+    extra = semantic_citations(query)
+    if not exact["citations"]:
+        return _semantic_answer(query, decision)
+    if not extra:
+        return exact
+    return grounded_answer(
+        exact["answer"], exact["citations"] + extra, MIXED, decision.as_dict()
+    )

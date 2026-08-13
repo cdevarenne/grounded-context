@@ -6,7 +6,15 @@ module-level test files all missed: `__init__.py` re-exports a function named
 directly can catch that — only running the entry point can.
 """
 
+import pytest
+
+from grounded_context import service
 from grounded_context.cli import main
+from grounded_context.es_client import is_configured
+
+requires_elasticsearch = pytest.mark.skipif(
+    not is_configured(), reason="no ES_URL / ES_API_KEY — semantic path unavailable"
+)
 
 
 def test_lookup_exact_fact(capsys):
@@ -36,12 +44,24 @@ def test_ask_renders_booleans_readably(capsys):
     assert "Answer: no" in capsys.readouterr().out
 
 
-def test_exploratory_question_refuses_while_semantic_path_is_unwired(capsys):
-    """eval.md Q11's guardrail, and an honest report of what isn't built."""
+def test_exploratory_question_refuses_when_elasticsearch_is_absent(capsys, monkeypatch):
+    """No index reachable means no grounded source — refuse rather than fall back."""
+    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [])
     assert main(["ask", "How should I chunk documents for retrieval?"]) == 1
     out = capsys.readouterr().out
     assert "router: SEMANTIC" in out
     assert "Not found in the grounded sources." in out
+
+
+@requires_elasticsearch
+def test_exploratory_question_returns_grounded_passages(capsys):
+    """Same question, index reachable: passages with scores, never a bare assertion."""
+    assert main(["ask", "How should I chunk documents for retrieval?"]) == 0
+    out = capsys.readouterr().out
+    assert "router: SEMANTIC" in out
+    assert "Top passage:" in out
+    assert "hybrid(bm25+elser,rrf)" in out
+    assert "score " in out
 
 
 def test_unknown_fact_refuses_rather_than_guessing(capsys):

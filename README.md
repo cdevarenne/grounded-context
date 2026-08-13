@@ -216,6 +216,36 @@ raises the question this project exists to answer:
 That's an open question here, not a settled one. I'd rather instrument it than have an opinion
 about it — which is what the next piece is for.
 
+## What broke: the lexical arm couldn't see exact tokens
+
+The premise of the hybrid path is that lexical matching catches what embeddings miss —
+identifiers, parameter names, version strings. Building it, that turned out not to be true by
+default.
+
+The test case is `rank_constant`, an RRF parameter defined in exactly one chunk of the corpus.
+Elasticsearch's standard analyzer splits it on the underscore into `rank` and `constant`, so
+the "exact token" arm was matching two common words across unrelated documents. The arm meant
+to guarantee precision was the one behaving fuzzily.
+
+The fix is a `content.exact` subfield analyzed with a whitespace tokenizer, so identifiers
+survive as single tokens, queried alongside the standard field. Measured against the same
+index, ranking the one chunk that defines the term:
+
+| Query | ELSER only | BM25 only | Hybrid (RRF) |
+|---|---|---|---|
+| "What does the `rank_constant` parameter do?" | 2 | 3 | **1** |
+| `rank_constant` | 5 | 1 | **1** |
+
+Two things worth taking from that table. **Neither single arm wins both phrasings** — ELSER
+degrades on the bare identifier, BM25 degrades on the natural-language sentence — and which one
+fails depends on how the user happens to type. That variance, not a headline win, is the real
+argument for fusion. And the exact-token subfield is load-bearing: without it the same lookups
+rank 3rd and 4th instead of 1st and 2nd.
+
+The broader lesson is that "hybrid search" is not a switch you turn on. The lexical half only
+does its job if the analyzer preserves the tokens you need it to match, and nothing warns you
+when it doesn't — the queries simply return plausible, adjacent, wrong documents.
+
 ## Observability — how the open question gets answered
 
 The retrieval layer emits its own telemetry into Elasticsearch, the same platform serving the
@@ -243,12 +273,12 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Canonical knowledge bundle (`knowledge/`) | ✅ 4 concepts, OKF v0.2, values sourced from live docs |
 | Deterministic lookup path + link traversal | ✅ pure Python, no network |
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
-| Router | ✅ deterministic side live; semantic branch stubbed |
+| Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 74 tests, incl. a packaging smoke test of the installed script |
+| Test suite | ✅ 98 tests; the 9 needing a live cluster skip without credentials |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
-| Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
-| Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
+| Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
+| Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
 | Eval harness | ⬜ planned |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
@@ -263,7 +293,7 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # 74 tests
+uv run pytest -q         # 98 tests; cluster-dependent ones skip without credentials
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -277,6 +307,22 @@ python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ```
 
 Without installing at all, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
+
+### The semantic path
+
+Everything above runs with no cloud account. The semantic half needs one — an Elasticsearch
+endpoint and an API key in a gitignored `.env`, plus the `es` extra:
+
+```bash
+uv sync --extra dev --extra es
+uv run python scripts/fetch_corpus.py            # 25 curated pages → corpus/raw/ (gitignored)
+uv run --extra es python scripts/index_corpus.py --recreate
+uv run --extra es gctx ask "How should I chunk documents for retrieval?"
+```
+
+Without those credentials the exploratory branch returns `Not found in the grounded sources.`
+rather than failing — an unavailable engine is a refusal, not an error, and never a fallback to
+the model's own memory.
 
 ### Reaching it from an agent, over MCP
 
