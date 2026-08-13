@@ -297,7 +297,21 @@ from Claude and from Gemini (via the Antigravity CLI), with no adapter, no code 
 per-client branch — only a config entry pointing at the same executable. Gemini picked
 `ask_grounded` on its own for a natural-language question and `lookup_canonical_fact` for direct
 ones, and reproduced the citation blocks verbatim, staleness warning included. Transcript:
-[`AntigravityQandA.md`](docs/AntigravityQandA.md).
+[`docs/AntigravityQandA.md`](docs/AntigravityQandA.md).
+
+That second runtime needed exactly this, in `~/.gemini/config/mcp_config.json` — the same
+executable the Claude side runs, named from a different agent's config file:
+
+```json
+{
+  "mcpServers": {
+    "grounded-context": {
+      "command": "/absolute/path/to/grounded-context/.venv/bin/gctx-mcp",
+      "args": []
+    }
+  }
+}
+```
 
 Every tool returns the identical envelope the CLI renders, plus a `rendered` citation block to
 reproduce. The tool descriptions carry the contract into the model's context: exact facts come

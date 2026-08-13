@@ -1,3 +1,23 @@
+# Second-runtime transcript — Antigravity CLI
+
+A second agent runtime driving this repo's MCP server, to show the model-agnostic claim rather
+than assert it. Nothing here is a code change: the server is the same executable the Claude
+side runs.
+
+| | |
+|---|---|
+| **Date** | 13 August 2026 |
+| **Runtime** | Antigravity CLI (`agy`) 1.1.12, Gemini-backed |
+| **Server** | this repo at commit `858fb62`, over stdio |
+| **Wiring** | `~/.gemini/config/mcp_config.json` → `.venv/bin/gctx-mcp` (see the README) |
+| **Tools offered** | `lookup_canonical_fact`, `ask_grounded`, `list_entities` |
+
+Questions are exactly as typed. Answers are pasted verbatim, including the citation blocks.
+`agy` does not record the selected model in its logs, so the specific Gemini version is not
+captured here.
+
+---
+
 ## Question:
 Using only the grounded-context MCP server, what is the exact context window of claude-opus-5? Show the router decision and paste the "rendered" citation block verbatim.
 
