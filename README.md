@@ -293,8 +293,9 @@ per-machine configuration. Three tools: `lookup_canonical_fact`, `ask_grounded`,
 `list_entities`.
 
 **Model-agnostic, demonstrated rather than asserted.** The same `gctx-mcp` command was driven
-from Claude and from Gemini (via the Antigravity CLI), with no adapter, no code change, and no
-per-client branch — only a config entry pointing at the same executable. Gemini picked
+from Claude and from Gemini 3.6 Flash (via the Antigravity CLI), with no adapter, no code
+change, and no per-client branch — only a config entry pointing at the same executable. Gemini
+picked
 `ask_grounded` on its own for a natural-language question and `lookup_canonical_fact` for direct
 ones, and reproduced the citation blocks verbatim, staleness warning included. Transcript:
 [`docs/AntigravityQandA.md`](docs/AntigravityQandA.md).
@@ -323,6 +324,8 @@ retrieval — with no instruction about how to answer, only a phrase naming whic
 — Gemini returned exactly `Not found in the grounded sources.` It did not fall back on training
 data it demonstrably has. The refusal travels in the tool description, not in the prompt, which
 is what makes it a property of the retrieval layer rather than of one carefully worded agent.
+Worth noting it held on the speed-optimized Flash tier rather than a frontier reasoning model —
+the guarantee shouldn't depend on the caller being the most capable model available.
 
 Specs are read on demand and are the contract that implementation follows:
 

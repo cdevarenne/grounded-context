@@ -7,14 +7,13 @@ side runs.
 | | |
 |---|---|
 | **Date** | 13 August 2026 |
-| **Runtime** | Antigravity CLI (`agy`) 1.1.12, Gemini-backed |
+| **Runtime** | Antigravity CLI (`agy`) 1.1.12 |
+| **Model** | Gemini 3.6 Flash (High) — `gemini-3.6-flash-high` |
 | **Server** | this repo at commit `858fb62`, over stdio |
 | **Wiring** | `~/.gemini/config/mcp_config.json` → `.venv/bin/gctx-mcp` (see the README) |
 | **Tools offered** | `lookup_canonical_fact`, `ask_grounded`, `list_entities` |
 
 Questions are exactly as typed. Answers are pasted verbatim, including the citation blocks.
-`agy` does not record the selected model in its logs, so the specific Gemini version is not
-captured here.
 
 ---
 
