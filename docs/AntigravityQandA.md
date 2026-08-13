@@ -33,7 +33,7 @@ server that carries no authentication of its own.
 `~/.gemini/antigravity-cli/mcp/grounded-context/instructions.md`, alongside one JSON schema per
 tool. So the "exact facts must come from these tools and never from your own memory / repeat the
 refusal and stop" text was present in the foreign runtime's context — the refusal below is that
-instruction being honoured, not a coincidence.
+instruction being honored, not a coincidence.
 
 ---
 
