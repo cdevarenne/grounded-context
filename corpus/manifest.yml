@@ -1,0 +1,162 @@
+# Curated reading list for the semantic path. Hand-picked, NOT a crawl.
+#
+# Only this manifest is committed. The fetched text lands in corpus/raw/, which is
+# gitignored — third-party documentation prose is never committed to this repo. See the
+# "two bodies of content" section of the README for why this corpus is governed differently
+# from knowledge/.
+#
+# Fetch with:  uv run python scripts/fetch_corpus.py
+
+sources:
+  # --- Elastic: the semantic path's own subject matter -------------------------------
+  - id: elastic-hybrid-search
+    title: Hybrid search
+    url: https://www.elastic.co/docs/solutions/search/hybrid-search
+    provider: elastic
+    topic: hybrid-search
+
+  - id: elastic-rrf
+    title: Reciprocal rank fusion
+    url: https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion
+    provider: elastic
+    topic: hybrid-search
+
+  - id: elastic-retrievers
+    title: Retrievers
+    url: https://www.elastic.co/docs/reference/elasticsearch/rest-apis/retrievers
+    provider: elastic
+    topic: retrieval-api
+
+  - id: elastic-semantic-text
+    title: Semantic search with semantic_text
+    url: https://www.elastic.co/docs/solutions/search/semantic-search/semantic-search-semantic-text
+    provider: elastic
+    topic: semantic-search
+
+  - id: elastic-elser
+    title: ELSER — Elastic Learned Sparse EncodeR
+    url: https://www.elastic.co/docs/explore-analyze/machine-learning/nlp/ml-nlp-elser
+    provider: elastic
+    topic: semantic-search
+
+  - id: elastic-knn
+    title: kNN search
+    url: https://www.elastic.co/docs/solutions/search/vector/knn
+    provider: elastic
+    topic: vector-search
+
+  # --- Anthropic: the facts the canonical layer governs, in prose form ---------------
+  - id: anthropic-models-overview
+    title: Models overview
+    url: https://platform.claude.com/docs/en/about-claude/models/overview
+    provider: anthropic
+    topic: models
+
+  - id: anthropic-streaming
+    title: Streaming Messages
+    url: https://platform.claude.com/docs/en/build-with-claude/streaming
+    provider: anthropic
+    topic: api
+
+  - id: anthropic-tool-use
+    title: Tool use overview
+    url: https://platform.claude.com/docs/en/build-with-claude/tool-use/overview
+    provider: anthropic
+    topic: agents
+
+  - id: anthropic-prompt-caching
+    title: Prompt caching
+    url: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+    provider: anthropic
+    topic: api
+
+  - id: anthropic-context-windows
+    title: Context windows
+    url: https://platform.claude.com/docs/en/build-with-claude/context-windows
+    provider: anthropic
+    topic: models
+
+  - id: anthropic-extended-thinking
+    title: Extended thinking
+    url: https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+    provider: anthropic
+    topic: models
+
+  - id: anthropic-vision
+    title: Vision
+    url: https://platform.claude.com/docs/en/build-with-claude/vision
+    provider: anthropic
+    topic: models
+
+  - id: anthropic-batch-processing
+    title: Batch processing
+    url: https://platform.claude.com/docs/en/build-with-claude/batch-processing
+    provider: anthropic
+    topic: api
+
+  - id: anthropic-rate-limits
+    title: Rate limits
+    url: https://platform.claude.com/docs/en/api/rate-limits
+    provider: anthropic
+    topic: api
+
+  - id: anthropic-errors
+    title: Errors
+    url: https://platform.claude.com/docs/en/api/errors
+    provider: anthropic
+    topic: api
+
+  - id: anthropic-mcp
+    title: Model Context Protocol
+    url: https://platform.claude.com/docs/en/agents-and-tools/mcp
+    provider: anthropic
+    topic: agents
+
+  # --- Elastic: mapping and inference reference -------------------------------------
+  - id: elastic-mapping-semantic-text
+    title: semantic_text field type
+    url: https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/semantic-text
+    provider: elastic
+    topic: semantic-search
+
+  - id: elastic-mapping-sparse-vector
+    title: sparse_vector field type
+    url: https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/sparse-vector
+    provider: elastic
+    topic: semantic-search
+
+  - id: elastic-mapping-dense-vector
+    title: dense_vector field type
+    url: https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/dense-vector
+    provider: elastic
+    topic: vector-search
+
+  - id: elastic-full-text-search
+    title: Full-text search
+    url: https://www.elastic.co/docs/solutions/search/full-text
+    provider: elastic
+    topic: lexical-search
+
+  - id: elastic-inference-api
+    title: Inference API
+    url: https://www.elastic.co/docs/explore-analyze/elastic-inference/inference-api
+    provider: elastic
+    topic: semantic-search
+
+  - id: elastic-serverless
+    title: Elastic Cloud Serverless
+    url: https://www.elastic.co/docs/deploy-manage/deploy/elastic-cloud/serverless
+    provider: elastic
+    topic: deployment
+
+  - id: elastic-search-your-data
+    title: The search API
+    url: https://www.elastic.co/docs/solutions/search/querying-for-search
+    provider: elastic
+    topic: retrieval-api
+
+  - id: elastic-rag
+    title: RAG with Elasticsearch
+    url: https://www.elastic.co/docs/solutions/search/rag
+    provider: elastic
+    topic: rag
