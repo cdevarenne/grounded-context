@@ -112,7 +112,8 @@ def test_both_paths_share_one_citation_shape(bundle):
         "source_url": "https://www.elastic.co/…",
         "locator": "section:Reciprocal rank fusion",
         "method": "hybrid(bm25+elser,rrf)",
-        "score": 0.87,
+        # A fused RRF score, so ~0.09 — not a similarity. See docs/findings.md.
+        "score": 0.0931,
         "verified_at": None,
         "trust_tier": None,
         "status": "stable",

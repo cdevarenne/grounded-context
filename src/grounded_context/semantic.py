@@ -37,6 +37,10 @@ METHOD_LEXICAL = "bm25"
 METHOD_SEMANTIC = "elser"
 
 
+# Weight on the exact-token clause. It is a tie-breaker, not the mechanism: measured across
+# the 236 identifiers unique to one chunk of this corpus, dropping it to 1.0 costs 3 of them a
+# rank and improves none, and it does not move either phrasing of the eval's Q9. The work of
+# separating a definition from a code sample is done by the subfield's analyzer, not by this.
 EXACT_TOKEN_BOOST = 3.0
 
 

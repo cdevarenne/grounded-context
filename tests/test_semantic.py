@@ -15,6 +15,7 @@ import pytest
 from grounded_context.es_client import INDEX, is_configured
 from grounded_context.provenance import DETERMINISTIC, SEMANTIC
 from grounded_context.semantic import (
+    EXACT_TOKEN_BOOST,
     RANK_CONSTANT,
     RANK_WINDOW_SIZE,
     citation,
@@ -199,6 +200,45 @@ def test_the_exact_subfield_separates_prose_from_code_samples() -> None:
     broad = es.count(index=INDEX, query={"match": {"content": TOKEN}})["count"]
     narrow = es.count(index=INDEX, query={"match": {"content.exact": TOKEN}})["count"]
     assert broad > narrow == 1
+
+
+@requires_index
+def test_the_exact_token_boost_breaks_ties_without_carrying_the_finding() -> None:
+    """Pins what the boost is worth, so it is never credited with the punctuation effect.
+
+    `multi-index` is one of the three identifiers in this corpus whose rank depends on it.
+    Q9 does not, which is the point: the finding survives at boost 1.0.
+    """
+    from grounded_context.es_client import client
+
+    es = client()
+    target = ("elastic-semantic-text", 3)
+
+    def rank(boost: float, query: str, expect: tuple[str, int]) -> int | None:
+        body = {
+            "standard": {
+                "query": {
+                    "bool": {
+                        "should": [
+                            {"match": {"content": query}},
+                            {"match": {"content.exact": {"query": query, "boost": boost}}},
+                        ]
+                    }
+                }
+            }
+        }
+        response = es.search(index=INDEX, retriever=body, size=20,
+                             _source=["source_id", "chunk_index"])
+        for position, hit in enumerate(response["hits"]["hits"], 1):
+            source = hit["_source"]
+            if (source["source_id"], source["chunk_index"]) == expect:
+                return position
+        return None
+
+    assert rank(EXACT_TOKEN_BOOST, "multi-index", target) == 1
+    assert rank(1.0, "multi-index", target) == 2
+    # The published Q9 result does not depend on it.
+    assert rank(1.0, TOKEN, DEFINING_CHUNK) == rank(EXACT_TOKEN_BOOST, TOKEN, DEFINING_CHUNK) == 1
 
 
 @requires_index
