@@ -11,6 +11,12 @@ import asyncio
 from datetime import date
 from typing import Any
 
+import pytest
+
+# The SDK is an extra, so a `[dev]`-only install must skip this module rather than fail to
+# collect it — the deterministic path is meant to run with nothing optional installed.
+pytest.importorskip("mcp", reason="no mcp extra — the MCP server is optional")
+
 from grounded_context import service
 from grounded_context.mcp_server import server
 from grounded_context.provenance import NOT_FOUND

@@ -45,16 +45,25 @@ def gctx(tmp_path: Path) -> Runner:
     return run
 
 
-def test_declared_python_floor_matches_the_pin() -> None:
-    """`requires-python` is a public promise — keep it equal to what we actually run."""
+def test_declared_python_floor_is_not_above_the_development_pin() -> None:
+    """The floor and the pin are deliberately different, and only one direction is valid.
+
+    `.python-version` is the interpreter this repo develops and locks against;
+    `requires-python` is the public floor a consumer must clear. The floor is set lower on
+    purpose, so a reviewer on an older Python can still `pip install -e .` — a pin that
+    doubles as the floor turns a build preference into a barrier. The floor must never
+    exceed the pin, or the repo would declare support it never exercises.
+    """
     root = Path(__file__).resolve().parents[1]
     with (root / "pyproject.toml").open("rb") as handle:
         requires = tomllib.load(handle)["project"]["requires-python"]
-    pin = (root / ".python-version").read_text().strip()
-    major, minor = (int(part) for part in pin.split("."))
+    pin = tuple(int(part) for part in (root / ".python-version").read_text().strip().split("."))
 
-    assert requires == f">={pin}"
-    assert sys.version_info >= (major, minor)
+    assert requires.startswith(">=")
+    floor = tuple(int(part) for part in requires.removeprefix(">=").split("."))
+
+    assert floor <= pin, f"declared floor {floor} exceeds the development pin {pin}"
+    assert sys.version_info >= floor, "the running interpreter is below the declared floor"
 
 
 @requires_install

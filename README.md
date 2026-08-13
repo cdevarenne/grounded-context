@@ -63,14 +63,14 @@ uv run pytest -q         # 117 tests; optional-dependency tests skip when the ex
 The interpreter version and the exact dependency set are properties of the repo, not of your
 shell — the *repeatable* property applied to the build itself.
 
-No uv? The standard path works and is not a second-class citizen:
+No uv? The standard path works and is not a second-class citizen. The repo develops and locks
+against 3.14, but the floor is **3.11** so an older interpreter can still run the demo — the
+deterministic path is checked on 3.11, 3.12, and 3.13:
 
 ```bash
-python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/gctx entities
 ```
-<!-- TODO(devarenne): pyproject pins requires-python >=3.14, so pip refuses <3.14 outright. If you relax the pin, update this line. -->
-
 
 Without installing at all, every command works as
 `PYTHONPATH=src python3 -m grounded_context.cli …`.
@@ -122,7 +122,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 117 tests; cluster- and extra-dependent tests skip |
+| Test suite | ✅ 117 tests; runs on 3.11–3.14, optional-dependency tests skip |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
