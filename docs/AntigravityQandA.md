@@ -15,6 +15,26 @@ side runs.
 
 Questions are exactly as typed. Answers are pasted verbatim, including the citation blocks.
 
+**Approval flow.** The first call to each tool prompted for consent, with an option to persist.
+Approving writes per-tool rules to `~/.gemini/antigravity-cli/settings.json`:
+
+```json
+"permissions": { "allow": [
+  "mcp(grounded-context/ask_grounded)",
+  "mcp(grounded-context/lookup_canonical_fact)"
+] }
+```
+
+Two prompts, one per tool actually used — `list_entities` was never called and has no rule. The
+agent could not reach the tools until a human said yes, which is worth stating plainly for a
+server that carries no authentication of its own.
+
+**The contract reached the model.** `agy` cached the server's `instructions` verbatim to
+`~/.gemini/antigravity-cli/mcp/grounded-context/instructions.md`, alongside one JSON schema per
+tool. So the "exact facts must come from these tools and never from your own memory / repeat the
+refusal and stop" text was present in the foreign runtime's context — the refusal below is that
+instruction being honoured, not a coincidence.
+
 ---
 
 ## Question:
