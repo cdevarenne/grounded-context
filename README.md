@@ -309,21 +309,18 @@ Specs are read on demand and are the contract that implementation follows:
 - [`router.md`](docs/specs/router.md) — classification rules and interface
 - [`eval.md`](docs/specs/eval.md) — the ~12-question eval set and expected path per question
 
-## Deliberately out of scope
+## Out of scope
 
-Naming what this *isn't* is part of the design, not an apology for it:
 
 - **Read-only.** No writes, no actions, no tool execution.
 - **No auth, no multi-tenancy, no scale story.** Single user, single index. The MCP server runs
   over stdio as a local subprocess and has no authentication or authorization layer — fine for a
-  read-only local tool, and stated here rather than left for a reader to discover. A remote
-  transport would need both.
+  read-only local tool, this is only a prototype. A remote transport would need both.
 - **Curated corpus, not a crawl.** Two rules that hold regardless of build state: whole sites are
   never scraped, and third-party document text is never committed to this repo. The semantic
   path's corpus *will be* a hand-picked subset of public Elastic / Anthropic / OpenAI developer
   docs on the order of 30–60 pages, retrieved by a fetch script — see the status table for where
-  that stands, and the two-corpora table above for why it is governed differently from
-  `knowledge/`.
+  that stands, and the two-corpora table above for why it is governed differently from `knowledge/`.
 - **Small-n evaluation.** The eval set is illustrative, showing which engine answers and that
   provenance is present. It is **not** a benchmark and no performance claims are made from it.
 - **Agent Builder and Workflows/SOAR are described, not built.**
