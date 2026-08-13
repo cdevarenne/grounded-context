@@ -10,6 +10,7 @@ installed so a fresh clone still passes `pytest`.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -64,6 +65,29 @@ def test_declared_python_floor_is_not_above_the_development_pin() -> None:
 
     assert floor <= pin, f"declared floor {floor} exceeds the development pin {pin}"
     assert sys.version_info >= floor, "the running interpreter is below the declared floor"
+
+
+def test_the_readme_test_count_matches_what_collection_produced() -> None:
+    """The README publishes a number; this is what stops it drifting.
+
+    The count depends on which extras are installed — without `mcp` the server tests are not
+    collected at all — so the published figure is the full-suite one and this skips otherwise.
+    """
+    import importlib.util
+
+    from conftest import COLLECTED
+
+    if importlib.util.find_spec("mcp") is None:
+        pytest.skip("no mcp extra — collection is a subset of the published count")
+
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    published = {int(match) for match in re.findall(r"(\d+) tests", readme)}
+
+    assert published, "the README no longer states a test count"
+    assert published == {COLLECTED["count"]}, (
+        f"README says {sorted(published)}, collection produced {COLLECTED['count']}"
+    )
 
 
 @requires_install

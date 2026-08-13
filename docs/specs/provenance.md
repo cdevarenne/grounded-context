@@ -28,29 +28,39 @@ is the auditability guarantee and the visual signature of the whole artifact.
 }
 ```
 
-## Rendered form (shown under each answer in the notebook/UI)
-Deterministic:
-```
-Answer: The context window is 200,000 tokens.
+## Rendered form (shown under each answer)
 
-  ↳ source: anthropic.claude-opus · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-01 · fresh until 2026-09-01
-    https://docs.anthropic.com/…
+These blocks are **captured output, not illustrations** — each is what the command above it
+prints today. A spec that shows a shape the code does not emit is worse than no spec.
+
+Deterministic (`gctx lookup anthropic.claude-opus-5 context_window_tokens`):
 ```
-When `today >= stale_after`, the same block carries the warning inline:
+Answer: 1,000,000
+
+  ↳ source: anthropic.claude-opus-5 · canonical.context_window_tokens
+    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
+    fresh until 2026-09-09
+    https://platform.claude.com/docs/en/about-claude/models/overview
 ```
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-01 · ⚠ STALE since 2026-09-01
+When `today >= stale_after`, the freshness line becomes the warning
+(`gctx --as-of 2026-10-01 lookup …`):
 ```
-Semantic (show score + method):
+    ⚠ STALE since 2026-09-09 — re-verify before relying on this
 ```
-  ↳ source: elastic-hybrid-search-guide · section: Reciprocal rank fusion
-    path: semantic (hybrid bm25+elser, rrf) · score 0.0931
-    https://www.elastic.co/…
+Semantic — score and method (`gctx ask "What is reciprocal rank fusion?"`):
+```
+  ↳ source: elastic-rrf · chunk:3
+    path: semantic (hybrid(bm25+elser,rrf)) · indexed 2026-08-13 · score 0.0889
+    https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion
 ```
 The score is a *fused* RRF score, so it is small and it is not a similarity. RRF sums
 `1/(k + rank)` across arms, which puts a top hit near `2/(k+1)` — about 0.09 at `k = 20`,
 whatever the match quality. Displaying it is honest about what ranked the passage; reading it
 as confidence is the mistake [`findings.md`](../findings.md) documents.
+
+A fetched page carries no OKF lifecycle, so the semantic line shows `indexed <date>` where the
+deterministic line shows a trust tier and a freshness date. That asymmetry is deliberate:
+claiming a trust tier for a scraped page would be a lie.
 
 ## Notes
 - Keep the block compact and **identical in structure across both paths** — the consistency is

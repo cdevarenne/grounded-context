@@ -25,10 +25,11 @@ RANK_WINDOW_SIZE = 50
 DEFAULT_SIZE = 5
 SNIPPET_CHARS = 320
 
-# Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from
-# probes against this corpus — off-topic questions land at 1.7–5.9, genuine ones at 14–19.5 —
-# not tuned on a labeled set. It is a guardrail, not a classifier, and the number is a
-# property of this index: re-chunk, re-index, or change the inference model and it means
+# Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from 16
+# probes against this corpus — 9 of 10 off-topic landed at 1.7–5.9 and all 6 genuine ones at
+# 14.1–19.5, with one off-topic probe at 16.1 that this floor does not catch (see
+# `is_relevant`). Not tuned on a labeled set: a guardrail, not a classifier. The number is a
+# property of this index — re-chunk, re-index, or change the inference model and it means
 # nothing. What ports is the method (read a pre-fusion score), never the constant.
 RELEVANCE_FLOOR = 8.0
 

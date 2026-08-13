@@ -89,8 +89,8 @@ as an architectural one:
 | Produced by | Hand-curation, one concept per file | A fetch script, from public docs |
 | In git? | **Yes** — it *is* the source of truth | **No** — `corpus/raw/` is gitignored; the script is what ships |
 | Governed by | Every exact fact carries `sources`, `verified`, `stale_after` | Never scrape whole sites; never commit copyrighted text |
-| Size driver | Small because each fact is hand-verified | ~30–60 pages because curation is the scope lever |
-| Status | Built — 4 concepts | Planned |
+| Size driver | Small because each fact is hand-verified | curation is the scope lever; 25 pages today against a ~30–60 target |
+| Status | Built — 4 concepts | Built — 25 pages, 320 indexed chunks |
 
 This is why the canonical layer is small and the semantic corpus is fetched rather than
 vendored: one is mine to govern, the other isn't mine to redistribute.

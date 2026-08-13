@@ -82,9 +82,11 @@ discards the magnitude that would have separated them. That is not a flaw; it is
 that lets RRF combine rankings whose raw scores are not comparable. It just means the fused
 score is unusable as a confidence signal.
 
-The pre-fusion scores still hold the magnitude. Measured on the same index, the sparse arm
-scores off-topic questions **1.7–5.9** and genuine ones **14–19.5**, so the semantic path probes
-that score first and returns nothing below a floor. An empty result becomes the refusal.
+The pre-fusion scores still hold the magnitude. Across 10 off-topic probes and 6 genuine ones,
+the sparse arm scored **9 of the 10 off-topic at 1.7–5.9** and all 6 genuine at **14.1–19.5**,
+so the semantic path probes that score first and returns nothing below a floor of 8. An empty
+result becomes the refusal. The tenth off-topic probe scored 16.1 and is the second limit
+below — it is not an outlier to be waved away, and the floor lets it through.
 
 Two limits, both worth stating plainly, because a floor that *looks* like a correctness check is
 more dangerous than no floor at all.
