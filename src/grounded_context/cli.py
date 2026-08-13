@@ -4,43 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from .bundle import Bundle, BundleError
-from .lookup import find_entity, find_field, resolve
-from .provenance import (
-    DETERMINISTIC,
-    SEMANTIC,
-    citation,
-    grounded_answer,
-    render,
-)
-from .router import SEMANTIC as ROUTE_SEMANTIC
-from .router import Route, route
-
-DEFAULT_BUNDLE = Path(__file__).resolve().parents[2] / "knowledge"
-
-
-def _bundle_root(explicit: str | None) -> Path:
-    return Path(explicit or os.environ.get("GC_BUNDLE") or DEFAULT_BUNDLE)
-
-
-def _as_of(raw: str | None) -> date:
-    if raw is None:
-        return datetime.now(timezone.utc).date()
-    return date.fromisoformat(raw)
-
-
-def _format_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "yes" if value else "no"
-    if isinstance(value, int):
-        return f"{value:,}"
-    return str(value)
+from .bundle import BundleError
+from .provenance import render
+from .router import route
+from .service import as_of_date, ask, load_bundle, lookup_field
 
 
 def _emit(envelope: dict[str, Any], as_json: bool) -> int:
@@ -51,40 +21,21 @@ def _emit(envelope: dict[str, Any], as_json: bool) -> int:
     return 0 if envelope["citations"] else 1
 
 
-def _answer(result, as_of: date, decision: Route | None) -> dict[str, Any]:
-    router = decision.as_dict() if decision else None
-    if result is None:
-        return grounded_answer("", [], DETERMINISTIC, router)
-    return grounded_answer(
-        _format_value(result.value), [citation(result, as_of)], DETERMINISTIC, router
-    )
-
-
 def cmd_lookup(args: argparse.Namespace) -> int:
-    bundle = Bundle.load(_bundle_root(args.bundle))
-    result = resolve(bundle, args.entity, args.field)
-    return _emit(_answer(result, _as_of(args.as_of), None), args.json)
+    envelope = lookup_field(
+        load_bundle(args.bundle), args.entity, args.field, as_of_date(args.as_of)
+    )
+    return _emit(envelope, args.json)
 
 
 def cmd_ask(args: argparse.Namespace) -> int:
-    bundle = Bundle.load(_bundle_root(args.bundle))
-    decision = route(args.query)
-
-    if decision.route == ROUTE_SEMANTIC:
-        # The semantic path is not wired yet. Refusing is the honest answer.
-        return _emit(
-            grounded_answer("", [], SEMANTIC, decision.as_dict()), args.json
-        )
-
-    entity = find_entity(bundle, args.query)
-    field = find_field(bundle, args.query, entity)
-    result = resolve(bundle, entity, field) if entity and field else None
-    return _emit(_answer(result, _as_of(args.as_of), decision), args.json)
+    envelope = ask(load_bundle(args.bundle), args.query, as_of_date(args.as_of))
+    return _emit(envelope, args.json)
 
 
 def cmd_entities(args: argparse.Namespace) -> int:
-    bundle = Bundle.load(_bundle_root(args.bundle))
-    as_of = _as_of(args.as_of)
+    bundle = load_bundle(args.bundle)
+    as_of = as_of_date(args.as_of)
     for concept in sorted(bundle, key=lambda c: c.id):
         flag = " ⚠ STALE" if concept.is_stale(as_of) else ""
         print(f"{concept.id}  [{concept.type}]  {concept.trust_tier}{flag}")

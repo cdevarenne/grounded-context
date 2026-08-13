@@ -245,11 +245,11 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ deterministic side live; semantic branch stubbed |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 64 tests, incl. a packaging smoke test of the installed script |
+| Test suite | ✅ 74 tests, incl. a packaging smoke test of the installed script |
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
-| MCP server | ⬜ planned |
+| MCP server (3 tools, stdio) | ✅ verified against a real client handshake |
 | Eval harness | ⬜ planned |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
 
@@ -263,7 +263,7 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # 64 tests
+uv run pytest -q         # 74 tests
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -278,6 +278,30 @@ python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 
 Without installing at all, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
 
+### Reaching it from an agent, over MCP
+
+The retrieval tool is exposed as an MCP server over stdio. The SDK is an **extra**, so the
+deterministic path above stays a PyYAML-only install:
+
+```bash
+uv sync --extra dev --extra mcp
+uv run gctx-mcp        # serves on stdio; a client drives it
+```
+
+[`.mcp.json`](.mcp.json) in the repo root wires it up for Claude Code on clone, with no
+per-machine configuration. Three tools: `lookup_canonical_fact`, `ask_grounded`,
+`list_entities`.
+
+**The model-agnostic claim is structural, not a feature.** A second runtime — Antigravity, or
+anything that speaks MCP — points at the same `gctx-mcp` command and gets the same envelopes.
+There is no per-client adapter to write, which is the whole reason the boundary is MCP rather
+than a bespoke API.
+
+Every tool returns the identical envelope the CLI renders, plus a `rendered` citation block to
+reproduce. The tool descriptions carry the contract into the model's context: exact facts come
+from the tool and never from memory, and `Not found in the grounded sources.` is repeated as-is
+rather than filled in.
+
 Specs are read on demand and are the contract that implementation follows:
 
 - [`okf-bundle.md`](docs/specs/okf-bundle.md) — canonical bundle format and lookup contract
@@ -290,7 +314,10 @@ Specs are read on demand and are the contract that implementation follows:
 Naming what this *isn't* is part of the design, not an apology for it:
 
 - **Read-only.** No writes, no actions, no tool execution.
-- **No auth, no multi-tenancy, no scale story.** Single user, single index.
+- **No auth, no multi-tenancy, no scale story.** Single user, single index. The MCP server runs
+  over stdio as a local subprocess and has no authentication or authorization layer — fine for a
+  read-only local tool, and stated here rather than left for a reader to discover. A remote
+  transport would need both.
 - **Curated corpus, not a crawl.** Two rules that hold regardless of build state: whole sites are
   never scraped, and third-party document text is never committed to this repo. The semantic
   path's corpus *will be* a hand-picked subset of public Elastic / Anthropic / OpenAI developer

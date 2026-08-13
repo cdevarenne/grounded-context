@@ -11,11 +11,16 @@ dependencies = ["PyYAML>=6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+mcp = [
+    "mcp>=2.0.0",
+]
 
 [project.scripts]
 # `gc` is taken by graphviz on Homebrew — don't reuse it.
 gctx = "grounded_context.cli:main"
 grounded-context = "grounded_context.cli:main"
+# Needs the `mcp` extra installed; the deterministic CLI above does not.
+gctx-mcp = "grounded_context.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

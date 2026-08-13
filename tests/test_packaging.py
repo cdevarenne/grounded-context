@@ -58,9 +58,12 @@ def test_declared_python_floor_matches_the_pin() -> None:
 
 
 @requires_install
-def test_both_declared_entry_points_are_installed(gctx: Runner) -> None:
+def test_declared_entry_points_are_installed(gctx: Runner) -> None:
     """Covers the entry-point targets, PyYAML, and default bundle resolution at once."""
     assert shutil.which("grounded-context") is not None
+    # Not executed: gctx-mcp serves on stdio and would block. Its import path is
+    # covered by tests/test_mcp_server.py; this only asserts it reached PATH.
+    assert shutil.which("gctx-mcp") is not None
     result = gctx("entities")
     assert result.returncode == 0, result.stderr
     assert "anthropic.claude-opus-5  [model]  human-reviewed" in result.stdout

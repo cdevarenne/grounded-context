@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "grounded-context": {
+      "command": "uv",
+      "args": ["run", "--extra", "mcp", "gctx-mcp"]
+    }
+  }
+}
