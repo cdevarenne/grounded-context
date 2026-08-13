@@ -246,7 +246,7 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Router | ✅ deterministic side live; semantic branch stubbed |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
 | Test suite | ✅ 74 tests, incl. a packaging smoke test of the installed script |
-| Compatibility matrix (generated view over the model files) | ⬜ planned |
+| Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |

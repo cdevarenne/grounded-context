@@ -26,8 +26,12 @@ knowledge/
   models/        # one file per model (exact facts)
   endpoints/     # one file per API endpoint
   concepts/      # prose concepts (definitions, explanations)
-  compatibility-matrix.md   # human-readable rollup (rendered VIEW, not source of truth)
 ```
+The compatibility matrix is a **rendered view, not source of truth**, so it lives at
+`docs/compatibility-matrix.md` rather than inside the bundle: everything under `knowledge/` is
+loaded and addressable as a concept, and a generated rollup indexed alongside the facts it
+summarizes would be a second, lower-quality copy of them. It is built by
+`scripts/build_matrix.py`, and a test regenerates it to fail on drift.
 
 ## Concept file format
 Every file = YAML front-matter + optional Markdown body.
@@ -95,8 +99,9 @@ canonical:
   written relative to the containing file. The deterministic path parses and traverses them for
   multi-hop lookups.
 - **Never put an exact fact only in prose.** If it must be exact, it lives in `canonical:`.
-- **`compatibility-matrix.md` is generated/maintained FROM the model files** — a human view,
-  not the lookup source. If the matrix and a model file ever disagree, the model file wins.
+- **`docs/compatibility-matrix.md` is generated FROM the model files** — a human view, not the
+  lookup source. If the matrix and a model file ever disagree, the model file wins, and the
+  drift test enforces exactly that.
 - Do NOT commit large copyrighted doc text. The semantic corpus is fetched by a script into a
   small curated subset; this bundle holds only your own structured canonical data.
 
