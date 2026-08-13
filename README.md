@@ -8,284 +8,108 @@ built on Elasticsearch, reached over MCP, model-agnostic.
 > deterministic canonical path handles facts that must be exact; a semantic hybrid path
 > handles exploration; every answer carries provenance.
 
+> ⚠️ **This is a prototype** — a proof of concept, an architecture backed by sample code.
+> Read-only, single user, small curated corpus. Not production software.
+> See [what it deliberately isn't](#out-of-scope).
+
 ---
 
-## The problem
+## What it is
 
-Ask an agent "what's the exact context window of model X?" and a pure-RAG system will answer
-from whatever chunk scored highest. Sometimes that's right. Sometimes it's a plausible number
-from an adjacent doc, delivered with total confidence and no way to check it.
+Ask an agent "what's the exact context window of model X?" and a pure-RAG system answers from
+whatever chunk scored highest. Sometimes that's right. Sometimes it's a plausible number from an
+adjacent doc, delivered with total confidence and no way to check it.
 
-Enterprises can't ship that. The failure isn't the model — it's that **one probabilistic
-retrieval path is being asked to serve two different kinds of question.** Exact facts (a model
-string, a context window, an endpoint parameter, a rate limit) have exactly one correct answer
-and must never be ranked. Exploratory questions ("how should I chunk documents?") genuinely
-benefit from semantic search.
+The failure isn't the model. It's that **one probabilistic retrieval path is being asked to
+serve two different kinds of question.** Exact facts (a model string, a context window, an
+endpoint parameter) have exactly one correct answer and must never be ranked. Exploratory
+questions ("how should I chunk documents?") genuinely benefit from semantic search.
 
-This project separates them, routes between them, and makes every answer show its work.
+This project separates them, routes between them, and makes every answer show its work:
 
-## Design north star — five properties
+- **Deterministic path** — exact lookup over a curated `knowledge/` bundle of structured
+  Markdown. No network, no ranking, no embedding. The guaranteed spine.
+- **Semantic path** — BM25 + ELSER on Elasticsearch, fused with reciprocal rank fusion (RRF),
+  for open questions.
+- **Router** — sends exact-fact queries to the deterministic path and open questions to
+  semantic; on ambiguity it runs both and lets the exact hit win. Its decision and rationale are
+  part of the audit trail.
+- **Provenance, always** — every answer carries a citation block. If retrieval finds nothing,
+  the answer is "Not found in the grounded sources" — never a fallback to model memory.
 
-Every decision in this repo serves these, in preference to cleverness or scope:
+<img title="Architecture Overview" alt="Architecture Overview" src="docs/grounded-context-diagram.png">
 
-| Property | How it shows up here |
-|---|---|
-| **Useful** | Answers real questions about real API docs, not a toy corpus |
-| **Secure** | Read-only; no credentials in the retrieval path; provenance on every claim |
-| **Repeatable** | Same query, same route, same citations — the deterministic path is pure functions over Markdown |
-| **Composable** | One MCP tool, consumed unchanged by two agent runtimes — Claude and Gemini |
-| **Deterministic where it matters** | Exact facts never touch a ranking function |
+Why it's built this way — the five design properties, OKF grounding, the governance split, and
+the central tradeoff — is in **[docs/design.md](docs/design.md)**. Diagram :
+[`docs/architecture.mmd`](docs/architecture.mmd).
 
-## Architecture
+---
 
-```mermaid
-flowchart LR
-    U["User / calling app"]
+## Run it
 
-    subgraph AGENT["Agent layer — model-agnostic"]
-        direction TB
-        CL["Claude<br/>(primary)"]
-        AV["Antigravity<br/>(second consumer)"]
-    end
+### Deterministic path — no cloud account, no API key
 
-    M["MCP server<br/>retrieval tool"]
-    R{"Router<br/>exact fact, or exploration?"}
+```bash
+uv sync --extra dev      # builds .venv from uv.lock on the pinned Python (.python-version)
 
-    subgraph DET["Deterministic path — no cloud dependency"]
-        direction TB
-        KB["knowledge/ bundle<br/>YAML front-matter + Markdown links"]
-        LK["Exact lookup<br/>canonical field + link traversal"]
-        KB --> LK
-    end
+uv run gctx ask "What is the exact context window of claude-opus-5?"
+uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
+uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
+uv run gctx entities
 
-    subgraph ES["Elasticsearch — semantic path"]
-        direction TB
-        BM["BM25<br/>lexical"]
-        EL["ELSER<br/>learned sparse"]
-        HF["RRF<br/>rank fusion"]
-        BM --> HF
-        EL --> HF
-    end
+uv run pytest -q         # cluster-dependent tests skip without credentials
+```
+<!-- TODO(devarenne): confirm exact test count before re-adding a number here; last stated 111 but unverified in a 3.14-less env. -->
 
-    G["Grounded context + provenance<br/>source · locator · path · method · score · verified · stale_after"]
-    A["Answer WITH citation block<br/>or 'Not found in the grounded sources'"]
+The interpreter version and the exact dependency set are properties of the repo, not of your
+shell — the *repeatable* property applied to the build itself.
 
-    AB["Agent Builder<br/>native productization"]
-    WF["Workflows / SOAR<br/>action execution"]
+No uv? The standard path works and is not a second-class citizen:
 
-    U --> CL
-    U --> AV
-    CL -->|MCP| M
-    AV -->|MCP| M
-    M --> R
-    R -->|"canonical / precision"| DET
-    R -->|"exploratory"| ES
-    LK --> G
-    HF --> G
-    R -.->|"decision + rationale (audit trail)"| G
-    G --> A
-    A -.->|described, not built| AB
-    A -.->|described, not built| WF
+```bash
+python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
+.venv/bin/gctx entities
+```
+<!-- TODO(devarenne): pyproject pins requires-python >=3.14, so pip refuses <3.14 outright. If you relax the pin, update this line. -->
 
-    classDef notbuilt fill:#f7f7f7,stroke:#999,stroke-dasharray:5 5,color:#666;
-    class AB,WF notbuilt;
+Without installing at all, every command works as
+`PYTHONPATH=src python3 -m grounded_context.cli …`.
+
+### Semantic path — needs Elasticsearch + ELSER
+
+The semantic half needs a cloud endpoint and an API key in a gitignored `.env`, plus the `es`
+extra:
+
+```bash
+uv sync --extra dev --extra es
+uv run python scripts/fetch_corpus.py                  # 25 curated pages → corpus/raw/ (gitignored)
+uv run --extra es python scripts/index_corpus.py --recreate
+uv run --extra es gctx ask "How should I chunk documents for retrieval?"
+uv run --extra es gctx eval                            # the 12-question set, with verdicts
+uv run --extra es gctx eval --compare rank_constant    # ELSER vs BM25 vs hybrid
 ```
 
-Source: [`docs/architecture.mmd`](docs/architecture.mmd)
+Without those credentials the exploratory branch returns `Not found in the grounded sources.`
+rather than failing — an unavailable engine is a refusal, not an error, and never a fallback to
+the model's own memory.
 
-### The two paths
+### From an agent, over MCP
 
-**Deterministic path.** A curated `knowledge/` bundle of structured Markdown — YAML
-front-matter carrying a `canonical:` block of fields that must never be guessed, plus
-ordinary Markdown links for multi-hop traversal. Lookup is an exact match on a field, returning the
-value with its OKF provenance — `sources`, trust tier, `stale_after`. Pure Python over Markdown, no network,
-no ranking, no embedding. **Markdown is the source of truth; any index is a rebuildable
-projection of it — never the reverse.**
+The retrieval tool is exposed as an MCP server over stdio. The SDK is an **extra**, so the
+deterministic path stays a PyYAML-only install:
 
-**Semantic path.** The same questions that don't have one exact answer go to Elasticsearch:
-BM25 for lexical precision and ELSER for learned-sparse semantics, combined with reciprocal
-rank fusion. Returns document, score, and snippet.
-
-**Router.** Rule-based to start, with an interface that lets an LLM classifier drop in later
-without changing callers. Queries naming an entity and asking for a field go deterministic;
-open-ended questions go semantic; **on ambiguity it queries both and lets the exact hit win.**
-The router's decision and its rationale are part of the audit trail, not just an internal
-detail.
-
-## Built on OKF
-
-The canonical layer conforms to
-**[OKF, the Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)**
-(v0.2, published by Google Cloud) — *"a universal, vendor-neutral format for representing
-knowledge as plain markdown files with YAML frontmatter."* A *knowledge bundle* is a directory
-of those files.
-
-Vendor-neutrality is the point, and it's why OKF belongs **alongside** an Elasticsearch
-architecture rather than competing with one. The canonical layer stays portable and
-inspectable; Elasticsearch's job is to be the best index, projection, and observability surface
-over it — not to own the format. Markdown remains the source of truth and the index is
-rebuildable from it.
-
-**Provenance and freshness come from the format, not from this repo.** OKF v0.2 makes *"trust,
-provenance, and freshness… first-class"* and standardizes precisely what a grounded layer needs:
-
-| OKF field | What it carries |
-|---|---|
-| `sources` | Where a fact came from, with per-source credibility signals |
-| `generated` | How the content was produced — actor and timestamp |
-| `verified` | Verification events, from which a **trust tier** is derived: unverified · machine-confirmed · human-reviewed |
-| `status` | `draft` · `stable` · `deprecated` |
-| `stale_after` | Absolute date — a concept is stale when `today >= stale_after` |
-
-Those flow straight into the citation block, which is why the provenance contract here is
-thinner than it would otherwise have to be. An earlier draft of this repo invented its own
-`source_url` and `last_verified` fields; aligning to OKF's was a strict improvement, and the
-`stale_after` absolute date is a better design than the relative TTL it replaced.
-
-**What this repo adds is the retrieval half, which OKF deliberately leaves open.** The spec is
-*"minimally opinionated, freely extensible"* — it defines no canonical field values and no
-retrieval contract, since bundles *"can be consumed by anything that reads markdown."* So
-[`docs/specs/okf-bundle.md`](docs/specs/okf-bundle.md) supplies:
-
-- a **`canonical:` block** — exact-fact values that must never be inferred (model string, context
-  window, endpoint path)
-- a deterministic **`lookup(entity, field)` contract** returning the value plus its inherited OKF
-  provenance, trust tier, and staleness state
-- the **router** that decides when a question deserves that path at all, plus the uniform citation
-  contract shared with the semantic path
-
-### Two bodies of content, two different rules
-
-The two retrieval paths read from two different corpora, and the split is deliberate — they carry
-different governance obligations, so conflating them would be a licensing problem as much as an
-architectural one:
-
-| | `knowledge/` — canonical layer | `corpus/` — semantic layer |
-|---|---|---|
-| Holds | My own structured facts: exact values with sources and verification dates | Third-party documentation prose |
-| Produced by | Hand-curation, one concept per file | A fetch script, from public docs |
-| In git? | **Yes** — it *is* the source of truth | **No** — `corpus/raw/` is gitignored; the script is what ships |
-| Governed by | Every exact fact carries `sources`, `verified`, `stale_after` | Never scrape whole sites; never commit copyrighted text |
-| Size driver | Small because each fact is hand-verified | ~30–60 pages because curation is the scope lever |
-| Status | Built — 4 concepts | Planned |
-
-This is why the canonical layer is small and the semantic corpus is fetched rather than vendored:
-one is mine to govern, the other isn't mine to redistribute.
-
-## Provenance is mandatory
-
-No answer is emitted without at least one citation. If retrieval returns nothing, the answer
-is **"Not found in the grounded sources"** — never a fallback to model memory.
-
-Both paths emit the *same* citation structure, which is what makes a dual engine read as one
-auditable system:
-
-```
-Answer: <answer text>
-
-  ↳ source: <entity id> · <canonical field>
-    path: deterministic (exact-lookup) · verified <ISO date>
-    <source url>
+```bash
+uv sync --extra dev --extra mcp
+uv run gctx-mcp        # serves on stdio; a client drives it
 ```
 
-```
-  ↳ source: <document id> · section: <heading>
-    path: semantic (hybrid bm25+elser, rrf) · score <float>
-    <source url>
-```
+[`.mcp.json`](.mcp.json) wires it up for Claude Code on clone. Three tools:
+`lookup_canonical_fact`, `ask_grounded`, `list_entities`. The same `gctx-mcp` command was driven
+from Claude **and** from Gemini (via the Antigravity CLI) with no adapter and no code change —
+the model-agnostic claim, demonstrated rather than asserted. Full transcript and wiring:
+**[docs/AntigravityQandA.md](docs/AntigravityQandA.md)**.
 
-Format is illustrative — real values come from the date-stamped canonical files and the live
-index. The canonical layer is **governed**: OKF's `verified` events yield a trust tier, and once
-`today >= stale_after` the citation carries a staleness warning — because a stale
-"authoritative" layer undercuts the whole point.
-
-## The tradeoff, and the open question
-
-The deterministic path does not eliminate the data-preparation problem. It **relocates** it —
-from chunking strategy and embedding drift to **curation governance.** Someone has to decide
-which facts are canonical and keep them fresh. That cost is real, and it's the honest price of
-determinism.
-
-It's the right trade for facts where a confident wrong answer is worse than no answer. But it
-raises the question this project exists to answer:
-
-> **Does curation scale?** A 30–60 page corpus is hand-curatable by one person. At ten thousand
-> documents, is a canonical layer still viable — or does it become the bottleneck that makes the
-> whole approach un-shippable in production?
-
-That's an open question here, not a settled one. I'd rather instrument it than have an opinion
-about it — which is what the next piece is for.
-
-## What broke: the lexical arm couldn't see exact tokens
-
-The premise of the hybrid path is that lexical matching catches what embeddings miss —
-identifiers, parameter names, version strings. Building it, that turned out not to be true by
-default.
-
-The test case is `rank_constant`, an RRF parameter defined in exactly one chunk of the corpus.
-Elasticsearch's standard analyzer splits it on the underscore into `rank` and `constant`, so
-the "exact token" arm was matching two common words across unrelated documents. The arm meant
-to guarantee precision was the one behaving fuzzily.
-
-The fix is a `content.exact` subfield analyzed with a whitespace tokenizer, so identifiers
-survive as single tokens, queried alongside the standard field. Measured against the same
-index, ranking the one chunk that defines the term:
-
-| Query | ELSER only | BM25 only | Hybrid (RRF) |
-|---|---|---|---|
-| "What does the `rank_constant` parameter do?" | 2 | 3 | **1** |
-| `rank_constant` | 5 | 1 | **1** |
-
-Two things worth taking from that table. **Neither single arm wins both phrasings** — ELSER
-degrades on the bare identifier, BM25 degrades on the natural-language sentence — and which one
-fails depends on how the user happens to type. That variance, not a headline win, is the real
-argument for fusion. And the exact-token subfield is load-bearing: without it the same lookups
-rank 3rd and 4th instead of 1st and 2nd.
-
-The broader lesson is that "hybrid search" is not a switch you turn on. The lexical half only
-does its job if the analyzer preserves the tokens you need it to match, and nothing warns you
-when it doesn't — the queries simply return plausible, adjacent, wrong documents.
-
-## What broke, twice: RRF scores can't tell you when nothing matches
-
-The refusal guarantee — *no answer without a grounded source* — quietly assumes retrieval knows
-when it has found nothing. Fusion does not.
-
-Asked "how do I bake sourdough bread?", this corpus returned five confident, cited chunks about
-Elasticsearch. The fused score for that top hit was **0.068**. For a real question about
-streaming API responses, it was **0.073**. The two are indistinguishable, and the reason is
-structural: RRF scores come from *rank position* — `1/(k + rank)` — so the best hit scores
-roughly the same whether it is a perfect match or the least-bad of 320 irrelevant chunks.
-Fusion deliberately discards the magnitude that would have told you.
-
-Pre-fusion scores keep it. Measured on the same queries, the sparse arm gives out-of-domain
-questions **2.6–4.5** against **15+** for genuine ones, so the semantic path now probes that
-score first and returns nothing when it falls below a floor. An empty result becomes the
-refusal, which is the honest outcome.
-
-What that floor does **not** catch is a question that is in-domain but about the wrong entity:
-"the price per million tokens of GPT-5" scores 19.4, because the corpus genuinely discusses
-pricing — just Anthropic's. Relevance and correct-entity are different problems, and the second
-belongs to the router and the canonical layer, not the retriever. Worth saying plainly, because
-a floor that looks like a correctness check is more dangerous than no floor at all.
-
-## Observability — how the open question gets answered
-
-The retrieval layer emits its own telemetry into Elasticsearch, the same platform serving the
-semantic path:
-
-| Signal | What it tells you |
-|---|---|
-| Router decisions + rationale | What fraction of real queries actually need the deterministic path |
-| Canonical hit / miss rate | How often a precision query finds no canonical field — the curation backlog, measured |
-| Concepts past `stale_after` | Whether governance is keeping up or falling behind |
-| Trust-tier distribution | What share of the corpus is human-reviewed vs machine-confirmed vs unverified |
-| Refusal rate | How often "not found in the grounded sources" fires |
-| Per-path latency | What routing to `BOTH` actually costs |
-
-Those six signals turn "does curation scale?" from an argument into a dashboard, and they make
-the context layer *itself* observable. Lessons from that instrumentation are what should decide
-whether this approach is production-worthy, and what the alternatives are if it isn't.
+---
 
 ## Status
 
@@ -298,7 +122,7 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 111 tests; those needing a live cluster skip without credentials |
+| Test suite | ✅ cluster-dependent tests skip without credentials |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
@@ -306,124 +130,41 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
 
-Run it with no cloud account and no API key:
+---
 
-```bash
-uv sync --extra dev      # builds .venv from uv.lock on the pinned Python (.python-version)
+## Learn more
 
-uv run gctx ask "What is the exact context window of claude-opus-5?"
-uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
-uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
-uv run gctx entities
+- **[docs/design.md](docs/design.md)** — the five design properties, OKF grounding, the
+  two-corpora governance split, the core tradeoff, and the observability plan.
+- **[docs/findings.md](docs/findings.md)** — two things that broke while building the hybrid
+  path, and what they teach about RRF.
+- **[docs/specs/](docs/specs/)** — the contracts implementation follows:
+  [`okf-bundle.md`](docs/specs/okf-bundle.md),
+  [`provenance.md`](docs/specs/provenance.md),
+  [`router.md`](docs/specs/router.md),
+  [`eval.md`](docs/specs/eval.md).
+- **[docs/compatibility-matrix.md](docs/compatibility-matrix.md)** — generated view over the
+  model files.
+- **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
 
-uv run pytest -q         # 111 tests; cluster-dependent ones skip without credentials
-```
+<!-- TODO(devarenne): once the ELX-11 blog is live, add a "Write-up" link here and near the top. -->
 
-The interpreter version and the exact dependency set are properties of the repo, not of your
-shell — that's the *repeatable* property applied to the build itself.
-
-No uv? The standard path works and is not a second-class citizen:
-
-```bash
-python3.14 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-.venv/bin/gctx entities
-```
-
-Without installing at all, every command works as `PYTHONPATH=src python3 -m grounded_context.cli …`.
-
-### The semantic path
-
-Everything above runs with no cloud account. The semantic half needs one — an Elasticsearch
-endpoint and an API key in a gitignored `.env`, plus the `es` extra:
-
-```bash
-uv sync --extra dev --extra es
-uv run python scripts/fetch_corpus.py            # 25 curated pages → corpus/raw/ (gitignored)
-uv run --extra es python scripts/index_corpus.py --recreate
-uv run --extra es gctx ask "How should I chunk documents for retrieval?"
-uv run --extra es gctx eval                       # the 12-question set, with verdicts
-uv run --extra es gctx eval --compare rank_constant   # ELSER vs BM25 vs hybrid
-```
-
-Without those credentials the exploratory branch returns `Not found in the grounded sources.`
-rather than failing — an unavailable engine is a refusal, not an error, and never a fallback to
-the model's own memory.
-
-### Reaching it from an agent, over MCP
-
-The retrieval tool is exposed as an MCP server over stdio. The SDK is an **extra**, so the
-deterministic path above stays a PyYAML-only install:
-
-```bash
-uv sync --extra dev --extra mcp
-uv run gctx-mcp        # serves on stdio; a client drives it
-```
-
-[`.mcp.json`](.mcp.json) in the repo root wires it up for Claude Code on clone, with no
-per-machine configuration. Three tools: `lookup_canonical_fact`, `ask_grounded`,
-`list_entities`.
-
-**Model-agnostic, demonstrated rather than asserted.** The same `gctx-mcp` command was driven
-from Claude and from Gemini 3.6 Flash (via the Antigravity CLI), with no adapter, no code
-change, and no per-client branch — only a config entry pointing at the same executable. Gemini
-picked
-`ask_grounded` on its own for a natural-language question and `lookup_canonical_fact` for direct
-ones, and reproduced the citation blocks verbatim, staleness warning included. Transcript:
-[`docs/AntigravityQandA.md`](docs/AntigravityQandA.md).
-
-That second runtime needed exactly this, in `~/.gemini/config/mcp_config.json` — the same
-executable the Claude side runs, named from a different agent's config file:
-
-```json
-{
-  "mcpServers": {
-    "grounded-context": {
-      "command": "/absolute/path/to/grounded-context/.venv/bin/gctx-mcp",
-      "args": []
-    }
-  }
-}
-```
-
-Every tool returns the identical envelope the CLI renders, plus a `rendered` citation block to
-reproduce. The tool descriptions carry the contract into the model's context: exact facts come
-from the tool and never from memory, and `Not found in the grounded sources.` is repeated as-is
-rather than filled in.
-
-**That last part is the one worth testing, and it held.** Asked how to chunk documents for
-retrieval — with no instruction about how to answer, only a phrase naming which tool set to use
-— Gemini returned exactly `Not found in the grounded sources.` It did not fall back on training
-data it demonstrably has. The refusal travels in the tool description, not in the prompt, which
-is what makes it a property of the retrieval layer rather than of one carefully worded agent.
-Worth noting it held on the speed-optimized Flash tier rather than a frontier reasoning model —
-the guarantee shouldn't depend on the caller being the most capable model available.
-
-Specs are read on demand and are the contract that implementation follows:
-
-- [`okf-bundle.md`](docs/specs/okf-bundle.md) — canonical bundle format and lookup contract
-- [`provenance.md`](docs/specs/provenance.md) — the exact citation-block shape
-- [`router.md`](docs/specs/router.md) — classification rules and interface
-- [`eval.md`](docs/specs/eval.md) — the ~12-question eval set and expected path per question
+---
 
 ## Out of scope
 
-
 - **Read-only.** No writes, no actions, no tool execution.
 - **No auth, no multi-tenancy, no scale story.** Single user, single index. The MCP server runs
-  over stdio as a local subprocess and has no authentication or authorization layer — fine for a
-  read-only local tool, this is only a prototype. A remote transport would need both.
+  over stdio as a local subprocess with no authentication or authorization layer — fine for a
+  read-only local prototype; a remote transport would need both.
 - **Curated corpus, not a crawl.** Two rules that hold regardless of build state: whole sites are
-  never scraped, and third-party document text is never committed to this repo. The semantic
-  path's corpus *will be* a hand-picked subset of public Elastic / Anthropic / OpenAI developer
-  docs on the order of 30–60 pages, retrieved by a fetch script — see the status table for where
-  that stands, and the two-corpora table above for why it is governed differently from `knowledge/`.
-- **Small-n evaluation.** The eval set is illustrative, showing which engine answers and that
+  never scraped, and third-party document text is never committed to this repo.
+- **Small-n evaluation.** The eval set is illustrative — which engine answers, and that
   provenance is present. It is **not** a benchmark and no performance claims are made from it.
 - **Agent Builder and Workflows/SOAR are described, not built.**
-  [SOAR](https://www.elastic.co/what-is/soar) — security orchestration, automation and response —
-  is the action half of the pattern: the agent reasons over grounded context, Workflows executes.
-  This demo is the hand-rolled version of what Agent Builder does natively; the writeup explains
-  the mapping.
+  [SOAR](https://www.elastic.co/what-is/soar) is the action half of the pattern: the agent
+  reasons over grounded context, Workflows executes. This demo is the hand-rolled version of what
+  Agent Builder does natively.
 
 ## License
 
