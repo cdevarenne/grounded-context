@@ -33,7 +33,7 @@ Every decision in this repo serves these, in preference to cleverness or scope:
 | **Useful** | Answers real questions about real API docs, not a toy corpus |
 | **Secure** | Read-only; no credentials in the retrieval path; provenance on every claim |
 | **Repeatable** | Same query, same route, same citations — the deterministic path is pure functions over Markdown |
-| **Composable** | One MCP tool, consumed unchanged by more than one agent runtime |
+| **Composable** | One MCP tool, consumed unchanged by two agent runtimes — Claude and Gemini |
 | **Deterministic where it matters** | Exact facts never touch a ranking function |
 
 ## Architecture
@@ -249,7 +249,7 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Compatibility matrix (generated view over the model files) | ⬜ planned |
 | Semantic corpus fetch script (`corpus/`, never committed) | ⬜ planned |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ⬜ planned |
-| MCP server (3 tools, stdio) | ✅ verified against a real client handshake |
+| MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
 | Eval harness | ⬜ planned |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
 
@@ -292,15 +292,23 @@ uv run gctx-mcp        # serves on stdio; a client drives it
 per-machine configuration. Three tools: `lookup_canonical_fact`, `ask_grounded`,
 `list_entities`.
 
-**The model-agnostic claim is structural, not a feature.** A second runtime — Antigravity, or
-anything that speaks MCP — points at the same `gctx-mcp` command and gets the same envelopes.
-There is no per-client adapter to write, which is the whole reason the boundary is MCP rather
-than a bespoke API.
+**Model-agnostic, demonstrated rather than asserted.** The same `gctx-mcp` command was driven
+from Claude and from Gemini (via the Antigravity CLI), with no adapter, no code change, and no
+per-client branch — only a config entry pointing at the same executable. Gemini picked
+`ask_grounded` on its own for a natural-language question and `lookup_canonical_fact` for direct
+ones, and reproduced the citation blocks verbatim, staleness warning included. Transcript:
+[`AntigravityQandA.md`](docs/AntigravityQandA.md).
 
 Every tool returns the identical envelope the CLI renders, plus a `rendered` citation block to
 reproduce. The tool descriptions carry the contract into the model's context: exact facts come
 from the tool and never from memory, and `Not found in the grounded sources.` is repeated as-is
 rather than filled in.
+
+**That last part is the one worth testing, and it held.** Asked how to chunk documents for
+retrieval — with no instruction about how to answer, only a phrase naming which tool set to use
+— Gemini returned exactly `Not found in the grounded sources.` It did not fall back on training
+data it demonstrably has. The refusal travels in the tool description, not in the prompt, which
+is what makes it a property of the retrieval layer rather than of one carefully worded agent.
 
 Specs are read on demand and are the contract that implementation follows:
 

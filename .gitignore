@@ -4,6 +4,7 @@
 .venv
 __pycache__/
 *.egg-info/
+.antigravitycli/
 corpus/raw/
 
 # Private working files — not for publication
