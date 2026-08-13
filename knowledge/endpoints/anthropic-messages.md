@@ -24,6 +24,9 @@ stale_after: 2026-09-09
 # --- local extensions ---
 id: anthropic.messages
 provider: anthropic
+aliases:
+  - messages api
+  - messages endpoint
 links:
   - "[Claude Opus 5](../models/anthropic-claude-opus-5.md)"
   - "[Claude Sonnet 5](../models/anthropic-claude-sonnet-5.md)"

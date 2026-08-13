@@ -25,6 +25,11 @@ RANK_WINDOW_SIZE = 50
 DEFAULT_SIZE = 5
 SNIPPET_CHARS = 320
 
+# Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from a
+# handful of probes against this corpus — clearly out-of-domain questions land at 2.6–4.5,
+# genuine ones at 15+ — not tuned on a labeled set. It is a guardrail, not a classifier.
+RELEVANCE_FLOOR = 8.0
+
 METHOD = "hybrid(bm25+elser,rrf)"
 METHOD_LEXICAL = "bm25"
 METHOD_SEMANTIC = "elser"
@@ -99,11 +104,38 @@ def citation(hit: dict[str, Any], method: str = METHOD) -> dict[str, Any]:
     }
 
 
+def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> bool:
+    """Probe whether anything in the index genuinely matches, before fusing.
+
+    RRF scores cannot answer this. They are computed from rank position — `1/(k+rank)` — so
+    the top hit scores about the same whether it is a perfect match or the least bad of
+    hundreds of irrelevant chunks. Measured here, "what is the capital of France?" fused to
+    0.068 against 0.073 for a real question about the API. The pre-fusion sparse score does
+    retain magnitude, so that is what the floor reads.
+
+    This catches out-of-domain questions. It does not catch in-domain questions about the
+    wrong entity — "the price of GPT-5" scores high against real pricing prose — and it is
+    not meant to: that is the router's and the canonical layer's job.
+    """
+    top = search_semantic_only(query, size=1, es=es)
+    return bool(top) and (top[0]["score"] or 0.0) >= floor
+
+
 def search(
-    query: str, size: int = DEFAULT_SIZE, es: Any = None, retriever: Any = None
+    query: str,
+    size: int = DEFAULT_SIZE,
+    es: Any = None,
+    retriever: Any = None,
+    floor: float | None = RELEVANCE_FLOOR,
 ) -> list[dict[str, Any]]:
-    """Run the hybrid search and return citations, best first."""
+    """Run the hybrid search and return citations, best first.
+
+    Returns nothing when the floor is not cleared — an empty list becomes the refusal, and
+    citing an irrelevant passage would be worse than admitting there is no grounded answer.
+    """
     es = es or client()
+    if floor is not None and not is_relevant(query, es=es, floor=floor):
+        return []
     body = retriever if retriever is not None else hybrid_retriever(query)
     response = es.search(index=INDEX, retriever=body, size=size)
     method = METHOD if retriever is None else "custom"

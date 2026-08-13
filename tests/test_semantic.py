@@ -118,6 +118,32 @@ def test_hybrid_ranks_the_defining_chunk_first_for_both_phrasings(query: str) ->
 
 
 @requires_index
+@pytest.mark.parametrize(
+    "query", ["How do I bake sourdough bread?", "What is the capital of France?"]
+)
+def test_out_of_domain_questions_return_nothing(query: str) -> None:
+    """Citing an irrelevant passage is worse than admitting there is no grounded answer."""
+    assert search(query) == []
+
+
+@requires_index
+def test_the_floor_is_what_rejects_them_not_the_absence_of_hits() -> None:
+    """Disabling the floor shows the index would happily return those same passages."""
+    ungated = search("How do I bake sourdough bread?", floor=None)
+    assert ungated, "without the floor the index returns plausible-looking chunks"
+    assert all(cite["score"] for cite in ungated)
+
+
+@requires_index
+def test_rrf_score_cannot_separate_relevant_from_irrelevant() -> None:
+    """Why the floor reads a pre-fusion score: RRF encodes rank, not match quality."""
+    on_topic = search("How do I stream responses from the API?", size=1)
+    off_topic = search("What is the capital of France?", size=1, floor=None)
+    assert on_topic and off_topic
+    assert abs(on_topic[0]["score"] - off_topic[0]["score"]) < 0.02
+
+
+@requires_index
 def test_neither_single_arm_wins_both_phrasings() -> None:
     """The actual finding: which arm degrades depends on how the question is phrased."""
     sentence = f"What does the {TOKEN} parameter do?"

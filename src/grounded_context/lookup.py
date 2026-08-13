@@ -72,7 +72,7 @@ def find_entity(bundle: Bundle, text: str) -> str | None:
     lowered = text.lower()
     candidates: list[tuple[int, str]] = []
     for concept in bundle:
-        needles = {concept.id}
+        needles = {concept.id, *concept.aliases}
         for key in ("model_string", "api_alias"):
             if key in concept.canonical:
                 needles.add(str(concept.canonical[key]))

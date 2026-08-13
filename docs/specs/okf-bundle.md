@@ -65,6 +65,9 @@ stale_after: 2026-09-01              # OKF lifecycle: absolute date, NOT a relat
 # --- local extensions ---
 id: anthropic.claude-opus            # stable lookup key for the deterministic path
 provider: anthropic                  # anthropic | openai | elastic
+aliases:                             # names a person might use in a question
+  - messages api                     # without these, "Anthropic's Messages API" resolves
+  - messages endpoint                # to nothing and a known fact reads as absent
 links:                               # ordinary Markdown links, traversed for multi-hop lookups
   - "[Anthropic Messages API](../endpoints/anthropic-messages.md)"
 ---

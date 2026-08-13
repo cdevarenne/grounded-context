@@ -43,6 +43,8 @@ class Concept:
     status: str = "stable"
     stale_after: date | None = None
     links: list[str] = field(default_factory=list)
+    # Local extension: names a person might use for this concept in a question.
+    aliases: list[str] = field(default_factory=list)
     body: str = ""
 
     @property
@@ -126,6 +128,7 @@ def parse_concept(path: Path) -> Concept:
         status=str(meta.get("status", "stable")),
         stale_after=stale_after,
         links=meta.get("links") or [],
+        aliases=[str(a) for a in (meta.get("aliases") or [])],
         body=match.group(2).strip(),
     )
 

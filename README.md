@@ -246,6 +246,29 @@ The broader lesson is that "hybrid search" is not a switch you turn on. The lexi
 does its job if the analyzer preserves the tokens you need it to match, and nothing warns you
 when it doesn't — the queries simply return plausible, adjacent, wrong documents.
 
+## What broke, twice: RRF scores can't tell you when nothing matches
+
+The refusal guarantee — *no answer without a grounded source* — quietly assumes retrieval knows
+when it has found nothing. Fusion does not.
+
+Asked "how do I bake sourdough bread?", this corpus returned five confident, cited chunks about
+Elasticsearch. The fused score for that top hit was **0.068**. For a real question about
+streaming API responses, it was **0.073**. The two are indistinguishable, and the reason is
+structural: RRF scores come from *rank position* — `1/(k + rank)` — so the best hit scores
+roughly the same whether it is a perfect match or the least-bad of 320 irrelevant chunks.
+Fusion deliberately discards the magnitude that would have told you.
+
+Pre-fusion scores keep it. Measured on the same queries, the sparse arm gives out-of-domain
+questions **2.6–4.5** against **15+** for genuine ones, so the semantic path now probes that
+score first and returns nothing when it falls below a floor. An empty result becomes the
+refusal, which is the honest outcome.
+
+What that floor does **not** catch is a question that is in-domain but about the wrong entity:
+"the price per million tokens of GPT-5" scores 19.4, because the corpus genuinely discusses
+pricing — just Anthropic's. Relevance and correct-entity are different problems, and the second
+belongs to the router and the canonical layer, not the retriever. Worth saying plainly, because
+a floor that looks like a correctness check is more dangerous than no floor at all.
+
 ## Observability — how the open question gets answered
 
 The retrieval layer emits its own telemetry into Elasticsearch, the same platform serving the
@@ -275,12 +298,12 @@ whether this approach is production-worthy, and what the alternatives are if it 
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 98 tests; the 9 needing a live cluster skip without credentials |
+| Test suite | ✅ 111 tests; those needing a live cluster skip without credentials |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
-| Eval harness | ⬜ planned |
+| Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
 | Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
 
 Run it with no cloud account and no API key:
@@ -293,7 +316,7 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # 98 tests; cluster-dependent ones skip without credentials
+uv run pytest -q         # 111 tests; cluster-dependent ones skip without credentials
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -318,6 +341,8 @@ uv sync --extra dev --extra es
 uv run python scripts/fetch_corpus.py            # 25 curated pages → corpus/raw/ (gitignored)
 uv run --extra es python scripts/index_corpus.py --recreate
 uv run --extra es gctx ask "How should I chunk documents for retrieval?"
+uv run --extra es gctx eval                       # the 12-question set, with verdicts
+uv run --extra es gctx eval --compare rank_constant   # ELSER vs BM25 vs hybrid
 ```
 
 Without those credentials the exploratory branch returns `Not found in the grounded sources.`

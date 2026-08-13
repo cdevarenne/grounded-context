@@ -53,6 +53,41 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_eval(args: argparse.Namespace) -> int:
+    """Run the eval set, or compare retrieval arms on one query."""
+    from .evaluation import compare_arms, run_all
+
+    if args.compare:
+        ranks = compare_arms(args.compare)
+        if args.json:
+            print(json.dumps({"query": args.compare, "ranks": ranks}, indent=2))
+            return 0
+        print(f"query: {args.compare!r}")
+        print("rank of the chunk that defines the term, per retrieval arm:\n")
+        for arm, rank in ranks.items():
+            print(f"  {arm:8} {'not in top 20' if rank is None else f'rank {rank}'}")
+        return 0
+
+    results = run_all(load_bundle(args.bundle), as_of_date(args.as_of))
+    if args.json:
+        print(json.dumps([r.as_dict() for r in results], indent=2))
+    else:
+        print(f"{'id':5}{'expected':15}{'actual':15}{'route':14}{'cites':7}verdict")
+        for r in results:
+            print(
+                f"{r.case.id:5}{r.case.expected:15}{r.actual:15}"
+                f"{r.route:14}{r.citations:<7}{r.verdict}"
+            )
+        for r in results:
+            if r.case.known_deviation:
+                print(f"\n{r.case.id} KNOWN — {r.case.known_deviation}")
+        passed = sum(1 for r in results if r.verdict == "PASS")
+        known = sum(1 for r in results if r.verdict == "KNOWN")
+        failed = sum(1 for r in results if r.verdict == "FAIL")
+        print(f"\n{passed} pass · {known} known deviation · {failed} fail")
+    return 1 if any(r.verdict == "FAIL" for r in results) else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="gctx", description="Grounded context layer — deterministic path."
@@ -81,6 +116,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("entities", help="list concepts and their canonical fields")
     p.set_defaults(func=cmd_entities)
+
+    p = sub.add_parser("eval", help="run the eval set from docs/specs/eval.md")
+    p.add_argument(
+        "--compare",
+        metavar="QUERY",
+        help="instead: rank one query under ELSER, BM25, and hybrid",
+    )
+    p.set_defaults(func=cmd_eval)
 
     return parser
 
