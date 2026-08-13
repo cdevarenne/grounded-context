@@ -117,17 +117,45 @@ def run_all(bundle: Bundle, as_of: date) -> list[EvalResult]:
     return [run_case(bundle, case, as_of) for case in CASES]
 
 
-def compare_arms(query: str, size: int = 20) -> dict[str, int | None]:
-    """Rank of the first Elastic RRF-reference chunk under each retrieval arm.
+# The chunk that defines each identifier the compare table covers, found by reading the
+# passage rather than by trusting the top hit. `rank_window_size` shares a chunk with
+# `rank_constant`: both are defined in the same parameter-reference block.
+DEFINING_CHUNKS: dict[str, tuple[str, int]] = {
+    "rank_constant": ("elastic-rrf", 1),
+    "rank_window_size": ("elastic-rrf", 1),
+    "num_candidates": ("elastic-knn", 7),
+    "anthropic-ratelimit-tokens-reset": ("anthropic-rate-limits", 12),
+}
+
+DEFAULT_TARGET = DEFINING_CHUNKS["rank_constant"]
+
+
+def target_for(query: str) -> tuple[str, int]:
+    """Pick the defining chunk to rank, by the identifier the query mentions."""
+    lowered = query.lower()
+    for identifier, target in DEFINING_CHUNKS.items():
+        if identifier in lowered:
+            return target
+    return DEFAULT_TARGET
+
+
+def compare_arms(
+    query: str, size: int = 20, target: tuple[str, int] | None = None
+) -> dict[str, int | None]:
+    """Rank of the chunk that defines the queried term, under each retrieval arm.
 
     The point of Q9: neither single arm wins every phrasing of the same question, which is
-    the argument for fusing them rather than picking one.
+    the argument for fusing them rather than picking one. Fusion is a hedge, not a maximum —
+    see `rank_window_size` in docs/findings.md, where it lands between the two arms rather
+    than above both.
     """
     from .semantic import search, search_lexical_only, search_semantic_only
 
+    source_id, chunk = target or target_for(query)
+
     def rank(results: list[dict[str, Any]]) -> int | None:
         for position, cite in enumerate(results, 1):
-            if cite["source_id"] == "elastic-rrf" and cite["locator"] == "chunk:1":
+            if cite["source_id"] == source_id and cite["locator"] == f"chunk:{chunk}":
                 return position
         return None
 

@@ -58,12 +58,24 @@ def cmd_eval(args: argparse.Namespace) -> int:
     from .evaluation import compare_arms, run_all
 
     if args.compare:
-        ranks = compare_arms(args.compare)
+        from .evaluation import target_for
+
+        target = target_for(args.compare)
+        ranks = compare_arms(args.compare, target=target)
         if args.json:
-            print(json.dumps({"query": args.compare, "ranks": ranks}, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "query": args.compare,
+                        "target": f"{target[0]}:chunk:{target[1]}",
+                        "ranks": ranks,
+                    },
+                    indent=2,
+                )
+            )
             return 0
         print(f"query: {args.compare!r}")
-        print("rank of the chunk that defines the term, per retrieval arm:\n")
+        print(f"target: {target[0]} chunk:{target[1]} — the chunk that defines the term\n")
         for arm, rank in ranks.items():
             print(f"  {arm:8} {'not in top 20' if rank is None else f'rank {rank}'}")
         return 0

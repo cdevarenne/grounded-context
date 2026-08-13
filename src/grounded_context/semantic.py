@@ -161,7 +161,7 @@ def search(
 
 
 def search_lexical_only(query: str, size: int = DEFAULT_SIZE, es: Any = None) -> list[dict[str, Any]]:
-    """BM25 alone — the comparison arm for the hybrid-beats-single-path demo."""
+    """BM25 alone — one comparison arm for the retrieval-arm table in docs/findings.md."""
     es = es or client()
     response = es.search(index=INDEX, retriever=_lexical(query), size=size)
     return [citation(hit, METHOD_LEXICAL) for hit in response["hits"]["hits"]]

@@ -44,31 +44,94 @@ it as `KNOWN` rather than letting it read as green.
 
 ## Neither arm wins both phrasings
 
-Finding 1 in [`findings.md`](findings.md). Both runs rank the same target — the one chunk that
-defines `rank_constant` — under each retrieval arm.
+Finding 1 in [`findings.md`](findings.md). Each run ranks the chunk that *defines* the queried
+identifier — chosen by reading the passage, not by trusting the top hit — under each arm.
+`gctx eval --compare` prints the target it is ranking so the claim is checkable.
 
 ```console
+$ uv run --extra es gctx eval --compare "rank_constant"
+query: 'rank_constant'
+target: elastic-rrf chunk:1 — the chunk that defines the term
+
+  elser    rank 5
+  bm25     rank 1
+  hybrid   rank 1
+
 $ uv run --extra es gctx eval --compare "What does the rank_constant parameter do?"
 query: 'What does the rank_constant parameter do?'
-rank of the chunk that defines the term, per retrieval arm:
+target: elastic-rrf chunk:1 — the chunk that defines the term
 
   elser    rank 2
   bm25     rank 3
   hybrid   rank 1
 ```
 
-```console
-$ uv run --extra es gctx eval --compare "rank_constant"
-query: 'rank_constant'
-rank of the chunk that defines the term, per retrieval arm:
+A second identifier, in a different document — `num_candidates`, defined on the kNN page:
 
-  elser    rank 5
+```console
+$ uv run --extra es gctx eval --compare "num_candidates"
+query: 'num_candidates'
+target: elastic-knn chunk:7 — the chunk that defines the term
+
+  elser    rank 1
+  bm25     rank 1
+  hybrid   rank 1
+
+$ uv run --extra es gctx eval --compare "What does the num_candidates parameter do?"
+query: 'What does the num_candidates parameter do?'
+target: elastic-knn chunk:7 — the chunk that defines the term
+
+  elser    rank 2
+  bm25     rank 5
+  hybrid   rank 1
+```
+
+A third from the other vendor, to show the pattern is not an Elastic-docs artifact:
+
+```console
+$ uv run --extra es gctx eval --compare "anthropic-ratelimit-tokens-reset"
+query: 'anthropic-ratelimit-tokens-reset'
+target: anthropic-rate-limits chunk:12 — the chunk that defines the term
+
+  elser    rank 2
+  bm25     rank 1
+  hybrid   rank 1
+
+$ uv run --extra es gctx eval --compare "What does the anthropic-ratelimit-tokens-reset header do?"
+query: 'What does the anthropic-ratelimit-tokens-reset header do?'
+target: anthropic-rate-limits chunk:12 — the chunk that defines the term
+
+  elser    rank 1
   bm25     rank 1
   hybrid   rank 1
 ```
 
-ELSER drops to rank 5 on the bare identifier; BM25 drops to rank 3 on the sentence. Fusion holds
-rank 1 on both.
+And the counter-example, kept because it is the one that constrains the claim. Here BM25 alone
+beats the hybrid on **both** phrasings:
+
+```console
+$ uv run --extra es gctx eval --compare "rank_window_size"
+query: 'rank_window_size'
+target: elastic-rrf chunk:1 — the chunk that defines the term
+
+  elser    rank 6
+  bm25     rank 2
+  hybrid   rank 5
+
+$ uv run --extra es gctx eval --compare "What does the rank_window_size parameter do?"
+query: 'What does the rank_window_size parameter do?'
+target: elastic-rrf chunk:1 — the chunk that defines the term
+
+  elser    rank 7
+  bm25     rank 2
+  hybrid   rank 3
+```
+
+Across these eight lookups the hybrid is never worse than the weaker arm, and in six of eight it
+matches or beats the stronger one — but `rank_window_size` shows it does not always beat the
+stronger arm. Note also that `rank_window_size` is defined in the *same* chunk as
+`rank_constant`, so it is a second query against a shared target rather than a fully independent
+case.
 
 ## What the analyzer actually does
 

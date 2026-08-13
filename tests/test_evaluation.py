@@ -90,3 +90,43 @@ def test_hybrid_wins_both_phrasings_of_q9() -> None:
     assert sentence["hybrid"] == 1 and token["hybrid"] == 1
     assert sentence["bm25"] > 1, "BM25 should degrade on the sentence phrasing"
     assert token["elser"] > 1, "ELSER should degrade on the bare identifier"
+
+
+@requires_elasticsearch
+@pytest.mark.parametrize(
+    "query",
+    [
+        "rank_constant",
+        "What does the rank_constant parameter do?",
+        "num_candidates",
+        "What does the num_candidates parameter do?",
+        "rank_window_size",
+        "What does the rank_window_size parameter do?",
+        "anthropic-ratelimit-tokens-reset",
+        "What does the anthropic-ratelimit-tokens-reset header do?",
+    ],
+)
+def test_fusion_is_never_worse_than_the_weaker_arm(query: str) -> None:
+    """The claim findings.md actually makes, across every row of its table.
+
+    Deliberately not "hybrid wins": it does not always beat the stronger arm.
+    """
+    from grounded_context.evaluation import compare_arms
+
+    ranks = compare_arms(query)
+    assert all(rank is not None for rank in ranks.values()), f"{query}: fell out of top 20"
+    assert ranks["hybrid"] <= max(ranks["elser"], ranks["bm25"])
+
+
+@requires_elasticsearch
+def test_the_counter_example_where_fusion_loses_to_bm25() -> None:
+    """`rank_window_size` is what stops the table being read as 'hybrid always wins'.
+
+    If a re-index ever makes fusion win here too, this fails — and findings.md needs its
+    claim widened rather than left understated.
+    """
+    from grounded_context.evaluation import compare_arms
+
+    for query in ["rank_window_size", "What does the rank_window_size parameter do?"]:
+        ranks = compare_arms(query)
+        assert ranks["bm25"] < ranks["hybrid"], f"{query}: fusion no longer loses to BM25"

@@ -122,7 +122,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 119 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ 128 tests with all extras; runs on 3.11–3.14, count drift-tested |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |

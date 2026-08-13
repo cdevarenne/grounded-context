@@ -9,22 +9,39 @@ curated Elastic and Anthropic documentation — and the commands that produce th
 
 ## 1. Neither retrieval arm wins both phrasings of the same question
 
-The test case is `rank_constant`, an RRF parameter defined in exactly one chunk of the corpus.
-Two ways to ask about it, and the rank each arm gives that defining chunk:
+The test case is an identifier and the one chunk that defines it. Ask for it two ways — as a
+bare token and as a sentence — and rank that chunk under each arm. Four identifiers, across
+three different source documents and two vendors:
 
-| Query | ELSER only | BM25 only | Hybrid (RRF) |
-|---|---|---|---|
-| "What does the `rank_constant` parameter do?" | 2 | 3 | **1** |
-| `rank_constant` | 5 | 1 | **1** |
+| Identifier | Phrasing | ELSER only | BM25 only | Hybrid (RRF) |
+|---|---|---|---|---|
+| `rank_constant` | token | 5 | 1 | **1** |
+| `rank_constant` | sentence | 2 | 3 | **1** |
+| `num_candidates` | token | 1 | 1 | **1** |
+| `num_candidates` | sentence | 2 | 5 | **1** |
+| `anthropic-ratelimit-tokens-reset` | token | 2 | 1 | **1** |
+| `anthropic-ratelimit-tokens-reset` | sentence | 1 | 1 | **1** |
+| `rank_window_size` | token | 6 | 2 | 5 |
+| `rank_window_size` | sentence | 7 | 2 | 3 |
 
 The headline is not that fusion wins. It is *which arm loses, and when.* ELSER degrades on the
 bare identifier — it has no notion of a literal string, so it returns the semantic neighborhood
 of the term instead of its definition. BM25 degrades on the natural-language sentence, where
-the identifier is diluted by common words the corpus is full of.
+the identifier is diluted by common words the corpus is full of. Which arm fails depends on how
+the user happens to type, and a user types both ways.
 
-Which arm fails therefore depends on how the user happens to type, and a user types both ways.
-That variance is the real argument for hybrid retrieval — stronger than any single headline
-score, because it is an argument about the worst case rather than the average one.
+**The last two rows are the honest part.** For `rank_window_size`, fusion does *not* beat the
+better arm — BM25 alone ranks the defining chunk 2nd both times, while the hybrid lands 5th and
+3rd. RRF averages rank positions, so a strongly-wrong arm drags a strongly-right one toward the
+middle. That term appears in nine chunks of the reference page, and ELSER spreads its weight
+across the ones about pagination rather than the one that defines the parameter.
+
+So the defensible claim is narrower than "hybrid wins," and worth stating precisely: across
+these eight lookups the hybrid is **never worse than the weaker arm**, and in six of eight it
+matches or beats the stronger one — but it does not guarantee beating the stronger arm. Fusion
+is a hedge against the worst case, not a maximum over the best. That is still the right default
+when you cannot predict how a user will phrase a question. It is not a free upgrade, and a
+benchmark reporting only an average would have hidden both halves of that.
 
 ## 2. The analyzer gotcha is real, but it is not the one I assumed
 

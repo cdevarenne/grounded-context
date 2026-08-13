@@ -2,8 +2,9 @@
 
 The unit tests need no cluster: the citation shape and the retriever body are the parts that
 must not drift. The live tests are skipped without credentials so a fresh clone still passes,
-and they pin the one claim this project makes about hybrid search — that it beats either arm
-alone on the same corpus.
+and they pin the claim this project actually makes about hybrid search — that it is never worse
+than the weaker arm, not that it beats the stronger one. `rank_window_size` is the case where
+it does not, and it is pinned too.
 """
 
 from __future__ import annotations
