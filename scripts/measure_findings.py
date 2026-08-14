@@ -30,6 +30,14 @@ MIN_UNIQUE_LEN = 10  # for the per-shape sweep
 MIN_VISIBLE_LEN = 8  # for the invisible-to-exact count
 TOP_N = 20
 
+# The identifier findings.md walks through, and its defining chunk.
+MECHANISM_TERM = "rank_constant"
+MECHANISM_TARGET = ("elastic-rrf", 1)
+
+# Tokens findings.md names as examples of the invisible-to-exact set. Printed with their
+# membership so the prose and this output cannot cite different things.
+DOCUMENTED_EXAMPLES = ("batch_id", "claude-sonnet-4-6")
+
 OFF_TOPIC = (
     "How do I bake sourdough bread?",
     "What is the capital of France?",
@@ -94,22 +102,55 @@ def _unique_to_one_chunk(
     return {t: owner[t] for t, count in seen.items() if count == 1 and len(t) > min_len}
 
 
+def _rank_value(rank: int | None) -> float:
+    """Absent from the top N sorts as worse than any rank, so comparisons stay total."""
+    return float("inf") if rank is None else float(rank)
+
+
 def sweep_subfield_effect(es: Any, chunks: list[dict[str, Any]]) -> dict[str, Any]:
-    """How many identifiers the `content.exact` subfield actually promotes, by shape."""
+    """How many identifiers the `content.exact` subfield actually promotes, by shape.
+
+    "Improved" is a strict rank comparison rather than "the rank changed". For terms unique
+    to one chunk the two are equivalent — the exact clause can only match that chunk, so its
+    rank cannot fall — but asserting the comparison beats relying on that argument, and it
+    lets `regressed` stay in the report as a check rather than an assumption.
+    """
     from grounded_context.semantic import _lexical
 
     results: dict[str, Any] = {}
     for shape, pattern in (("hyphenated", HYPHENATED), ("underscored", UNDERSCORED)):
         unique = _unique_to_one_chunk(chunks, pattern, MIN_UNIQUE_LEN)
-        improved = [
-            term
-            for term, target in unique.items()
-            if _rank_of(es, _content_only(term), target)
-            != _rank_of(es, _lexical(term), target)
-        ]
-        results[shape] = {"total": len(unique), "improved": len(improved),
-                          "examples": sorted(improved)[:5]}
+        improved, regressed = [], []
+        for term, target in unique.items():
+            before = _rank_value(_rank_of(es, _content_only(term), target))
+            after = _rank_value(_rank_of(es, _lexical(term), target))
+            if after < before:
+                improved.append(term)
+            elif after > before:
+                regressed.append(term)
+        results[shape] = {
+            "total": len(unique), "improved": len(improved), "regressed": len(regressed),
+            "examples": sorted(improved)[:5],
+        }
     return results
+
+
+def mechanism_counts(es: Any) -> dict[str, Any]:
+    """The four numbers findings.md quotes when explaining *why* the subfield helps."""
+    from grounded_context.semantic import _lexical
+
+    return {
+        "term": MECHANISM_TERM,
+        "target": f"{MECHANISM_TARGET[0]}:chunk:{MECHANISM_TARGET[1]}",
+        "content_matches": es.count(
+            index=INDEX, query={"match": {"content": MECHANISM_TERM}}
+        )["count"],
+        "exact_matches": es.count(
+            index=INDEX, query={"match": {"content.exact": MECHANISM_TERM}}
+        )["count"],
+        "rank_content_only": _rank_of(es, _content_only(MECHANISM_TERM), MECHANISM_TARGET),
+        "rank_with_exact": _rank_of(es, _lexical(MECHANISM_TERM), MECHANISM_TARGET),
+    }
 
 
 def sweep_invisible_to_exact(es: Any, chunks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -126,8 +167,13 @@ def sweep_invisible_to_exact(es: Any, chunks: list[dict[str, Any]]) -> dict[str,
         if es.count(index=INDEX, query={"match": {"content": token}})["count"] > 0
         and es.count(index=INDEX, query={"match": {"content.exact": token}})["count"] == 0
     ]
-    return {"total": len(tokens), "invisible": len(invisible),
-            "examples": sorted(invisible)[:5]}
+    return {
+        "total": len(tokens),
+        "invisible": len(invisible),
+        "examples": sorted(invisible)[:5],
+        # Membership of the tokens the prose names, so the doc cannot drift from the data.
+        "documented": {token: token in invisible for token in DOCUMENTED_EXAMPLES},
+    }
 
 
 def probe_scores(es: Any) -> list[dict[str, Any]]:
@@ -160,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
     chunks = _all_chunks(es)
     report = {
         "chunks": len(chunks),
+        "mechanism": mechanism_counts(es),
         "subfield_effect": sweep_subfield_effect(es, chunks),
         "invisible_to_exact": sweep_invisible_to_exact(es, chunks),
         "floor": RELEVANCE_FLOOR,
@@ -171,13 +218,28 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print(f"index {INDEX}: {report['chunks']} chunks\n")
-    print("Finding 2 — rank improved by the content.exact subfield")
-    print("  (identifiers appearing in exactly one chunk)")
+
+    mech = report["mechanism"]
+    print(f"Finding 2 — why the subfield helps, on {mech['term']} ({mech['target']})")
+    print(f"    matches on content        {mech['content_matches']} chunks"
+          "   (punctuation stripped, so code samples collapse onto the prose mention)")
+    print(f"    matches on content.exact  {mech['exact_matches']} chunk"
+          "    (punctuation kept, so only the bare prose mention matches)")
+    print(f"    rank of the defining chunk: content-only {mech['rank_content_only']}"
+          f" -> with exact {mech['rank_with_exact']}")
+
+    print(f"\nFinding 2 — rank improved by the content.exact subfield")
+    print(f"  (tokens unique to one chunk, longer than {MIN_UNIQUE_LEN} characters)")
     for shape, data in report["subfield_effect"].items():
-        print(f"    {shape:12} {data['improved']:3} of {data['total']:3} improved")
+        print(f"    {shape:12} {data['improved']:3} of {data['total']:3} improved,"
+              f" {data['regressed']} regressed")
     hidden = report["invisible_to_exact"]
-    print(f"\n  identifiers matching `content` but INVISIBLE to `content.exact`:")
-    print(f"    {hidden['invisible']} of {hidden['total']}  e.g. {', '.join(hidden['examples'][:3])}")
+    print(f"\n  tokens matching `content` but INVISIBLE to `content.exact`")
+    print(f"  (hyphenated or underscored, at least {MIN_VISIBLE_LEN} characters):")
+    print(f"    {hidden['invisible']} of {hidden['total']}")
+    print(f"    first three alphabetically: {', '.join(hidden['examples'][:3])}")
+    for token, present in hidden["documented"].items():
+        print(f"    cited in findings.md: {token:20} {'in the set' if present else 'ABSENT'}")
 
     print(f"\nFinding 3 — fused vs pre-fusion score (floor = {report['floor']})")
     print(f"  {'kind':13} {'fused':>7} {'sparse':>7}  query")

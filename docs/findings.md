@@ -66,10 +66,10 @@ $ POST /grounded-context-corpus/_analyze { "field": "content", "text": "..." }
 
 The standard tokenizer follows Unicode Text Segmentation (UAX #29), where the underscore is a
 *connector* that holds a run together and the hyphen is a break. So underscores survive and
-hyphens shatter — the opposite of the original claim. Across the identifiers appearing in
-exactly one chunk of this corpus, adding the exact subfield improved the rank of **44 of 149**
-hyphenated ones and **0 of 87** underscore ones. Zero. The subfield does nothing for the case
-it was supposedly added to fix.
+hyphens shatter — the opposite of the original claim. Across the tokens appearing in exactly
+one chunk of this corpus and longer than ten characters, adding the exact subfield improved the
+rank of **44 of 149** hyphenated ones and **0 of 87** underscore ones — with nothing regressing
+in either group. Zero. The subfield does nothing for the case it was supposedly added to fix.
 
 It is still load-bearing, for a second reason that only showed up on inspection. The standard
 analyzer also strips punctuation, so a code sample's `"rank_constant":` and a prose mention of
@@ -79,9 +79,12 @@ appears as bare prose, which is the chunk that defines it. That is what lifts it
 rank 1, and the `boost: 3` is not what does it — at `boost: 1` the rank is already 1.
 
 The same strictness cuts the other way, which is why the lexical arm queries *both* fields
-rather than the exact one alone. Of the identifiers in this corpus, **137 of 568** match on
-`content` but are invisible to `content.exact`, because the corpus only ever writes them inside
-punctuation — `"batch_id":`, `"claude-sonnet-4-6"`. An exact-only arm would silently lose all
+rather than the exact one alone. Of the hyphenated or underscored tokens in this corpus at least
+eight characters long, **137 of 568** match on `content` but are invisible to `content.exact`,
+because the corpus only ever writes them inside punctuation — `batch_id` and `claude-sonnet-4-6`
+are two the sweep confirms, and it prints their membership so this sentence cannot drift from
+the data. (The set is *tokens*, not clean identifiers: it also collects dates like `2019-05-01`,
+which the same punctuation rule hides.) An exact-only arm would silently lose all
 of them.
 
 The lesson is not "add a keyword subfield." It is that the lexical half of hybrid search

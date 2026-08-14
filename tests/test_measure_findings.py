@@ -30,6 +30,36 @@ requires_index = pytest.mark.skipif(
 )
 
 
+# The sweeps issue hundreds of queries each, so every live test shares one run of them.
+
+
+@pytest.fixture(scope="module")
+def es():
+    from grounded_context.es_client import client
+
+    return client()
+
+
+@pytest.fixture(scope="module")
+def chunks(es):
+    return measure_findings._all_chunks(es)
+
+
+@pytest.fixture(scope="module")
+def sweep(es, chunks):
+    return measure_findings.sweep_subfield_effect(es, chunks)
+
+
+@pytest.fixture(scope="module")
+def hidden(es, chunks):
+    return measure_findings.sweep_invisible_to_exact(es, chunks)
+
+
+@pytest.fixture(scope="module")
+def probes(es):
+    return measure_findings.probe_scores(es)
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -85,13 +115,8 @@ def test_a_term_counts_once_per_chunk_however_often_it_repeats() -> None:
 
 
 @requires_index
-def test_the_subfield_helps_hyphenated_identifiers_and_no_underscore_ones() -> None:
+def test_the_subfield_helps_hyphenated_identifiers_and_no_underscore_ones(sweep) -> None:
     """findings.md publishes 44 of 149 and 0 of 87; the zero is the load-bearing half."""
-    from grounded_context.es_client import client
-
-    es = client()
-    sweep = measure_findings.sweep_subfield_effect(es, measure_findings._all_chunks(es))
-
     assert sweep["underscored"]["improved"] == 0, (
         "the standard analyzer already keeps underscores whole — if this is nonzero the "
         "finding's central claim has changed"
@@ -100,14 +125,38 @@ def test_the_subfield_helps_hyphenated_identifiers_and_no_underscore_ones() -> N
 
 
 @requires_index
-def test_the_fused_score_ranks_an_off_topic_question_above_a_genuine_one() -> None:
+def test_no_term_regresses_when_the_exact_clause_is_added(sweep) -> None:
+    """What makes "improved" a safe word: the exact clause can only match the target chunk.
+
+    If anything ever regresses, the sweep's counts stop meaning "improved" and findings.md
+    would be overstating them.
+    """
+    assert all(shape["regressed"] == 0 for shape in sweep.values())
+
+
+@requires_index
+def test_the_tokens_findings_md_cites_are_really_invisible_to_the_exact_field(hidden) -> None:
+    """The prose names two examples; this is what stops them being decoration."""
+    assert hidden["documented"], "no documented examples declared"
+    assert all(hidden["documented"].values()), (
+        f"findings.md cites tokens not in the set: {hidden['documented']}"
+    )
+
+
+@requires_index
+def test_the_mechanism_numbers_quoted_in_findings_md(es) -> None:
+    """The 6 / 1 / rank 3 -> 1 walkthrough, which was asserted before it was emitted."""
+    mech = measure_findings.mechanism_counts(es)
+    assert mech["content_matches"] > mech["exact_matches"] == 1
+    assert mech["rank_with_exact"] < mech["rank_content_only"]
+
+
+@requires_index
+def test_the_fused_score_ranks_an_off_topic_question_above_a_genuine_one(probes) -> None:
     """Finding 3, in its strongest form: the fused ranges do not merely overlap.
 
     If this ever stops holding, the finding is overstated and findings.md must be softened.
     """
-    from grounded_context.es_client import client
-
-    probes = measure_findings.probe_scores(client())
     off_topic = [row["fused"] for row in probes if row["kind"] == "off-topic"]
     genuine = [row["fused"] for row in probes if row["kind"] == "in-domain"]
 
@@ -115,12 +164,10 @@ def test_the_fused_score_ranks_an_off_topic_question_above_a_genuine_one() -> No
 
 
 @requires_index
-def test_the_pre_fusion_score_is_what_actually_separates() -> None:
+def test_the_pre_fusion_score_is_what_actually_separates(probes) -> None:
     """The counterpart: sparse scores keep the magnitude the fused ones discard."""
-    from grounded_context.es_client import client
     from grounded_context.semantic import RELEVANCE_FLOOR
 
-    probes = measure_findings.probe_scores(client())
     genuine = [row["sparse"] for row in probes if row["kind"] == "in-domain"]
     off_topic = sorted(row["sparse"] for row in probes if row["kind"] == "off-topic")
 

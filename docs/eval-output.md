@@ -162,13 +162,22 @@ script that computes them, run end to end. It is the answer to "where did 44 of 
 $ uv run --extra es python scripts/measure_findings.py
 index grounded-context-corpus: 320 chunks
 
-Finding 2 — rank improved by the content.exact subfield
-  (identifiers appearing in exactly one chunk)
-    hyphenated    44 of 149 improved
-    underscored    0 of  87 improved
+Finding 2 — why the subfield helps, on rank_constant (elastic-rrf:chunk:1)
+    matches on content        6 chunks   (punctuation stripped, so code samples collapse onto the prose mention)
+    matches on content.exact  1 chunk    (punctuation kept, so only the bare prose mention matches)
+    rank of the defining chunk: content-only 3 -> with exact 1
 
-  identifiers matching `content` but INVISIBLE to `content.exact`:
-    137 of 568  e.g. 024-token, 2019-05-01, 2019-05-04
+Finding 2 — rank improved by the content.exact subfield
+  (tokens unique to one chunk, longer than 10 characters)
+    hyphenated    44 of 149 improved, 0 regressed
+    underscored    0 of  87 improved, 0 regressed
+
+  tokens matching `content` but INVISIBLE to `content.exact`
+  (hyphenated or underscored, at least 8 characters):
+    137 of 568
+    first three alphabetically: 024-token, 2019-05-01, 2019-05-04
+    cited in findings.md: batch_id             in the set
+    cited in findings.md: claude-sonnet-4-6    in the set
 
 Finding 3 — fused vs pre-fusion score (floor = 8.0)
   kind            fused  sparse  query
