@@ -253,3 +253,48 @@ def test_the_lexical_arm_needs_both_fields_not_just_the_exact_one() -> None:
     assert es.count(index=INDEX, query={"match": {"content.exact": quoted}})["count"] == 0
     # The shipped arm still finds it, because it queries `content` alongside `content.exact`.
     assert search_lexical_only(quoted, size=1)
+
+
+@requires_index
+def test_the_fused_score_is_exactly_the_sum_of_reciprocal_ranks() -> None:
+    """Audit the fusion math against its definition rather than reading it out of the engine.
+
+    Every other claim about RRF here is inferred from scores Elasticsearch produced. This is
+    the one check that verifies the formula itself, which is what Finding 3 argues from.
+    """
+    from grounded_context.es_client import client
+    from grounded_context.semantic import _lexical, _sparse
+
+    es = client()
+    query = "What is reciprocal rank fusion?"
+
+    def ranked(retriever):
+        response = es.search(index=INDEX, retriever=retriever, size=RANK_WINDOW_SIZE,
+                             _source=["source_id", "chunk_index"])
+        return [(h["_source"]["source_id"], h["_source"]["chunk_index"])
+                for h in response["hits"]["hits"]]
+
+    lexical, sparse = ranked(_lexical(query)), ranked(_sparse(query))
+    fused = es.search(index=INDEX, retriever=hybrid_retriever(query), size=3,
+                      _source=["source_id", "chunk_index"])["hits"]["hits"]
+
+    for hit in fused:
+        doc = (hit["_source"]["source_id"], hit["_source"]["chunk_index"])
+        predicted = sum(
+            1 / (RANK_CONSTANT + arm.index(doc) + 1)
+            for arm in (lexical, sparse) if doc in arm
+        )
+        assert predicted == pytest.approx(hit["_score"], abs=1e-6), doc
+
+
+@requires_index
+def test_the_fused_ceiling_is_never_reached_because_the_arms_disagree() -> None:
+    """2/(k+1) needs rank 1 in both arms. Finding 1 says that rarely happens."""
+    from grounded_context.es_client import client
+
+    ceiling = 2 / (RANK_CONSTANT + 1)
+    top = client().search(index=INDEX, retriever=hybrid_retriever("What is reciprocal rank fusion?"),
+                          size=1)["hits"]["hits"][0]["_score"]
+    assert top < ceiling
+    # Rank 1 in one arm and rank 2 in the other is the best this corpus achieves.
+    assert top == pytest.approx(1 / 21 + 1 / 22, abs=1e-6)

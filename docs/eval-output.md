@@ -215,3 +215,48 @@ scores 19.39 on `sparse` because the corpus really does discuss pricing, just An
 marathon question scores 16.14 because Elastic's `semantic_text` page teaches the feature with
 running and exercise sample documents — the retrieval is correct, only the subject is a
 surprise.
+
+## The fusion math, checked against the formula
+
+Finding 3 argues from how RRF is defined: a fused score is `Σ 1/(k + rank)` over the arms, so it
+carries rank agreement rather than match quality. Everywhere else that claim is read *out of*
+Elasticsearch. This checks it *against* the formula.
+
+For each document the hybrid returns, take its rank in each arm separately, compute the sum, and
+compare to the score Elasticsearch reported. `k` is `RANK_CONSTANT`, 20.
+
+```console
+$ uv run --extra es python scripts/rrf_audit.py
+=== 'What is reciprocal rank fusion?'   (k=20) ===
+doc                                 bm25  elser  predicted  observed     delta
+elastic-rrf:0                          2      1   0.093074  0.093074  3.07e-09
+elastic-rrf:4                          1      3   0.091097  0.091097  1.51e-09
+elastic-rrf:3                          3      2   0.088933  0.088933  3.68e-09
+
+=== 'rank_constant'   (k=20) ===
+doc                                 bm25  elser  predicted  observed     delta
+elastic-rrf:1                          1      5   0.087619  0.087619  2.38e-09
+elastic-rrf:10                         2      6   0.083916  0.083916  3.92e-09
+elastic-rrf:12                         6      2   0.083916  0.083916  3.92e-09
+
+=== 'How do I bake sourdough bread?'   (k=20) ===
+doc                                 bm25  elser  predicted  observed     delta
+anthropic-batch-processing:11          9     10   0.067816  0.067816  1.95e-09
+anthropic-prompt-caching:36            6     45   0.053846  0.053846  1.54e-10
+anthropic-batch-processing:2          13     23   0.053559  0.053559  7.43e-10
+```
+
+Agreement to about 1e-9 on every row — floating-point noise. The fused score is exactly the sum
+of reciprocal ranks, and nothing else. No similarity, no magnitude.
+
+Two things fall out of this that are worth stating.
+
+**It explains the ceiling.** A document ranked 1 by both arms would score `2/(k+1)` = 0.0952. The
+highest score observed anywhere in this corpus is 0.0931, which is `1/21 + 1/22` — rank 1 in one
+arm and rank 2 in the other. The gap is not slack in the formula. It is Finding 1 showing up as
+arithmetic: the two arms rarely agree on which chunk is best.
+
+**It explains the sourdough number.** The off-topic top hit scored 0.0678, quoted in Finding 3.
+That is `1/(20+9) + 1/(20+10)` — a document ranked 9th and 10th by two arms that found nothing
+better. A confidence threshold reading that number sees 0.068 and cannot tell it apart from a
+genuine answer, because the number never described relevance in the first place.
