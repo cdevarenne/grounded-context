@@ -89,8 +89,9 @@ of them.
 The lesson is not "add a keyword subfield." It is that the lexical half of hybrid search
 inherits whatever the analyzer decided, that the failure is silent — the query returns
 plausible, adjacent, incorrect chunks — and that `_analyze` is the only thing that reports which
-way it went. An explanation that fits the symptom is not the same as one that has been run: this
-one stood for a month before the check took a single line.
+way it went. An explanation that fits the symptom is not the same as one that has been run. This one was
+committed at 08:35 and corrected at 15:48 the same day, and the check that settled it was a
+single call.
 
 ## 3. RRF scores cannot tell you when nothing matches
 
