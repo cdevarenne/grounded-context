@@ -37,7 +37,7 @@ This project separates them, routes between them, and makes every answer show it
 - **Provenance, always** — every answer carries a citation block. If retrieval finds nothing,
   the answer is "Not found in the grounded sources" — never a fallback to model memory.
 
-<img title="Architecture Overview" alt="Architecture Overview" src="docs/grounded-context-diagram.png">
+<img title="Architecture Overview" alt="Architecture Overview" src="docs/grounded-context-diagram.jpeg">
 
 Why it's built this way — the five design properties, OKF grounding, the governance split, and
 the central tradeoff — is in **[docs/design.md](docs/design.md)**. Diagram :
