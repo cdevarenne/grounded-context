@@ -34,11 +34,10 @@ the user happens to type, and a user types both ways.
 
 **The last two rows are the honest part.** For `rank_window_size`, fusion does *not* beat the
 better arm — BM25 alone ranks the defining chunk 2nd both times, while the hybrid lands 5th and
-3rd. Because RRF sums `1/(k + rank)` from each arm, a document one arm ranks poorly carries a
-near-zero contribution from that arm, so a strongly-wrong arm dilutes a strongly-right one
-instead of deferring to it. That term appears in nine chunks of the reference page, and ELSER
-spreads its weight across the ones about pagination rather than the one that defines the
-parameter.
+3rd. Because RRF sums `1/(k + rank)` from each arm, a document ranked poorly by one arm carries
+a near-zero contribution from it. The weak arm therefore dilutes the strong one rather than
+deferring to it. That term appears in nine chunks of the reference page, and ELSER spreads its
+weight across the ones about pagination rather than the one that defines the parameter.
 
 So the defensible claim is narrower than "hybrid wins," and worth stating precisely: across
 these eight lookups the hybrid is **never worse than the weaker arm**, and in six of eight it
@@ -47,11 +46,11 @@ is a hedge against the worst case, not a maximum over the best. That is still th
 when you cannot predict how a user will phrase a question. It is not a free upgrade, and a
 benchmark reporting only an average would have hidden both halves of that.
 
-## 2. The analyzer gotcha is real, but it is not the one I assumed
+## 2. The analyzer gotcha is real, and not the one I hypothesized
 
-The first version of this document claimed the standard analyzer split `rank_constant` on the
-underscore, and that rescuing the token was what the `content.exact` subfield was for. That was
-wrong, and checking it is a one-line call:
+The first version of this document stated a hypothesis: the standard analyzer splits
+`rank_constant` on the underscore, and rescuing that token is what the `content.exact` subfield
+is for. It explained the symptom, so it went unchecked. Testing it is a one-line call:
 
 ```console
 $ POST /grounded-context-corpus/_analyze { "field": "content", "text": "..." }
@@ -89,8 +88,9 @@ of them.
 
 The lesson is not "add a keyword subfield." It is that the lexical half of hybrid search
 inherits whatever the analyzer decided, that the failure is silent — the query returns
-plausible, adjacent, wrong chunks — and that `_analyze` is the only thing that tells you which
-way it went. I asserted a mechanism that sounded right for a month before running it.
+plausible, adjacent, incorrect chunks — and that `_analyze` is the only thing that reports which
+way it went. An explanation that fits the symptom is not the same as one that has been run: this
+one stood for a month before the check took a single line.
 
 ## 3. RRF scores cannot tell you when nothing matches
 
@@ -113,12 +113,23 @@ six genuine questions**, including "how do I stream responses from the API?" at 
 threshold on the fused score would not merely be unreliable; it would actively prefer a
 question the corpus cannot answer over one it can.
 
-The reason is structural. RRF sums reciprocal ranks — `Σ 1/(k + rank)` across arms — so a top
-hit lands near `2/(k+1)` regardless of match quality, and the spread that remains reflects how
-much the two arms *agreed on an ordering*, not how good the documents are. Fusion deliberately
-discards the magnitude that would have separated them. That is not a flaw; it is the property
-that lets RRF combine rankings whose raw scores are not comparable. It just means the fused
-score is unusable as a confidence signal.
+The reason is structural. RRF sums reciprocal ranks — `Σ 1/(k + rank)` across arms — so the
+spread reflects how much the two arms *agreed on an ordering*, not how good the documents are.
+Fusion deliberately discards the magnitude that would have separated them. That is not a flaw;
+it is the property that lets RRF combine rankings whose raw scores are not comparable. It just
+means the fused score is unusable as a confidence signal.
+
+That is an argument from the definition, so it is checked against the definition rather than
+inferred from output. Taking each returned document's rank in the two arms separately and
+computing the sum reproduces the score Elasticsearch reported to about 1e-9, every time —
+`scripts/rrf_audit.py`, captured in [`eval-output.md`](eval-output.md).
+
+The audit also corrected a claim. Sixteen probes topped out at 0.0931, which suggested the
+ceiling `2/(k+1)` = 0.0952 is unreachable because the arms rarely agree on first place. That
+conclusion is about all queries, and sixteen probes cannot support it. Tested directly, the
+query `reciprocal rank fusion` ranks the same chunk first in *both* arms and scores exactly
+0.095238. What 0.0931 means is `1/21 + 1/22` — first in one arm, second in the other. The score
+reports arm agreement and nothing else.
 
 The pre-fusion scores keep that magnitude, and there the separation is clean: **9 of the 10
 off-topic land at 1.66–5.90** against **14.10–19.48** for all six genuine ones — a gap of more
