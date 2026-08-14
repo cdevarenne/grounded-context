@@ -136,3 +136,23 @@ def test_links_resolve_both_ways():
     assert "anthropic.messages" in linked
     back = {c.id for c in bundle.linked("anthropic.messages")}
     assert "anthropic.claude-opus-5" in back
+
+
+def test_timestamps_are_quoted_not_reformatted():
+    """A verification stamp must come back exactly as the file writes it.
+
+    PyYAML resolves timestamp-shaped scalars to datetime by default, and str() then renders
+    them with a space instead of the `T` — not valid ISO-8601, and not what the bundle says.
+    Cross-checking against the JVM port is what surfaced it.
+    """
+    concept = Bundle.load(BUNDLE).get("anthropic.claude-opus-5")
+    assert concept.verified_at == "2026-08-10T19:06:23-07:00"
+    assert " " not in concept.verified_at
+
+
+def test_a_lifecycle_date_is_still_a_real_date():
+    """Keeping timestamps as text must not turn stale_after into a string comparison."""
+    concept = Bundle.load(BUNDLE).get("anthropic.claude-opus-5")
+    assert concept.stale_after == date(2026, 9, 9)
+    assert concept.is_stale(date(2026, 9, 8)) is False
+    assert concept.is_stale(date(2026, 9, 9)) is True

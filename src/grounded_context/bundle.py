@@ -15,6 +15,26 @@ import yaml
 
 FRONT_MATTER = re.compile(r"\A---\n(.*?)\n---\n?(.*)\Z", re.DOTALL)
 
+TIMESTAMP_TAG = "tag:yaml.org,2002:timestamp"
+
+
+class LiteralTimestampLoader(yaml.SafeLoader):
+    """A loader that leaves timestamp-shaped scalars as text.
+
+    PyYAML resolves them to `date` / `datetime`, which rewrites what the file says: an `at:`
+    of `2026-08-10T19:06:23-07:00` came back out of `str()` as `2026-08-10 19:06:23-07:00`,
+    with a space instead of the `T`, which is not valid ISO-8601. Provenance has to quote its
+    source, not reinterpret it, so the text is kept and any date is parsed where one is
+    required. The JVM port hit the same class of bug from the other direction, where the
+    conversion moved `stale_after` a day earlier.
+    """
+
+
+LiteralTimestampLoader.yaml_implicit_resolvers = {
+    first: [(tag, regexp) for tag, regexp in resolvers if tag != TIMESTAMP_TAG]
+    for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
+}
+
 # OKF v0.2 derives a trust tier from the `verified` actor list.
 UNVERIFIED = "unverified"
 MACHINE_CONFIRMED = "machine-confirmed"
@@ -97,7 +117,10 @@ def parse_concept(path: Path) -> Concept:
     if not match:
         raise BundleError(f"{path}: no YAML front matter")
 
-    meta = yaml.safe_load(match.group(1)) or {}
+    # Safe despite the bare `load`: LiteralTimestampLoader derives from SafeLoader, so it
+    # keeps SafeConstructor and cannot instantiate arbitrary Python types. It differs from
+    # safe_load in exactly one respect — it does not resolve timestamps.
+    meta = yaml.load(match.group(1), Loader=LiteralTimestampLoader) or {}
     if not isinstance(meta, dict):
         raise BundleError(f"{path}: front matter is not a mapping")
 
@@ -106,11 +129,17 @@ def parse_concept(path: Path) -> Concept:
         if not meta.get(required):
             raise BundleError(f"{path}: missing required field '{required}'")
 
+    # Now that timestamps stay text, an OKF lifecycle date is parsed here. Anything that is
+    # not a plain date is rejected rather than coerced: a misread lifecycle would silently
+    # disable staleness, which is the one guarantee the canonical layer cannot lose.
     stale_after = meta.get("stale_after")
-    if stale_after is not None and not isinstance(stale_after, date):
-        raise BundleError(
-            f"{path}: stale_after must be a YYYY-MM-DD date, got {stale_after!r}"
-        )
+    if stale_after is not None:
+        try:
+            stale_after = date.fromisoformat(str(stale_after))
+        except ValueError:
+            raise BundleError(
+                f"{path}: stale_after must be a YYYY-MM-DD date, got {stale_after!r}"
+            ) from None
 
     verified = meta.get("verified") or []
     if isinstance(verified, dict):  # OKF permits a single mapping without the list dash
