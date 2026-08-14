@@ -288,13 +288,23 @@ def test_the_fused_score_is_exactly_the_sum_of_reciprocal_ranks() -> None:
 
 
 @requires_index
-def test_the_fused_ceiling_is_never_reached_because_the_arms_disagree() -> None:
-    """2/(k+1) needs rank 1 in both arms. Finding 1 says that rarely happens."""
+def test_the_fused_score_reports_only_how_much_the_arms_agree() -> None:
+    """The ceiling `2/(k+1)` needs rank 1 in both arms, and it is reachable.
+
+    Written after asserting the opposite: the sixteen probes topped out at 0.0931, which made
+    the ceiling look unreachable. A query where both arms agree on first place hits it exactly.
+    """
     from grounded_context.es_client import client
 
+    es = client()
     ceiling = 2 / (RANK_CONSTANT + 1)
-    top = client().search(index=INDEX, retriever=hybrid_retriever("What is reciprocal rank fusion?"),
-                          size=1)["hits"]["hits"][0]["_score"]
-    assert top < ceiling
-    # Rank 1 in one arm and rank 2 in the other is the best this corpus achieves.
-    assert top == pytest.approx(1 / 21 + 1 / 22, abs=1e-6)
+
+    agreed = es.search(index=INDEX, retriever=hybrid_retriever("reciprocal rank fusion"),
+                       size=1)["hits"]["hits"][0]["_score"]
+    assert agreed == pytest.approx(ceiling, abs=1e-6)
+
+    # Rank 1 in one arm and rank 2 in the other — the arms disagree, and the score says so.
+    split = es.search(index=INDEX, retriever=hybrid_retriever("What is reciprocal rank fusion?"),
+                      size=1)["hits"]["hits"][0]["_score"]
+    assert split == pytest.approx(1 / 21 + 1 / 22, abs=1e-6)
+    assert split < ceiling

@@ -251,10 +251,11 @@ of reciprocal ranks, and nothing else. No similarity, no magnitude.
 
 Two things fall out of this that are worth stating.
 
-**It explains the ceiling.** A document ranked 1 by both arms would score `2/(k+1)` = 0.0952. The
-highest score observed anywhere in this corpus is 0.0931, which is `1/21 + 1/22` — rank 1 in one
-arm and rank 2 in the other. The gap is not slack in the formula. It is Finding 1 showing up as
-arithmetic: the two arms rarely agree on which chunk is best.
+**It explains the ceiling, and corrected a claim.** A document ranked 1 by both arms scores
+`2/(k+1)` = 0.0952. The best score across the sixteen probes is 0.0931, so the ceiling looked
+unreachable — but it is not. The query `reciprocal rank fusion` ranks `elastic-rrf:0` first in
+both arms and scores exactly 0.095238. What 0.0931 means is `1/21 + 1/22`: first in one arm,
+second in the other. The score reports how much the two arms agree and nothing else.
 
 **It explains the sourdough number.** The off-topic top hit scored 0.0678, quoted in Finding 3.
 That is `1/(20+9) + 1/(20+10)` — a document ranked 9th and 10th by two arms that found nothing
