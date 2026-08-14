@@ -3,6 +3,10 @@
 A grounded, composable, **deterministic-where-it-matters** context layer for LLM agents —
 built on Elasticsearch, reached over MCP, model-agnostic.
 
+**Write-up:** [A Grounded Context Layer for Agents — and Three Things Hybrid Search Won't Tell
+You](https://medium.com/@claude.devarenne/a-grounded-context-layer-for-agents-and-three-things-hybrid-search-wont-tell-you-e71fdc334773)
+— the design and the three findings behind it.
+
 > **Thesis:** Elasticsearch isn't just a vector store for agents. It's the authoritative,
 > auditable context layer that makes an agent's reasoning explainable and verifiable. A
 > deterministic canonical path handles facts that must be exact; a semantic hybrid path
@@ -136,8 +140,8 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 
 - **[docs/design.md](docs/design.md)** — the five design properties, OKF grounding, the
   two-corpora governance split, the core tradeoff, and the observability plan.
-- **[docs/findings.md](docs/findings.md)** — three things that broke while building the hybrid
-  path, including one claim I got wrong and had to correct against the cluster.
+- **[docs/findings.md](docs/findings.md)** — three things that surfaced while building the
+  hybrid path, including a hypothesis the cluster contradicted and what replaced it.
 - **[docs/eval-output.md](docs/eval-output.md)** — the captured runs behind every number in the
   findings, so the claims are checkable without my cluster.
 - **[grounded-context-jvm](https://github.com/cdevarenne/grounded-context-jvm)** — the same
@@ -160,7 +164,6 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   model files.
 - **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
 
-<!-- TODO(devarenne): once the ELX-11 blog is live, add a "Write-up" link here and near the top. -->
 
 ---
 
