@@ -153,27 +153,56 @@ claude-opus-5      content=['claude', 'opus', '5']        content.exact=['claude
 claude-haiku-4-5   content=['claude', 'haiku', '4', '5']  content.exact=['claude-haiku-4-5']
 ```
 
-## Fused score versus pre-fusion score
+## The corpus-wide figures
 
-Finding 3. The fused RRF score cannot separate an answerable question from an unanswerable one;
-the pre-fusion sparse score can. `sparse` is what `RELEVANCE_FLOOR` reads.
+Findings 2 and 3 quote aggregates over the whole index rather than single queries. This is the
+script that computes them, run end to end. It is the answer to "where did 44 of 149 come from?"
 
-| Question | Kind | Fused (RRF) | Pre-fusion (ELSER) |
-|---|---|---|---|
-| How do I bake sourdough bread? | off-topic | 0.0678 | 2.61 |
-| What is the capital of France? | off-topic | 0.0680 | 4.52 |
-| Who won the 1998 World Cup? | off-topic | — | 1.66 |
-| How do I change a flat tire on a bicycle? | off-topic | — | 5.90 |
-| What is the plot of Hamlet? | off-topic | — | 5.06 |
-| How do I stream responses from the API? | genuine | 0.0729 | 16.79 |
-| How should I chunk documents for retrieval? | genuine | 0.0893 | 17.66 |
-| What is reciprocal rank fusion? | genuine | 0.0931 | 19.48 |
-| How do I use `semantic_text`? | genuine | — | 14.10 |
-| What is the price per million tokens of GPT-5? | wrong entity | 0.0893 | 19.39 |
-| What is the best way to train for a marathon? | off-topic by subject | 0.0725 | 16.14 |
+```console
+$ uv run --extra es python scripts/measure_findings.py
+index grounded-context-corpus: 320 chunks
 
-The fused scores for sourdough (0.0678) and streaming (0.0729) are the pair quoted in the
-findings. The last two rows are the floor's declared limits: a wrong-entity question scores as
-high as a right one, and the marathon question clears the floor because Elastic's
-`semantic_text` page teaches the feature with running and exercise sample documents — the
-retrieval is correct, only the subject is a surprise.
+Finding 2 — rank improved by the content.exact subfield
+  (identifiers appearing in exactly one chunk)
+    hyphenated    44 of 149 improved
+    underscored    0 of  87 improved
+
+  identifiers matching `content` but INVISIBLE to `content.exact`:
+    137 of 568  e.g. 024-token, 2019-05-01, 2019-05-04
+
+Finding 3 — fused vs pre-fusion score (floor = 8.0)
+  kind            fused  sparse  query
+  off-topic      0.0678    2.61  How do I bake sourdough bread?
+  off-topic      0.0680    4.52  What is the capital of France?
+  off-topic      0.0725   16.14  What is the best way to train for a marathon?
+  off-topic      0.0889    1.66  Who won the 1998 World Cup?
+  off-topic      0.0754    1.75  What is a good recipe for beef bourguignon?
+  off-topic      0.0893    5.90  How do I change a flat tire on a bicycle?
+  off-topic      0.0911    2.34  What are the symptoms of vitamin D deficiency?
+  off-topic      0.0476    2.87  When did the Berlin Wall fall?
+  off-topic      0.0707    3.94  How tall is Mount Kilimanjaro?
+  off-topic      0.0687    5.06  What is the plot of Hamlet?
+  in-domain      0.0729   16.79  How do I stream responses from the API?
+  in-domain      0.0893   17.66  How should I chunk documents for retrieval?
+  in-domain      0.0931   19.48  What is reciprocal rank fusion?
+  in-domain      0.0889   16.87  How does prompt caching work?
+  in-domain      0.0931   18.05  What are the rate limit headers?
+  in-domain      0.0723   14.10  How do I use semantic_text?
+  wrong-entity   0.0893   19.39  What is the price per million tokens of GPT-5?
+```
+
+Read the two score columns against each other, because that is the whole of Finding 3.
+
+**`sparse` separates.** Nine of the ten off-topic questions sit at 1.66–5.90; all six genuine
+ones sit at 14.10–19.48. Nothing lands in between. That gap is what the floor of 8 is cutting.
+
+**`fused` does not.** Off-topic spans 0.0476–0.0911 and genuine spans 0.0723–0.0931 — nearly the
+same interval. "What are the symptoms of vitamin D deficiency?" fuses to 0.0911 and beats four
+of the six genuine questions, including "how do I stream responses from the API?" at 0.0729. A
+confidence threshold on the fused score would prefer the vitamin question.
+
+The last two exceptions are the floor's declared limits, not noise. The wrong-entity question
+scores 19.39 on `sparse` because the corpus really does discuss pricing, just Anthropic's. The
+marathon question scores 16.14 because Elastic's `semantic_text` page teaches the feature with
+running and exercise sample documents — the retrieval is correct, only the subject is a
+surprise.

@@ -4,8 +4,10 @@ Three things surfaced building the semantic path. None is exotic. Two are about 
 underneath the lexical arm, and one is about reciprocal rank fusion itself.
 
 Every number below was measured against the live index described in the README — 320 chunks of
-curated Elastic and Anthropic documentation — and the commands that produce them are in
-[`eval-output.md`](eval-output.md).
+curated Elastic and Anthropic documentation — and every one is regenerable. Per-query ranks come
+from `gctx eval --compare`; the corpus-wide figures come from
+`scripts/measure_findings.py`. Both are captured verbatim in [`eval-output.md`](eval-output.md),
+so none of this has to be taken on trust.
 
 ## 1. Neither retrieval arm wins both phrasings of the same question
 
@@ -32,9 +34,11 @@ the user happens to type, and a user types both ways.
 
 **The last two rows are the honest part.** For `rank_window_size`, fusion does *not* beat the
 better arm — BM25 alone ranks the defining chunk 2nd both times, while the hybrid lands 5th and
-3rd. RRF averages rank positions, so a strongly-wrong arm drags a strongly-right one toward the
-middle. That term appears in nine chunks of the reference page, and ELSER spreads its weight
-across the ones about pagination rather than the one that defines the parameter.
+3rd. Because RRF sums `1/(k + rank)` from each arm, a document one arm ranks poorly carries a
+near-zero contribution from that arm, so a strongly-wrong arm dilutes a strongly-right one
+instead of deferring to it. That term appears in nine chunks of the reference page, and ELSER
+spreads its weight across the ones about pagination rather than the one that defines the
+parameter.
 
 So the defensible claim is narrower than "hybrid wins," and worth stating precisely: across
 these eight lookups the hybrid is **never worse than the weaker arm**, and in six of eight it
@@ -92,18 +96,35 @@ when it has found nothing. Fusion does not.
 
 Asked "how do I bake sourdough bread?", this corpus returns five confident, cited chunks about
 Elasticsearch. The fused score of the top hit is **0.068**. For a real question about streaming
-API responses it is **0.073**. The two are indistinguishable, and the reason is structural: RRF
-scores come from *rank position* — `1/(k + rank)` — so the best hit scores about the same
-whether it is a perfect match or the least bad of 320 irrelevant chunks. Fusion deliberately
+API responses it is **0.073**. Two queries is a coincidence, though, so I ran sixteen — ten
+off-topic, six genuine — and the result is worse than "indistinguishable":
+
+| | fused (RRF) | pre-fusion (ELSER) |
+|---|---|---|
+| 10 off-topic questions | 0.0476 – 0.0911 | 1.66 – 16.14 |
+| 6 genuine questions | 0.0723 – 0.0931 | 14.10 – 19.48 |
+
+The fused ranges **overlap across almost their whole span**. The best-scoring off-topic
+question — "what are the symptoms of vitamin D deficiency?" at 0.0911 — outranks **four of the
+six genuine questions**, including "how do I stream responses from the API?" at 0.0729. A
+threshold on the fused score would not merely be unreliable; it would actively prefer a
+question the corpus cannot answer over one it can.
+
+The reason is structural. RRF sums reciprocal ranks — `Σ 1/(k + rank)` across arms — so a top
+hit lands near `2/(k+1)` regardless of match quality, and the spread that remains reflects how
+much the two arms *agreed on an ordering*, not how good the documents are. Fusion deliberately
 discards the magnitude that would have separated them. That is not a flaw; it is the property
 that lets RRF combine rankings whose raw scores are not comparable. It just means the fused
 score is unusable as a confidence signal.
 
-The pre-fusion scores still hold the magnitude. Across 10 off-topic probes and 6 genuine ones,
-the sparse arm scored **9 of the 10 off-topic at 1.7–5.9** and all 6 genuine at **14.1–19.5**,
-so the semantic path probes that score first and returns nothing below a floor of 8. An empty
-result becomes the refusal. The tenth off-topic probe scored 16.1 and is the second limit
-below — it is not an outlier to be waved away, and the floor lets it through.
+The pre-fusion scores keep that magnitude, and there the separation is clean: **9 of the 10
+off-topic land at 1.66–5.90** against **14.10–19.48** for all six genuine ones — a gap of more
+than 8 with nothing in it. So the semantic path probes that score first and returns nothing
+below a floor of 8. An empty result becomes the refusal. The tenth off-topic probe scored 16.14
+and is the second limit below — it is not an outlier to be waved away, and the floor lets it
+through.
+
+Every figure here is regenerable: `uv run --extra es python scripts/measure_findings.py`.
 
 Two limits, both worth stating plainly, because a floor that *looks* like a correctness check is
 more dangerous than no floor at all.
