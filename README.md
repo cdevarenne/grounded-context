@@ -57,7 +57,7 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 
-uv run pytest -q         # 136 collected here; 96 pass, the rest skip without ES / the mcp extra
+uv run pytest -q         # 139 collected here; 96 pass, the rest skip without ES / the mcp extra
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -122,7 +122,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 147 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ 150 tests with all extras; runs on 3.11–3.14, count drift-tested |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
@@ -152,6 +152,10 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   [`provenance.md`](docs/specs/provenance.md),
   [`router.md`](docs/specs/router.md),
   [`eval.md`](docs/specs/eval.md).
+- **[docs/index-spec.md](docs/index-spec.md)** — the chunking rule and index mapping both
+  implementations build to, so an index is the same whoever builds it.
+- **[docs/index-spec.md](docs/index-spec.md)** — the chunking rule and index mapping both
+  implementations build to, so an index is the same whoever builds it.
 - **[docs/compatibility-matrix.md](docs/compatibility-matrix.md)** — generated view over the
   model files.
 - **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
