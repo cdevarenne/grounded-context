@@ -80,9 +80,14 @@ def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> list[dict[st
     return search(query, size=size)
 
 
-def _semantic_answer(query: str, decision: Route, path: str = SEMANTIC) -> dict[str, Any]:
-    """Grounded passages, best first. The caller writes prose; this supplies the ground."""
-    citations = semantic_citations(query)
+def _semantic_answer(
+    citations: list[dict[str, Any]], decision: Route, path: str = SEMANTIC
+) -> dict[str, Any]:
+    """Grounded passages, best first. The caller writes prose; this supplies the ground.
+
+    Takes citations rather than fetching them, so a caller that has already retrieved cannot
+    retrieve a second time for the same query.
+    """
     answer = citations[0]["snippet"] if citations else ""
     return grounded_answer(answer, citations, path, decision.as_dict())
 
@@ -91,7 +96,7 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
     """Route a natural-language question, then answer it on the path chosen."""
     decision = route(query)
     if decision.route == ROUTE_SEMANTIC:
-        return _semantic_answer(query, decision)
+        return _semantic_answer(semantic_citations(query), decision)
 
     entity = find_entity(bundle, query)
     field = find_field(bundle, query, entity)
@@ -107,7 +112,7 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
     # router.md: query both, prefer an exact hit where one exists, never drop provenance.
     extra = semantic_citations(query)
     if not exact["citations"]:
-        return _semantic_answer(query, decision)
+        return _semantic_answer(extra, decision)
     if not extra:
         return exact
     return grounded_answer(
