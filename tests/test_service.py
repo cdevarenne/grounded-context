@@ -229,3 +229,29 @@ def test_the_answer_survives_an_unbuildable_event(
 
     assert envelope["answer"] == "1,000,000"
     assert capsys.readouterr().err.strip().startswith("telemetry: KeyError")
+
+
+def test_the_floor_score_reaches_the_event(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Threaded from the probe through SemanticResult to the record, not recomputed."""
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult(floor_passed=False, floor_score=7.9),
+    )
+    ask(bundle, SEMANTIC_QUERY, as_of_date())
+
+    event = emitted()[0]
+    assert event["relevance_floor_passed"] is False
+    assert event["relevance_score"] == 7.9
+    assert event["refused"] is True
+
+
+def test_an_unconfigured_engine_reports_no_score(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Same reasoning as the verdict: the probe never ran, so there is nothing to report."""
+    monkeypatch.setattr(NO_ENGINE, lambda: False)
+
+    result = service.semantic_citations("anything at all")
+
+    assert result.floor_passed is None
+    assert result.floor_score is None

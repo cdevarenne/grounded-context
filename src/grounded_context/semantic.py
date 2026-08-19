@@ -135,8 +135,27 @@ def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> b
     floor at 16.1, because Elastic's `semantic_text` page teaches the feature with running and
     exercise sample documents. The retrieval is correct; only the topic is a surprise.
     """
+    cleared, _ = probe(query, es=es, floor=floor)
+    return cleared
+
+
+def probe(
+    query: str, es: Any = None, floor: float = RELEVANCE_FLOOR
+) -> tuple[bool, float | None]:
+    """The floor verdict *and* the score behind it. `None` when nothing came back at all.
+
+    The score is worth keeping, not just the comparison. A query at 7.9 against a floor of 8.0
+    is a corpus gap — in domain, and not yet answerable — while one at 1.7 is off topic and
+    always will be. Both refuse; only one is a curation backlog item, and the boolean alone
+    cannot tell them apart after the fact.
+
+    The comparison lives here rather than at the call site so the floor has one implementation.
+    """
     top = search_semantic_only(query, size=1, es=es)
-    return bool(top) and (top[0]["score"] or 0.0) >= floor
+    if not top:
+        return False, None
+    score = top[0]["score"] or 0.0
+    return score >= floor, score
 
 
 def search(

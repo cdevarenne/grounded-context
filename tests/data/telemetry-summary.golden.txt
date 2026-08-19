@@ -5,6 +5,7 @@ route mix        DETERMINISTIC 8 (30%)   SEMANTIC 12 (46%)   BOTH 2 (7%)   DIREC
 canonical        hit 9   miss 5   n/a 12      miss rate 35% of 14 precision queries
 refusals         7 (26%)
 floor            cleared 11   blocked 3      (of 14 semantic-consulted)
+floor scores     blocked 1.7 – 3.1   cleared 14.3 – 19.5
 latency p50 ms   deterministic 1.7   semantic 218.0   total 188.2
 latency p95 ms   deterministic 2.2   semantic 245.0   total 242.2
 both-path        total p95 242.2 ms   (2 BOTH queries)

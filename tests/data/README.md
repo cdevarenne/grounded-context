@@ -26,6 +26,10 @@ Suggested repo home: `tests/data/telemetry-sample.ndjson` and
 - **The declared floor limits from `findings.md`** — the GPT-5 pricing query clears the floor
   (correct retrieval, wrong entity) and is *not* refused; that is the honest limit, present in the
   data rather than hidden from it.
+- **The score behind each floor verdict.** `relevance_score` accompanies every
+  `relevance_floor_passed`, and is absent whenever that is. Blocked queries sit at 1.7–3.1 and
+  cleared ones at 14.3–19.5 against a floor of 8.0 — the separation `findings.md` §3 describes,
+  visible rather than asserted.
 
 ## The two things the summary implementation must pin
 

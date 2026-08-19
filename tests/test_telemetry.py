@@ -48,7 +48,8 @@ def test_the_event_carries_every_field_the_spec_names() -> None:
 
     assert set(record) == {
         "@timestamp", "schema_version", "query", "route", "rationale", "retrieval_path",
-        "canonical_hit", "relevance_floor_passed", "refused", "cites", "latency_ms",
+        "canonical_hit", "relevance_floor_passed", "relevance_score", "refused", "cites",
+        "latency_ms",
     }
     assert record["schema_version"] == telemetry.SCHEMA_VERSION
     assert record["@timestamp"].endswith("Z")
@@ -227,3 +228,32 @@ def test_the_summary_counts_what_the_log_holds(sink: Path) -> None:
     assert "events: 2" in report
     assert "DIRECT 2 (100%)" in report
     assert "hit 2   miss 0" in report
+
+
+def test_the_score_behind_the_floor_verdict_is_recorded() -> None:
+    """A boolean says a query was blocked; the score says whether it was close."""
+    envelope = grounded_answer("", [], SEMANTIC, ROUTED_SEMANTIC)
+    record = telemetry.event(
+        "q", envelope, total_ms=190.0, semantic_ms=189.0,
+        relevance_floor_passed=False, relevance_score=7.94,
+    )
+    assert record["relevance_score"] == 7.9
+    assert record["schema_version"] == 2
+
+
+def test_no_probe_means_no_score() -> None:
+    """Absent, not zero — a query the floor never saw did not score badly, it did not score."""
+    envelope = grounded_answer("1,000,000", [EXACT_CITE], DETERMINISTIC, None)
+    assert telemetry.event("q", envelope, total_ms=1.7)["relevance_score"] is None
+
+
+def test_the_summary_separates_a_near_miss_from_off_topic(sink: Path) -> None:
+    """The reason the field exists, visible in the cloud-free readback."""
+    envelope = grounded_answer("", [], SEMANTIC, ROUTED_SEMANTIC)
+    for score in (1.7, 7.9):
+        telemetry.record("q", envelope, total_ms=1.0, relevance_floor_passed=False,
+                         relevance_score=score)
+    telemetry.record("q", envelope, total_ms=1.0, relevance_floor_passed=True,
+                     relevance_score=18.2)
+
+    assert "floor scores     blocked 1.7 – 7.9   cleared 18.2 – 18.2" in telemetry.summary(sink)

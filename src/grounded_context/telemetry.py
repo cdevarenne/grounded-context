@@ -20,7 +20,7 @@ from typing import Any
 from .provenance import DETERMINISTIC, NOT_FOUND
 from .router import SEMANTIC as ROUTE_SEMANTIC
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 TELEMETRY_INDEX = "grounded-context-telemetry"
 
@@ -74,6 +74,7 @@ def event(
     deterministic_ms: float | None = None,
     semantic_ms: float | None = None,
     relevance_floor_passed: bool | None = None,
+    relevance_score: float | None = None,
 ) -> dict[str, Any]:
     """Build one event from a finished envelope.
 
@@ -92,6 +93,7 @@ def event(
         "retrieval_path": envelope["retrieval_path"],
         "canonical_hit": _canonical_hit(envelope),
         "relevance_floor_passed": relevance_floor_passed,
+        "relevance_score": _ms(relevance_score),
         "refused": envelope["answer"] == NOT_FOUND,
         "cites": len(envelope["citations"]),
         "latency_ms": {
@@ -182,6 +184,20 @@ def _latency(events: list[dict[str, Any]], point: int) -> str:
     )
 
 
+def _score_cells(events: list[dict[str, Any]]) -> list[str]:
+    """Blocked and cleared score ranges, which is what separates a near miss from off topic."""
+
+    def span(passed: bool) -> str:
+        scores = [
+            e["relevance_score"]
+            for e in events
+            if e.get("relevance_floor_passed") is passed and e.get("relevance_score") is not None
+        ]
+        return f"{min(scores):.1f} – {max(scores):.1f}" if scores else "n/a"
+
+    return [f"blocked {span(False)}", f"cleared {span(True)}"]
+
+
 def summary(path: Path) -> str:
     """Aggregate a log into the report `gctx telemetry summary` prints.
 
@@ -223,6 +239,7 @@ def summary(path: Path) -> str:
             f"cleared {cleared}",
             f"blocked {blocked}      (of {cleared + blocked} semantic-consulted)",
         ),
+        _row("floor scores", *_score_cells(events)),
         _latency(events, 50),
         _latency(events, 95),
     ]

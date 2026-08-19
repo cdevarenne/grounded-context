@@ -103,6 +103,9 @@ class SemanticResult:
     citations: list[dict[str, Any]] = dataclass_field(default_factory=list)
     #: `True` cleared, `False` blocked, `None` the probe never ran.
     floor_passed: bool | None = None
+    #: The pre-fusion score behind that verdict, so a near miss is distinguishable from a
+    #: query that was never in domain. `None` whenever `floor_passed` is.
+    floor_score: float | None = None
 
 
 def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> SemanticResult:
@@ -121,12 +124,15 @@ def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> SemanticResu
         return SemanticResult()
 
     from .es_client import client
-    from .semantic import is_relevant, search
+    from .semantic import probe, search
 
     es = client()
-    if not is_relevant(query, es=es):
-        return SemanticResult(floor_passed=False)
-    return SemanticResult(search(query, size=size, es=es, floor=None), floor_passed=True)
+    cleared, score = probe(query, es=es)
+    if not cleared:
+        return SemanticResult(floor_passed=False, floor_score=score)
+    return SemanticResult(
+        search(query, size=size, es=es, floor=None), floor_passed=True, floor_score=score
+    )
 
 
 def _semantic_answer(
@@ -172,6 +178,7 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
             total_ms=_elapsed_ms(started),
             semantic_ms=semantic_ms,
             relevance_floor_passed=result.floor_passed,
+            relevance_score=result.floor_score,
         )
         return envelope
 
@@ -203,5 +210,6 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
         deterministic_ms=deterministic_ms,
         semantic_ms=semantic_ms,
         relevance_floor_passed=result.floor_passed,
+            relevance_score=result.floor_score,
     )
     return envelope

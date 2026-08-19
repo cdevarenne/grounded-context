@@ -33,6 +33,7 @@ MAPPING: dict[str, Any] = {
         "retrieval_path": {"type": "keyword"},
         "canonical_hit": {"type": "boolean"},
         "relevance_floor_passed": {"type": "boolean"},
+        "relevance_score": {"type": "float"},
         "refused": {"type": "boolean"},
         "cites": {"type": "integer"},
         "latency_ms": {
