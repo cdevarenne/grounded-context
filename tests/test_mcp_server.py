@@ -101,7 +101,7 @@ def test_ask_tool_routes_a_precision_question_deterministically() -> None:
 
 def test_refusal_is_a_grounded_result_not_a_protocol_error(monkeypatch) -> None:
     """With no index reachable, the refusal is a clean result rather than a tool failure."""
-    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [])
+    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: service.SemanticResult())
     structured = call("ask_grounded", query="How should I chunk documents for retrieval?")
     assert structured["router"]["route"] == "SEMANTIC"
     assert structured["answer"] == NOT_FOUND
@@ -125,7 +125,10 @@ def test_semantic_hit_keeps_the_deterministic_citation_shape(monkeypatch) -> Non
         "hops": [],
         "snippet": "rank_constant determines influence.",
     }
-    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [fake])
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult([fake], floor_passed=True),
+    )
     structured = call("ask_grounded", query="How should I chunk documents for retrieval?")
     assert structured["citations"][0]["method"] == "hybrid(bm25+elser,rrf)"
     assert "rank_constant" in structured["rendered"]

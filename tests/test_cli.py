@@ -46,7 +46,7 @@ def test_ask_renders_booleans_readably(capsys):
 
 def test_exploratory_question_refuses_when_elasticsearch_is_absent(capsys, monkeypatch):
     """No index reachable means no grounded source — refuse rather than fall back."""
-    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: [])
+    monkeypatch.setattr(service, "semantic_citations", lambda query, size=5: service.SemanticResult())
     assert main(["ask", "How should I chunk documents for retrieval?"]) == 1
     out = capsys.readouterr().out
     assert "router: SEMANTIC" in out

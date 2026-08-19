@@ -101,7 +101,21 @@ def event(
     }
 
 
-def emit(record: dict[str, Any], sink: str | None = None) -> None:
+def record(query: str, envelope: dict[str, Any], **fields: Any) -> None:
+    """Build and emit one event — the single call an answer path makes, and it cannot raise.
+
+    `fields` are the keyword arguments of :func:`event`. Building is inside the guard as well as
+    writing, because an answer must survive a malformed event just as it survives a broken disk.
+    """
+    if not is_enabled():
+        return
+    try:
+        emit(event(query, envelope, **fields))
+    except Exception as error:  # noqa: BLE001
+        print(f"telemetry: {type(error).__name__}: {error}", file=sys.stderr)
+
+
+def emit(entry: dict[str, Any], sink: str | None = None) -> None:
     """Append one event to the log, best-effort.
 
     Every failure is swallowed to at most one line on stderr. An unavailable telemetry sink is a
@@ -114,6 +128,6 @@ def emit(record: dict[str, Any], sink: str | None = None) -> None:
         path = sink_path(sink)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record) + "\n")
+            handle.write(json.dumps(entry) + "\n")
     except Exception as error:  # noqa: BLE001
         print(f"telemetry: {type(error).__name__}: {error}", file=sys.stderr)
