@@ -134,9 +134,9 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
 | Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
-| Observability — per-query telemetry + local summary | 🟡 4 of 6 signals emitting, readback is cloud-free |
+| Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
-| Observability — Kibana dashboard | ⬜ next |
+| Observability — Kibana dashboard | ✅ 5 panels, exported to [`docs/kibana/`](docs/kibana/) |
 | Observability — corpus-state snapshot (2 remaining signals) | ⬜ planned |
 
 ---
@@ -165,6 +165,8 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   implementations build to, so an index is the same whoever builds it.
 - **[docs/compatibility-matrix.md](docs/compatibility-matrix.md)** — generated view over the
   model files.
+- **[docs/kibana-setup.md](docs/kibana-setup.md)** — how the telemetry dashboard was built,
+  where Kibana's UI fights you, and the two places it deliberately disagrees with the CLI.
 - **[docs/maintenance.md](docs/maintenance.md)** — how the canonical layer is kept current:
   re-verifying a concept, moving `stale_after`, refreshing the corpus, and what a build already
   checks for you.

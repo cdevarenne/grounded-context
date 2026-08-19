@@ -211,8 +211,14 @@ a signal; each is a single aggregation:
 | Per-path latency | `percentiles` (p50/p95) on the three `latency_ms.*` | signal 6 |
 | BOTH cost | `percentiles` on `latency_ms.total` filtered to `route:BOTH` | signal 6 — what routing to BOTH actually costs |
 
-Export the dashboard to `docs/kibana/telemetry-dashboard.ndjson` and commit it, so the panels are
-a checked-in artifact rather than a screenshot.
+Export the dashboard to [`../kibana/telemetry-dashboard.json`](../kibana/telemetry-dashboard.json)
+and commit it, so the panels are a checked-in artifact rather than a screenshot.
+
+The format is a dashboard *definition*, not a saved-objects bundle: this Serverless project offers
+no `.ndjson` export and no Saved Objects app. It carries every panel's configuration, which is what
+makes it diffable, but it references the data view by id without including it — so the file records
+the dashboard rather than importing it. [`../kibana-setup.md`](../kibana-setup.md) is what makes it
+reproducible, and records the UI traps found building it.
 
 ## Verification
 
