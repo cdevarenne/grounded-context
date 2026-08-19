@@ -72,11 +72,15 @@ def test_the_readme_test_count_matches_what_collection_produced() -> None:
 
     The count depends on which extras are installed — without `mcp` the server tests are not
     collected at all — so the published figure is the full-suite one and this skips otherwise.
+    It also skips when the invocation itself selected a subset, for the same reason: a partial
+    run cannot confirm a number that describes a complete one.
     """
     import importlib.util
 
     from conftest import COLLECTED
 
+    if not COLLECTED.get("whole_suite"):
+        pytest.skip("narrowed run — this count does not describe the whole suite")
     if importlib.util.find_spec("mcp") is None:
         pytest.skip("no mcp extra — collection is a subset of the published count")
 
