@@ -1,11 +1,11 @@
 # Building the telemetry dashboard in Kibana
 
 [`kibana/telemetry-dashboard.json`](kibana/telemetry-dashboard.json) is the committed dashboard —
-five panels over the projected telemetry index. This is how it was built, including the places
+six panels over the projected telemetry index. This is how it was built, including the places
 where the UI does not do what you would expect.
 
 Written from an actual build session against **Elastic Cloud Serverless (Elasticsearch project
-type)** on 2026-08-18, not from memory. Menu labels move between versions; where this disagrees
+type)** on 2026-08-18 and 2026-08-19, not from memory. Menu labels move between versions; where this disagrees
 with what you see, trust the screen.
 
 ## Before you start
@@ -23,6 +23,16 @@ uv run --extra es gctx telemetry index --log tests/data/telemetry-sample.ndjson
 
 That is 26 events: 8 `DETERMINISTIC`, 12 `SEMANTIC`, 4 `DIRECT`, 2 `BOTH`.
 
+**After a schema change, rebuild rather than re-index.** A new field is not added to an existing
+mapping by loading documents into it, so `--recreate` is what makes it queryable:
+
+```bash
+uv run --extra es gctx telemetry index --log tests/data/telemetry-sample.ndjson --recreate
+```
+
+The log is the source of truth and the index is a projection over it, so replaying the whole log
+is the normal repair, not a last resort.
+
 ## 1. The data view
 
 **Discover → data view selector → Create a data view.**
@@ -36,6 +46,11 @@ That is 26 events: 8 `DETERMINISTIC`, 12 `SEMANTIC`, 4 `DIRECT`, 2 `BOTH`.
 > **Gotcha — the selector is hidden in the default Discover view.** Switch Discover to **classic
 > view** and the data view selector appears in the top left.
 
+> **Gotcha — there is no Stack Management → Data Views in this project type.** The left nav offers
+> **Data management → Index Management**, which is a different thing: "Reload indices" refreshes
+> that table and has no effect on a data view. In practice new fields appeared in Lens without any
+> refresh after the index was rebuilt, so check the field list before hunting for the menu.
+
 > **Gotcha — the time picker will show you nothing.** The fixture's events are timestamped
 > `2026-08-18T15:00–15:07Z`, so anything narrower than the age of your data returns zero hits and
 > looks like a broken setup. Set **Last 24 hours**, or an absolute range covering the log.
@@ -45,8 +60,7 @@ That is 26 events: 8 `DETERMINISTIC`, 12 `SEMANTIC`, 4 `DIRECT`, 2 `BOTH`.
 ## 2. Create the dashboard first
 
 > **Gotcha — "Create visualization" from inside a dashboard saves the panel into *that*
-> dashboard.** Building five panels without an existing dashboard produces five dashboards with
-> one panel each.
+> dashboard.** Building panels without an existing dashboard produces one dashboard per panel.
 
 **Dashboards → Create dashboard**, save it empty as `Grounded context — telemetry`, and build
 every panel from inside it. That title travels into the export.
@@ -56,7 +70,7 @@ If you already have stray single-panel dashboards: open each, panel context menu
 *Save to library* — it keeps panels by value, embedded in the dashboard, which is what makes the
 export self-contained.
 
-## 3. The five panels
+## 3. The six panels
 
 Each maps to one signal in [`specs/observability.md`](specs/observability.md). Expected values are
 over the committed fixture.
@@ -147,6 +161,25 @@ Metric · the visualization's own KQL bar set to `route: "BOTH"` · primary **Pe
 The secondary metric is not decoration. A p95 over two data points is arithmetic, not statistics,
 and putting the sample size on the panel face stops the number reading as a benchmark — the same
 discipline as the README's "the eval set is illustrative, **not** a benchmark".
+
+### Closest refusal (floor 8.0)
+
+Metric · the visualization's own KQL bar set to `relevance_floor_passed: false` · primary
+**Maximum** of `relevance_score`, Number 1 decimal, labelled `closest blocked score` ·
+**secondary metric `Count of records`**, labelled `refusals`.
+
+**3.1** with **refusals 3** beside it.
+
+This is the panel `relevance_score` exists for. The floor rejected three queries and the nearest
+scored 3.1 against a threshold of 8.0 — none were near misses, so the corpus is not failing to
+answer questions it almost could. A closest-refusal creeping toward 8 is what a curation gap
+looks like, and it is the number that would change what you do next.
+
+> **Gotcha — do not reach for a histogram here.** The obvious panel is a distribution of blocked
+> scores, and at this sample size it is useless: three values spanning 1.7–3.1 render as three
+> hairline spikes against a y-axis running 0 to 1. It shows that three things exist, not how they
+> are distributed. The same small-n honesty that puts `queries 2` on the BOTH panel says take the
+> maximum instead and show the count beside it.
 
 ## 4. Export
 

@@ -161,7 +161,7 @@ strengthen it.
 | Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
 | Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, schema v2, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
-| Observability — Kibana dashboard | ✅ 5 panels, exported to [`docs/kibana/`](docs/kibana/) |
+| Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |
 | Observability — corpus-state snapshot (2 remaining signals) | ⬜ [#5](https://github.com/cdevarenne/grounded-context/issues/5) |
 
 **What's next.** Open work is tracked as [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
