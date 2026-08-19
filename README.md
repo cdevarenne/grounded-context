@@ -200,6 +200,11 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   never scraped, and third-party document text is never committed to this repo.
 - **Small-n evaluation.** The eval set is illustrative — which engine answers, and that
   provenance is present. It is **not** a benchmark and no performance claims are made from it.
+- **The canonical source is the filesystem.** Lookup reads a bundle parsed from Markdown, with
+  nothing between them. Pointing the deterministic path at a system of record — a compliance
+  database, a CMDB, a ServiceNow API — is the obvious next step and is not built: it needs a
+  provider interface with the Markdown parser as one implementation, and a seam with a single
+  implementation proves nothing until there is a second.
 - **Agent Builder and Workflows/SOAR are described, not built.**
   [SOAR](https://www.elastic.co/what-is/soar) is the action half of the pattern: the agent
   reasons over grounded context, Workflows executes. This demo is the hand-rolled version of what
