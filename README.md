@@ -158,8 +158,6 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   [`eval.md`](docs/specs/eval.md).
 - **[docs/index-spec.md](docs/index-spec.md)** — the chunking rule and index mapping both
   implementations build to, so an index is the same whoever builds it.
-- **[docs/index-spec.md](docs/index-spec.md)** — the chunking rule and index mapping both
-  implementations build to, so an index is the same whoever builds it.
 - **[docs/compatibility-matrix.md](docs/compatibility-matrix.md)** — generated view over the
   model files.
 - **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
