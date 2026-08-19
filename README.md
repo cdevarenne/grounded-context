@@ -160,6 +160,9 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
   implementations build to, so an index is the same whoever builds it.
 - **[docs/compatibility-matrix.md](docs/compatibility-matrix.md)** — generated view over the
   model files.
+- **[docs/maintenance.md](docs/maintenance.md)** — how the canonical layer is kept current:
+  re-verifying a concept, moving `stale_after`, refreshing the corpus, and what a build already
+  checks for you.
 - **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
 
 

@@ -72,3 +72,8 @@ stage-3 addition via a metered API key — not needed for v1.
   - `provenance.md` — the exact citation-block shape
   - `router.md` — classification rules + interface
   - `eval.md` — the ~12-question eval set + expected engine per question
+  - `observability.md` — the per-query telemetry event, its emit sites, and the three
+    non-negotiables (emitted after the answer, best-effort, never blocks)
+  - `observability-corpus-state.md` — the bundle-governance snapshot: the other two signals
+- Keeping the canonical layer current: `docs/maintenance.md` — re-verification, `stale_after`,
+  corpus refresh, and which checks are automated.

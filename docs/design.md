@@ -143,18 +143,31 @@ about it.
 
 ## Observability — how the open question gets answered
 
-The retrieval layer emits its own telemetry into Elasticsearch, the same platform serving the
-semantic path:
+The answer has to come from the retrieval layer's own telemetry, emitted into Elasticsearch — the
+same platform serving the semantic path. Six signals turn "does curation scale?" from an argument
+into a dashboard, and they make the context layer *itself* observable:
 
-| Signal | What it tells you |
-|---|---|
-| Router decisions + rationale | What fraction of real queries actually need the deterministic path |
-| Canonical hit / miss rate | How often a precision query finds no canonical field — the curation backlog, measured |
-| Concepts past `stale_after` | Whether governance is keeping up or falling behind |
-| Trust-tier distribution | What share of the corpus is human-reviewed vs machine-confirmed vs unverified |
-| Refusal rate | How often "not found in the grounded sources" fires |
-| Per-path latency | What routing to `BOTH` actually costs |
+| Signal | What it tells you | Shape |
+|---|---|---|
+| Router decisions + rationale | What fraction of real queries actually need the deterministic path | per-query event |
+| Canonical hit / miss rate | How often a precision query finds no canonical field — the curation backlog, measured | per-query event |
+| Refusal rate | How often "not found in the grounded sources" fires | per-query event |
+| Per-path latency | What routing to `BOTH` actually costs | per-query event |
+| Concepts past `stale_after` | Whether governance is keeping up or falling behind | corpus-state snapshot |
+| Trust-tier distribution | What share of the corpus is human-reviewed vs machine-confirmed vs unverified | corpus-state snapshot |
 
-Those six signals turn "does curation scale?" from an argument into a dashboard, and they make
-the context layer *itself* observable. Lessons from that instrumentation are what should decide
-whether this approach is production-worthy, and what the alternatives are if it isn't.
+They are two different shapes, which is why they ship as two pieces of work. The first four are
+observations of a single query being answered, so one event per answer carries all of them. The
+last two are not about a query at all — they are a scan over `knowledge/` describing the bundle's
+governance state at a moment, on a much slower cadence.
+
+**Status: designed and specified, not yet built.** The contracts are written down —
+[`specs/observability.md`](specs/observability.md) for the per-query event and
+[`specs/observability-corpus-state.md`](specs/observability-corpus-state.md) for the snapshot —
+including the guarantee that matters most for a layer whose pitch is determinism: telemetry is
+emitted *after* the answer envelope is final and is best-effort, so a failing sink can never
+change or block an answer.
+
+Lessons from that instrumentation are what should decide whether this approach is
+production-worthy, and what the alternatives are if it isn't. Until it runs, the honest position
+is that the question is open and the instrument is specified.
