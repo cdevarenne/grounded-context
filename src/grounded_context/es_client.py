@@ -64,9 +64,31 @@ def is_configured() -> bool:
     return importlib.util.find_spec("elasticsearch") is not None
 
 
+#: Connection policy, matching the JVM port (JVM-15). A cloud endpoint occasionally refuses a
+#: connection under load, and a transient blip that fails a command is indistinguishable from a
+#: broken install to anyone who just cloned this.
+CONNECTION_OPTIONS: dict[str, Any] = {
+    "request_timeout": 60,
+    "max_retries": 4,
+    # `False` by default, and this is the gap that matters: a connect or read timeout — the exact
+    # shape a cloud blip takes — is otherwise not retried at all.
+    "retry_on_timeout": True,
+    # Already the library default. Set explicitly so it visibly matches the JVM's list and cannot
+    # drift away from it if that default ever changes.
+    "retry_on_status": (429, 502, 503, 504),
+    # Also `0` by default, which means retries fire immediately and hammer a cluster that is
+    # already struggling. The JVM uses exponentialBackoff(500ms).
+    "retry_backoff_base": 0.5,
+}
+
+
 def client(**kwargs: Any) -> Any:
-    """Build an Elasticsearch client. Import is local so the core install stays lean."""
+    """Build an Elasticsearch client. Import is local so the core install stays lean.
+
+    Keyword arguments override :data:`CONNECTION_OPTIONS`, which is how a caller supplies a
+    corporate CA bundle (`ca_certs=...`) or tightens a timeout for one call.
+    """
     from elasticsearch import Elasticsearch
 
     url, api_key = credentials()
-    return Elasticsearch(url, api_key=api_key, request_timeout=60, **kwargs)
+    return Elasticsearch(url, api_key=api_key, **{**CONNECTION_OPTIONS, **kwargs})

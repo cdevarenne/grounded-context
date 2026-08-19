@@ -62,7 +62,7 @@ uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tok
 uv run gctx entities
 uv run gctx telemetry summary   # what the layer recorded about its own decisions
 
-uv run pytest -q         # 181 collected here; 142 pass, the rest skip without ES / the mcp extra
+uv run pytest -q         # 188 collected here; 142 pass, the rest skip without ES / the mcp extra
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -128,7 +128,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 191 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ 198 tests with all extras; runs on 3.11–3.14, count drift-tested |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
