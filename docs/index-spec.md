@@ -104,6 +104,9 @@ Provenance quotes its source; it does not reinterpret it.
 }
 ```
 
+The inference endpoint is the default, not a constant: `ES_INFERENCE_ID` overrides it,
+because a self-managed cluster names its ELSER endpoint differently from Serverless.
+
 Three parts of this are load-bearing:
 
 - **`copy_to: semantic`** puts the same text behind both arms. Without it the lexical and sparse

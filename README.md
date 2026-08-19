@@ -62,7 +62,7 @@ uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tok
 uv run gctx entities
 uv run gctx telemetry summary   # what the layer recorded about its own decisions
 
-uv run pytest -q         # 188 collected here; 142 pass, the rest skip without ES / the mcp extra
+uv run pytest -q         # 193 collected here; 147 pass, the rest skip without ES / the mcp extra
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -99,6 +99,21 @@ Without those credentials the exploratory branch returns `Not found in the groun
 rather than failing — an unavailable engine is a refusal, not an error, and never a fallback to
 the model's own memory.
 
+**Pointing it at your own cluster.** Four settings, read from the environment or the same `.env`:
+
+| | |
+|---|---|
+| `ES_URL` · `ES_API_KEY` | the endpoint and its key — required, never logged, never committed |
+| `ES_INDEX` | the index every command reads and writes (default `grounded-context-corpus`) |
+| `ES_INFERENCE_ID` | the ELSER endpoint the mapping is built against (default `.elser-2-elasticsearch`) |
+
+`.elser-2-elasticsearch` is preconfigured on Elastic Cloud Serverless. A self-managed cluster
+names its own — `elser_v2`, or whatever `PUT _inference/sparse_embedding/<id>` created — so the
+default is a default, not an assumption.
+
+For a cluster behind a corporate CA, `es_client.client()` forwards any keyword argument to the
+Elasticsearch client, so `client(ca_certs="/path/to/ca.crt")` works without changing this code.
+
 ### From an agent, over MCP
 
 The retrieval tool is exposed as an MCP server over stdio. The SDK is an **extra**, so the
@@ -128,7 +143,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 198 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ 203 tests with all extras; runs on 3.11–3.14, count drift-tested |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |

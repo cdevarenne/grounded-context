@@ -15,9 +15,16 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
 
-INDEX = "grounded-context-corpus"
-# Preconfigured ELSER endpoint on Elastic Cloud Serverless.
-INFERENCE_ID = ".elser-2-elasticsearch"
+#: The corpus this project curates. An adopter points `ES_INDEX` at their own.
+DEFAULT_INDEX = "grounded-context-corpus"
+
+#: The preconfigured ELSER endpoint on Elastic Cloud Serverless. Self-managed clusters name
+#: theirs differently — `elser_v2`, or whatever `PUT _inference/sparse_embedding/<id>` created —
+#: so this cannot be a constant if the code is to run anywhere but here.
+DEFAULT_INFERENCE_ID = ".elser-2-elasticsearch"
+
+INDEX_VAR = "ES_INDEX"
+INFERENCE_ID_VAR = "ES_INFERENCE_ID"
 
 
 class ElasticsearchNotConfigured(RuntimeError):
@@ -34,6 +41,18 @@ def load_env(path: Path = ENV_FILE) -> None:
             continue
         key, _, value = line.partition("=")
         os.environ.setdefault(key.strip(), value.strip())
+
+
+def setting(name: str, default: str) -> str:
+    """One configurable value: the environment, then a gitignored `.env`, then the default."""
+    load_env()
+    return os.environ.get(name, "").strip() or default
+
+
+#: Resolved once at import, matching the JVM port, which resolves at class initialization.
+#: Changing the environment afterwards does not move them.
+INDEX = setting(INDEX_VAR, DEFAULT_INDEX)
+INFERENCE_ID = setting(INFERENCE_ID_VAR, DEFAULT_INFERENCE_ID)
 
 
 def credentials() -> tuple[str, str]:
