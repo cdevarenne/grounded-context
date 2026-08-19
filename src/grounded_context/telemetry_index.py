@@ -93,6 +93,13 @@ def run(path: Path, index: str = TELEMETRY_INDEX, recreate: bool = False) -> int
         print(UNAVAILABLE)
         return 0
 
+    from .telemetry import SCHEMA_VERSION, read_log
+
+    stale = sorted({e.get("schema_version") for e in read_log(path)} - {SCHEMA_VERSION, None})
+    if stale:
+        print(f"note: log holds schema_version {', '.join(str(v) for v in stale)} events "
+              f"alongside {SCHEMA_VERSION}; the mapping covers the union")
+
     indexed = project(path, index=index, recreate=recreate)
     if not indexed:
         print(f"nothing to project — {path} holds no events")

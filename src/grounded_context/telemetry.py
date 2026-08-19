@@ -198,6 +198,20 @@ def _score_cells(events: list[dict[str, Any]]) -> list[str]:
     return [f"blocked {span(False)}", f"cleared {span(True)}"]
 
 
+def _schema_warning(events: list[dict[str, Any]]) -> str | None:
+    """Name a log written by a different version rather than quietly under-reporting it.
+
+    A v1 log has no `relevance_score`, so the floor-score row would print `n/a` and look like a
+    corpus with no blocked queries instead of a log that predates the field.
+    """
+    found = sorted({e.get("schema_version") for e in events} - {SCHEMA_VERSION})
+    if not found:
+        return None
+    versions = ", ".join(str(v) for v in found)
+    return (f"! this log holds schema_version {versions} events and the summary expects "
+            f"{SCHEMA_VERSION} — fields added since may read as absent")
+
+
 def summary(path: Path) -> str:
     """Aggregate a log into the report `gctx telemetry summary` prints.
 
@@ -220,9 +234,11 @@ def summary(path: Path) -> str:
     blocked = sum(1 for e in events if e["relevance_floor_passed"] is False)
     both = [e["latency_ms"]["total"] for e in events if e["route"] == "BOTH"]
 
+    warning = _schema_warning(events)
     lines = [
         header,
         f"events: {total}   window: {events[0]['@timestamp']} .. {events[-1]['@timestamp']}",
+        *([warning] if warning else []),
         "",
         _row("route mix", *(f"{name} {routes[name]} ({_pct(routes[name], total)}%)"
                             for name in ROUTES)),

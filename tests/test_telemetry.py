@@ -257,3 +257,21 @@ def test_the_summary_separates_a_near_miss_from_off_topic(sink: Path) -> None:
                      relevance_score=18.2)
 
     assert "floor scores     blocked 1.7 – 7.9   cleared 18.2 – 18.2" in telemetry.summary(sink)
+
+
+def test_an_older_log_is_named_rather_than_under_reported(sink: Path) -> None:
+    """A v1 log has no scores, so a silent summary would look like a corpus with no refusals."""
+    sink.write_text(json.dumps({
+        "@timestamp": "2026-08-18T15:00:00.000Z", "schema_version": 1, "query": "q",
+        "route": "SEMANTIC", "rationale": "r", "retrieval_path": "semantic",
+        "canonical_hit": None, "relevance_floor_passed": False, "refused": True, "cites": 0,
+        "latency_ms": {"deterministic": None, "semantic": 1.0, "total": 1.0},
+    }) + "\n", encoding="utf-8")
+
+    report = telemetry.summary(sink)
+    assert "schema_version 1" in report and f"expects {telemetry.SCHEMA_VERSION}" in report
+
+
+def test_a_current_log_carries_no_warning() -> None:
+    """The golden output has no warning line, so this must not fire on the committed fixture."""
+    assert telemetry._schema_warning([{"schema_version": telemetry.SCHEMA_VERSION}]) is None
