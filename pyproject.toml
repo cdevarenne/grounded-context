@@ -11,6 +11,9 @@ dependencies = ["PyYAML>=6"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+# A test report is a build artifact, so the tool that writes it is opt-in: `--extra dev` stays
+# a two-package install for a reviewer who only wants to run the suite.
+report = ["pytest-html>=4"]
 mcp = [
     "mcp>=2.0.0",
 ]

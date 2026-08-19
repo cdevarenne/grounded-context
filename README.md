@@ -62,8 +62,19 @@ uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tok
 uv run gctx entities
 uv run gctx telemetry summary   # what the layer recorded about its own decisions
 
-uv run pytest -q         # 200 collected here; 154 pass, the rest skip without ES / the mcp extra
+uv run pytest -q         # cluster and MCP tests skip without ES / the `mcp` extra
 ```
+
+The suite reports its own totals, so this README does not restate them. For a report rather
+than a terminal summary:
+
+```bash
+uv run pytest --junitxml=var/test-results.xml                  # machine-readable, no extra dependency
+uv run --extra report pytest --html=var/test-report.html --self-contained-html
+```
+
+`var/` is gitignored: a test report describes one run on one machine, so it is a build artifact
+rather than a committed fact.
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
 shell — the *repeatable* property applied to the build itself.
@@ -153,7 +164,7 @@ strengthen it.
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 210 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ runs on 3.11–3.14; cluster and MCP tests skip without their extras |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
