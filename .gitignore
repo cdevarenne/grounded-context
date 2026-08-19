@@ -6,6 +6,7 @@ __pycache__/
 *.egg-info/
 .antigravitycli/
 corpus/raw/
+var/
 
 # Private working files — not for publication
 backlog.csv

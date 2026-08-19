@@ -1,0 +1,169 @@
+"""The telemetry event and its sink.
+
+Two of the three non-negotiables in `docs/specs/observability.md` live at this level: the write is
+best-effort, and it needs no network. The third — that telemetry never changes an answer — belongs
+to the emit site and is tested there.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from grounded_context import telemetry
+from grounded_context.provenance import DETERMINISTIC, MIXED, NOT_FOUND, SEMANTIC, grounded_answer
+
+# Only what a citation needs for the event to be derivable; the full shape is pinned elsewhere.
+EXACT_CITE: dict[str, Any] = {"path": DETERMINISTIC, "locator": "canonical.context_window_tokens"}
+PASSAGE_CITE: dict[str, Any] = {"path": SEMANTIC, "locator": "chunk:1"}
+
+ROUTED_SEMANTIC = {"route": "SEMANTIC", "rationale": "open-ended phrasing"}
+ROUTED_BOTH = {"route": "BOTH", "rationale": "ambiguous; run both"}
+
+
+@pytest.fixture(autouse=True)
+def sink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Every test in this file writes to its own log, never the repo's."""
+    path = tmp_path / "telemetry.ndjson"
+    monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(path))
+    return path
+
+
+def read(path: Path) -> list[dict[str, Any]]:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+
+# --- the event ------------------------------------------------------------------------
+
+
+def test_the_event_carries_every_field_the_spec_names() -> None:
+    envelope = grounded_answer("1,000,000", [EXACT_CITE], DETERMINISTIC, ROUTED_BOTH)
+    record = telemetry.event("q", envelope, total_ms=2.06, deterministic_ms=1.84)
+
+    assert set(record) == {
+        "@timestamp", "schema_version", "query", "route", "rationale", "retrieval_path",
+        "canonical_hit", "relevance_floor_passed", "refused", "cites", "latency_ms",
+    }
+    assert record["schema_version"] == telemetry.SCHEMA_VERSION
+    assert record["@timestamp"].endswith("Z")
+    assert set(record["latency_ms"]) == {"deterministic", "semantic", "total"}
+    # One decimal, so a summary over these reproduces the committed golden output.
+    assert record["latency_ms"] == {"deterministic": 1.8, "semantic": None, "total": 2.1}
+
+
+def test_a_direct_lookup_reports_itself_as_unrouted() -> None:
+    """`gctx lookup` and `lookup_canonical_fact` name the field outright; no router runs."""
+    envelope = grounded_answer("POST", [EXACT_CITE], DETERMINISTIC, None)
+    record = telemetry.event("anthropic.messages method", envelope, total_ms=1.7)
+
+    assert record["route"] == telemetry.DIRECT
+    assert record["rationale"] == telemetry.DIRECT_RATIONALE
+
+
+@pytest.mark.parametrize(
+    ("citations", "path", "router", "expected"),
+    [
+        ([EXACT_CITE], DETERMINISTIC, ROUTED_BOTH, True),
+        ([], DETERMINISTIC, ROUTED_BOTH, False),
+        ([EXACT_CITE, PASSAGE_CITE], MIXED, ROUTED_BOTH, True),
+        ([PASSAGE_CITE], SEMANTIC, ROUTED_BOTH, False),
+        ([PASSAGE_CITE], SEMANTIC, ROUTED_SEMANTIC, None),
+        ([EXACT_CITE], DETERMINISTIC, None, True),
+        ([], DETERMINISTIC, None, False),
+    ],
+)
+def test_canonical_hit_separates_a_miss_from_a_query_that_never_asked(
+    citations: list[dict[str, Any]], path: str, router: dict[str, str] | None, expected: bool | None
+) -> None:
+    """`None` is not `False`: only one of them is the curation backlog."""
+    record = telemetry.event("q", grounded_answer("x", citations, path, router), total_ms=1.0)
+    assert record["canonical_hit"] is expected
+
+
+def test_a_refusal_is_recorded_as_one() -> None:
+    record = telemetry.event("q", grounded_answer("", [], DETERMINISTIC, None), total_ms=1.5)
+    assert record["refused"] is True
+    assert record["cites"] == 0
+
+
+# --- the sink -------------------------------------------------------------------------
+
+
+def test_the_sink_appends_one_line_per_event(sink: Path) -> None:
+    telemetry.emit({"n": 1})
+    telemetry.emit({"n": 2})
+    assert [r["n"] for r in read(sink)] == [1, 2]
+
+
+def test_the_sink_creates_its_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    nested = tmp_path / "var" / "telemetry.ndjson"
+    monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(nested))
+    telemetry.emit({"n": 1})
+    assert nested.is_file()
+
+
+def test_a_failing_sink_never_raises(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An unavailable sink is a no-op. The answer that was going to return still returns."""
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()  # a directory where the log should be, so the append cannot succeed
+    monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(blocked))
+
+    telemetry.emit({"n": 1})
+
+    stderr = capsys.readouterr().err.strip()
+    # Reported, so a broken sink is visible — but reported once, and not raised.
+    assert stderr.startswith("telemetry: IsADirectoryError")
+    assert stderr.count("\n") == 0, "at most one line on stderr"
+
+
+def test_turning_telemetry_off_writes_nothing(sink: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GCTX_TELEMETRY", "0")
+    telemetry.emit({"n": 1})
+    assert not sink.exists()
+
+
+def test_the_sink_resolves_independently_of_the_working_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The MCP server is spawned from its client's directory, wherever that is."""
+    monkeypatch.delenv("GCTX_TELEMETRY_SINK", raising=False)
+    assert telemetry.sink_path().is_absolute()
+
+
+def test_recording_an_event_never_reaches_the_cloud_half(tmp_path: Path) -> None:
+    """The zero-cloud guarantee, measured in a fresh interpreter rather than promised.
+
+    Building and writing an event must not import Elasticsearch — not directly, and not through
+    the deterministic modules it reads its constants from.
+    """
+    code = (
+        "import sys, grounded_context.telemetry as t\n"
+        "envelope = {'answer': 'x', 'retrieval_path': 'deterministic',"
+        " 'router': None, 'citations': []}\n"
+        "t.emit(t.event('q', envelope, total_ms=1.0))\n"
+        "print('elasticsearch' in sys.modules,"
+        " 'grounded_context.es_client' in sys.modules,"
+        " 'grounded_context.semantic' in sys.modules)\n"
+    )
+    root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={
+            **os.environ,
+            "PYTHONPATH": str(root / "src"),
+            "GCTX_TELEMETRY_SINK": str(tmp_path / "telemetry.ndjson"),
+        },
+    )
+    assert result.stdout.split() == ["False", "False", "False"]
+    assert (tmp_path / "telemetry.ndjson").is_file(), "the event still has to land"
