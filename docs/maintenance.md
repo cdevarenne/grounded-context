@@ -92,7 +92,7 @@ Automated — these fail a build:
 
 **Not automated: nothing warns you that a date is approaching.** `is_stale` is evaluated per
 answer, so you find out when a citation says `STALE` — correct behaviour, late notice. Closing
-that is `ELX-25`, the corpus-state snapshot: a scan over `knowledge/` that reports how many
+that is [issue #3](https://github.com/cdevarenne/grounded-context/issues/3), backed by the corpus-state snapshot: a scan over `knowledge/` that reports how many
 concepts are past `stale_after` and, with `--as-of`, how many *will* be on a future date. Run on a
 schedule, that turns the cliff into a line on a chart you can see coming. Until it exists, the
 `gctx --as-of` command above is the manual equivalent.

@@ -128,7 +128,7 @@ uv run gctx-mcp        # serves on stdio; a client drives it
 `lookup_canonical_fact`, `ask_grounded`, `list_entities`. The same `gctx-mcp` command was driven
 from Claude **and** from Gemini (via the Antigravity CLI) with no adapter and no code change —
 the model-agnostic claim, demonstrated rather than asserted. Full transcript and wiring:
-**[docs/AntigravityQandA.md](docs/AntigravityQandA.md)**.
+**[docs/AntigravityQandA.md](docs/AntigravityQandA.md)**. A third runtime, OpenAI's Codex CLI, is [#4](https://github.com/cdevarenne/grounded-context/issues/4).
 
 ---
 
@@ -153,6 +153,16 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
 | Observability — Kibana dashboard | ✅ 5 panels, exported to [`docs/kibana/`](docs/kibana/) |
 | Observability — corpus-state snapshot (2 remaining signals) | ⬜ planned |
+
+**What's next.** Open work is tracked as [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
+the roadmap, not a wish list:
+
+- [#1 — capture the pre-fusion relevance score in telemetry](https://github.com/cdevarenne/grounded-context/issues/1),
+  so a refusal shows *how far* below the floor a query landed, not just that it was blocked
+- [#2 — a quickstart from clone to first grounded answer](https://github.com/cdevarenne/grounded-context/issues/2)
+- [#3 — a staleness early warning](https://github.com/cdevarenne/grounded-context/issues/3), so a
+  governance cliff is visible before a citation block starts printing `STALE`
+- [#4 — OpenAI/Codex as a third MCP consumer](https://github.com/cdevarenne/grounded-context/issues/4)
 
 ---
 
