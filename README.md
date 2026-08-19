@@ -69,8 +69,7 @@ uv run gctx telemetry summary   # what the layer recorded about its own decision
 uv run pytest -q         # cluster and MCP tests skip without ES / the `mcp` extra
 ```
 
-The suite reports its own totals, so this README does not restate them. For a report rather
-than a terminal summary:
+The test suite reports its own totals. For a report rather than a terminal summary, run:
 
 ```bash
 uv run pytest --junitxml=var/test-results.xml                  # machine-readable, no extra dependency
@@ -92,7 +91,7 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/gctx entities
 ```
 
-Without installing at all, every command works as
+Without installing anything, every command works as
 `PYTHONPATH=src python3 -m grounded_context.cli …`.
 
 ### Semantic path — needs Elasticsearch + ELSER
@@ -124,7 +123,7 @@ the model's own memory.
 
 `.elser-2-elasticsearch` is preconfigured on Elastic Cloud Serverless. A self-managed cluster
 names its own — `elser_v2`, or whatever `PUT _inference/sparse_embedding/<id>` created — so the
-default is a default, not an assumption.
+default is just that, not an assumption.
 
 For a cluster behind a corporate CA, `es_client.client()` forwards any keyword argument to the
 Elasticsearch client, so `client(ca_certs="/path/to/ca.crt")` works without changing this code.
@@ -179,11 +178,9 @@ strengthen it.
 | Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |
 | Observability — corpus-state snapshot (2 remaining signals) | ⬜ [#5](https://github.com/cdevarenne/grounded-context/issues/5) |
 
-**What's next.** Open work is tracked as [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
-the roadmap, not a wish list:
+**What's next.** Work to be done is tracked in [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
+the roadmap:
 
-- [#1 — capture the pre-fusion relevance score in telemetry](https://github.com/cdevarenne/grounded-context/issues/1),
-  so a refusal shows *how far* below the floor a query landed, not just that it was blocked
 - [#3 — a staleness early warning](https://github.com/cdevarenne/grounded-context/issues/3), so a
   governance cliff is visible before a citation block starts printing `STALE`
 - [#4 — OpenAI/Codex as a third MCP consumer](https://github.com/cdevarenne/grounded-context/issues/4)
@@ -229,7 +226,16 @@ the roadmap, not a wish list:
 
 ## Out of scope
 
-- **Read-only.** No writes, no actions, no tool execution.
+- **Read-only.** It answers questions. It does not do things. Nothing you ask it will edit a
+  document, change a record, send a message, or call another system on your behalf — there is no
+  "file the ticket" or "restart the service" here. You get an answer with a citation, or you get
+  a refusal, and that is the whole of it.
+
+  It does write in two places, both about itself rather than about your systems. Every answered
+  query appends one line to a local telemetry log (`var/telemetry.ndjson`), and the index-building
+  commands — `scripts/index_corpus.py`, `gctx telemetry index` — write to Elasticsearch when you
+  run them by hand. Neither can change an answer: the telemetry event is built *after* the answer
+  is final, and indexing is a separate step you invoke yourself.
 - **No auth, no multi-tenancy, no scale story.** Single user, single index. The MCP server runs
   over stdio as a local subprocess with no authentication or authorization layer — fine for a
   read-only local prototype; a remote transport would need both.

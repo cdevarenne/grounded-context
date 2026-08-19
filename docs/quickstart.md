@@ -5,7 +5,8 @@ and no network** — it is the deterministic spine, and it is the guaranteed del
 adds the semantic half, which does need Elasticsearch. Part 3 puts the whole thing behind MCP so
 an agent can call it.
 
-Every output below is captured from a real run, not typed by hand.
+Every output below is captured from a real run, not typed by hand — only the checkout path is
+shortened.
 
 The JVM port has its own quickstart with the same shape:
 [grounded-context-jvm/docs/quickstart.md](https://github.com/cdevarenne/grounded-context-jvm/blob/main/docs/quickstart.md).
@@ -120,7 +121,7 @@ Answer: POST
 The extra `traversed:` line is not decoration. One hop is one more place an answer could have
 gone wrong, so the hop is in the audit trail.
 
-### 5. Ask in English, and see the router decide
+### 5. Ask in plain English, and see the router decide
 
 ```console
 $ uv run gctx ask "What is the exact context window of claude-opus-5?"
@@ -163,7 +164,7 @@ design is protecting: the layer never falls back to a model's own memory.
 
 ### 7. See staleness arrive
 
-Every canonical fact carries a `stale_after` date. Pretend it is October and ask again:
+Every canonical fact carries a `stale_after` date. Ask again as if that date had passed:
 
 ```console
 $ uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens
@@ -185,7 +186,7 @@ no cloud — so this works right now, on the machine you just cloned onto:
 
 ```console
 $ uv run gctx telemetry summary
-gctx telemetry summary — /opt/devel/DevMoi/grounded-context/var/telemetry.ndjson
+gctx telemetry summary — /opt/devel/grounded-context/var/telemetry.ndjson
 events: 5   window: 2026-08-19T21:32:10.883Z .. 2026-08-19T21:32:16.469Z
 
 route mix        DETERMINISTIC 1 (20%)   SEMANTIC 0 (0%)   BOTH 0 (0%)   DIRECT 4 (80%)
@@ -326,7 +327,7 @@ reverse.
 
 ```console
 $ uv run --extra es gctx telemetry index
-projected 18 events from /opt/devel/DevMoi/grounded-context/var/telemetry.ndjson into grounded-context-telemetry
+projected 18 events from /opt/devel/grounded-context/var/telemetry.ndjson into grounded-context-telemetry
 ```
 
 A six-panel Kibana dashboard reads that index and is exported to [`docs/kibana/`](kibana/);
