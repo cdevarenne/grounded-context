@@ -83,7 +83,7 @@ Without installing at all, every command works as
 ### Semantic path — needs Elasticsearch + ELSER
 
 The semantic half needs a cloud endpoint and an API key in a gitignored `.env`, plus the `es`
-extra:
+extra. [`.env.example`](.env.example) is the template — `cp .env.example .env` and fill it in:
 
 ```bash
 uv sync --extra dev --extra es
@@ -130,6 +130,16 @@ from Claude **and** from Gemini (via the Antigravity CLI) with no adapter and no
 the model-agnostic claim, demonstrated rather than asserted. Full transcript and wiring:
 **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)**. A third runtime, OpenAI's Codex CLI, is [#4](https://github.com/cdevarenne/grounded-context/issues/4).
 
+**On FastMCP.** `mcp.server.MCPServer` *is* FastMCP: the class was folded into the official SDK
+in 2024 and renamed in SDK 2.0 to distinguish it from the standalone project, which now ships
+separately as FastMCP 3.x. So the decorator API above is FastMCP's — what is deliberately not
+used is the third-party package. Its distinguishing features (server composition, universal
+proxying, OpenAPI generation, client-side sampling) solve problems this repo does not have, and
+the one that *would* matter for an enterprise deployment — a remote transport with
+authentication — is native to the official SDK from 2.0. Putting a third-party wrapper between
+the demo and the standard it demonstrates would weaken the model-agnostic claim, not
+strengthen it.
+
 ---
 
 ## Status
@@ -152,7 +162,7 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
 | Observability — Kibana dashboard | ✅ 5 panels, exported to [`docs/kibana/`](docs/kibana/) |
-| Observability — corpus-state snapshot (2 remaining signals) | ⬜ planned |
+| Observability — corpus-state snapshot (2 remaining signals) | ⬜ [#5](https://github.com/cdevarenne/grounded-context/issues/5) |
 
 **What's next.** Open work is tracked as [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
 the roadmap, not a wish list:
