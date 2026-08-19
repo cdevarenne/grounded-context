@@ -270,8 +270,23 @@ as `eval-output.md` makes the findings checkable without it.
 ## JVM parity
 
 The **event schema is the contract.** The Python repo is the reference (ELX-24); the JVM repo
-ports it for parity (JVM-17), the way the bundle and index-spec are ported and drift-guarded. On
-the JVM the idiomatic emitter is Micrometer / Spring Actuator into Elasticsearch — a stronger
-enterprise-observability story, and worth naming in the room before it is built — but the
+ports it for parity (JVM-17), the way the bundle and index-spec are ported and drift-guarded. The
 transport may differ only *below* the document: the emitted event must match this schema
-field-for-field, enforced by a drift check like `IndexSpecParityTest`.
+field-for-field.
+
+**Ported 2026-08-19.** The JVM emits from the same single site, with the same schema, to the same
+ndjson-log-plus-projection shape, and `gctx telemetry summary` prints byte-identical output over
+the same log. Its `TelemetryParityTest` reads *this file* — the JSON example above is what it
+compares against — rather than the Python source, so the spec is the artifact both are built from.
+The two rules that make byte-identical output reachable are stated for that reason: percentiles
+are nearest-rank without interpolation, and percentages truncate rather than round.
+
+What is deliberately not shared is the encoding of the log file: `json.dumps` escapes non-ASCII
+and separates with `", "`, Jackson writes UTF-8 compactly. Both produce the same document and each
+reads the other's log. Evidence:
+[grounded-context-jvm/docs/parity.md](https://github.com/cdevarenne/grounded-context-jvm/blob/main/docs/parity.md#telemetry).
+
+On the JVM the idiomatic emitter would be Micrometer / Spring Actuator into Elasticsearch — a
+stronger enterprise-observability story, and worth naming in the room. It is not built: the sink
+is a `TelemetrySink` interface the core defines and never implements, which is the seam a
+Micrometer-backed sink would replace without the schema or the core moving.
