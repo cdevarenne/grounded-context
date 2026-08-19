@@ -6,6 +6,8 @@ module-level test files all missed: `__init__.py` re-exports a function named
 directly can catch that — only running the entry point can.
 """
 
+from pathlib import Path
+
 import pytest
 
 from grounded_context import service
@@ -112,3 +114,20 @@ def test_entities_lists_the_bundle(capsys):
 def test_missing_bundle_is_an_error_not_a_crash(capsys):
     assert main(["--bundle", "/nonexistent", "entities"]) == 2
     assert "bundle root not found" in capsys.readouterr().err
+
+
+def test_telemetry_summary_reads_the_log_with_no_cluster(capsys):
+    """The demo beat that cannot fail on a cluster blip: the readback is local."""
+    sample = Path(__file__).resolve().parent / "data" / "telemetry-sample.ndjson"
+    assert main(["telemetry", "summary", "--log", str(sample)]) == 0
+
+    out = capsys.readouterr().out
+    assert "events: 26" in out
+    assert "miss rate 35% of 14 precision queries" in out
+
+
+def test_telemetry_needs_a_subcommand(capsys):
+    """`gctx telemetry` alone is a usage error, not a silent no-op."""
+    with pytest.raises(SystemExit) as exit_code:
+        main(["telemetry"])
+    assert exit_code.value.code == 2

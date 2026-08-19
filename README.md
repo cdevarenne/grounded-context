@@ -60,8 +60,9 @@ uv run gctx ask "What is the exact context window of claude-opus-5?"
 uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → endpoint
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
+uv run gctx telemetry summary   # what the layer recorded about its own decisions
 
-uv run pytest -q         # 168 collected here; 131 pass, the rest skip without ES / the mcp extra
+uv run pytest -q         # 175 collected here; 138 pass, the rest skip without ES / the mcp extra
 ```
 
 The interpreter version and the exact dependency set are properties of the repo, not of your
@@ -126,13 +127,15 @@ the model-agnostic claim, demonstrated rather than asserted. Full transcript and
 | Provenance rendering + refusal | ✅ trust tier, staleness, traversal path |
 | Router | ✅ both branches live, BOTH merges exact + semantic |
 | CLI (`gctx lookup` / `ask` / `route` / `entities`) | ✅ |
-| Test suite | ✅ 178 tests with all extras; runs on 3.11–3.14, count drift-tested |
+| Test suite | ✅ 185 tests with all extras; runs on 3.11–3.14, count drift-tested |
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
 | Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
-| Observability instrumentation (router / staleness / refusal telemetry) | ⬜ planned |
+| Observability — per-query telemetry + local summary | 🟡 4 of 6 signals emitting, readback is cloud-free |
+| Observability — ES projection + Kibana dashboard | ⬜ next |
+| Observability — corpus-state snapshot (2 remaining signals) | ⬜ planned |
 
 ---
 

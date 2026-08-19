@@ -10,6 +10,7 @@ it, never the reverse.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -131,3 +132,103 @@ def emit(entry: dict[str, Any], sink: str | None = None) -> None:
             handle.write(json.dumps(entry) + "\n")
     except Exception as error:  # noqa: BLE001
         print(f"telemetry: {type(error).__name__}: {error}", file=sys.stderr)
+
+
+# --- readback -------------------------------------------------------------------------
+#
+# Local and cloud-free by design. The Kibana dashboard reads the projection; this reads the
+# source of truth, so the numbers behind a claim are checkable when the cluster is not.
+
+#: Print order for the route mix. `DIRECT` last: it is the un-routed path, not a decision.
+ROUTES = ("DETERMINISTIC", "SEMANTIC", "BOTH", "DIRECT")
+
+_LABEL = 17
+
+
+def _pct(part: int, whole: int) -> int:
+    """Percentages truncate and never round, so a port reproduces this line byte for byte."""
+    return int(part / whole * 100) if whole else 0
+
+
+def _percentile(values: list[float], point: int) -> float:
+    """Nearest-rank, no interpolation — chosen because it is trivial to reimplement exactly."""
+    ordered = sorted(values)
+    return ordered[max(1, math.ceil(point / 100 * len(ordered))) - 1]
+
+
+def read_log(path: Path) -> list[dict[str, Any]]:
+    """Every event in the log, oldest first. A missing log is empty, not an error."""
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def _row(label: str, *cells: str, gap: str = "   ") -> str:
+    return f"{label:<{_LABEL}}" + gap.join(cells)
+
+
+def _latency(events: list[dict[str, Any]], point: int) -> str:
+    def at(name: str) -> str:
+        values = [
+            e["latency_ms"][name] for e in events if e["latency_ms"].get(name) is not None
+        ]
+        return f"{_percentile(values, point):.1f}" if values else "n/a"
+
+    return _row(
+        f"latency p{point} ms",
+        f"deterministic {at('deterministic')}",
+        f"semantic {at('semantic')}",
+        f"total {at('total')}",
+    )
+
+
+def summary(path: Path) -> str:
+    """Aggregate a log into the report `gctx telemetry summary` prints.
+
+    The path is rendered exactly as given rather than resolved, so the header names the log the
+    reader asked for.
+    """
+    events = read_log(path)
+    header = f"gctx telemetry summary — {path}"
+    if not events:
+        return f"{header}\nno events recorded yet\n"
+
+    total = len(events)
+    routes = {name: sum(1 for e in events if e["route"] == name) for name in ROUTES}
+    hit = sum(1 for e in events if e["canonical_hit"] is True)
+    miss = sum(1 for e in events if e["canonical_hit"] is False)
+    absent = sum(1 for e in events if e["canonical_hit"] is None)
+    precision = hit + miss
+    refused = sum(1 for e in events if e["refused"])
+    cleared = sum(1 for e in events if e["relevance_floor_passed"] is True)
+    blocked = sum(1 for e in events if e["relevance_floor_passed"] is False)
+    both = [e["latency_ms"]["total"] for e in events if e["route"] == "BOTH"]
+
+    lines = [
+        header,
+        f"events: {total}   window: {events[0]['@timestamp']} .. {events[-1]['@timestamp']}",
+        "",
+        _row("route mix", *(f"{name} {routes[name]} ({_pct(routes[name], total)}%)"
+                            for name in ROUTES)),
+        _row(
+            "canonical",
+            f"hit {hit}",
+            f"miss {miss}",
+            f"n/a {absent}      miss rate {_pct(miss, precision)}%"
+            f" of {precision} precision queries",
+        ),
+        _row("refusals", f"{refused} ({_pct(refused, total)}%)"),
+        _row(
+            "floor",
+            f"cleared {cleared}",
+            f"blocked {blocked}      (of {cleared + blocked} semantic-consulted)",
+        ),
+        _latency(events, 50),
+        _latency(events, 95),
+    ]
+    if both:
+        lines.append(
+            _row("both-path", f"total p95 {_percentile(both, 95):.1f} ms",
+                 f"({len(both)} BOTH queries)")
+        )
+    return "\n".join(lines) + "\n"

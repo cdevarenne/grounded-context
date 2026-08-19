@@ -7,6 +7,7 @@ import json
 import sys
 from typing import Any
 
+from . import telemetry
 from .bundle import BundleError
 from .provenance import render
 from .router import route
@@ -31,6 +32,12 @@ def cmd_lookup(args: argparse.Namespace) -> int:
 def cmd_ask(args: argparse.Namespace) -> int:
     envelope = ask(load_bundle(args.bundle), args.query, as_of_date(args.as_of))
     return _emit(envelope, args.json)
+
+
+def cmd_telemetry_summary(args: argparse.Namespace) -> int:
+    """Aggregate the local log. Reads the source of truth, so it works with no cluster."""
+    print(telemetry.summary(telemetry.sink_path(args.log)), end="")
+    return 0
 
 
 def cmd_entities(args: argparse.Namespace) -> int:
@@ -128,6 +135,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("entities", help="list concepts and their canonical fields")
     p.set_defaults(func=cmd_entities)
+
+    p = sub.add_parser("telemetry", help="read back what the layer recorded about itself")
+    # Nested, because `telemetry index` and `telemetry snapshot` join `summary` here.
+    telemetry_sub = p.add_subparsers(dest="telemetry_command", required=True)
+    q = telemetry_sub.add_parser("summary", help="aggregate the local log — no cloud needed")
+    q.add_argument("--log", metavar="PATH", help="the ndjson log (default: the configured sink)")
+    q.set_defaults(func=cmd_telemetry_summary)
 
     p = sub.add_parser("eval", help="run the eval set from docs/specs/eval.md")
     p.add_argument(

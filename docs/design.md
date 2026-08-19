@@ -161,13 +161,20 @@ observations of a single query being answered, so one event per answer carries a
 last two are not about a query at all — they are a scan over `knowledge/` describing the bundle's
 governance state at a moment, on a much slower cadence.
 
-**Status: designed and specified, not yet built.** The contracts are written down —
-[`specs/observability.md`](specs/observability.md) for the per-query event and
-[`specs/observability-corpus-state.md`](specs/observability-corpus-state.md) for the snapshot —
-including the guarantee that matters most for a layer whose pitch is determinism: telemetry is
-emitted *after* the answer envelope is final and is best-effort, so a failing sink can never
-change or block an answer.
+**Status: the four per-query signals emit; the two snapshot signals do not yet.** Every answered
+query appends one event to a local log, and `gctx telemetry summary` aggregates it with no cluster
+involved. The contracts are written down in [`specs/observability.md`](specs/observability.md) and
+[`specs/observability-corpus-state.md`](specs/observability-corpus-state.md).
+
+The guarantee that matters most for a layer whose pitch is determinism: telemetry is built and
+emitted *after* the answer envelope is final, and the whole write is best-effort. The same query
+returns the same answer whether the sink works, fails, or is switched off — each of those pinned
+by a test that fails when the guarantee is removed.
+
+The local log is the source of truth and the Elasticsearch index is a projection over it, the same
+relationship the Markdown bundle has to the corpus index. That keeps the answer path free of a new
+cloud dependency, and it means the "does curation scale?" numbers exist even in a fully offline
+run.
 
 Lessons from that instrumentation are what should decide whether this approach is
-production-worthy, and what the alternatives are if it isn't. Until it runs, the honest position
-is that the question is open and the instrument is specified.
+production-worthy, and what the alternatives are if it isn't.

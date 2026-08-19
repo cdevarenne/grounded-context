@@ -167,3 +167,63 @@ def test_recording_an_event_never_reaches_the_cloud_half(tmp_path: Path) -> None
     )
     assert result.stdout.split() == ["False", "False", "False"]
     assert (tmp_path / "telemetry.ndjson").is_file(), "the event still has to land"
+
+
+# --- readback -------------------------------------------------------------------------
+
+SAMPLE = Path(__file__).resolve().parent / "data" / "telemetry-sample.ndjson"
+GOLDEN = Path(__file__).resolve().parent / "data" / "telemetry-summary.golden.txt"
+
+
+def test_the_summary_reproduces_the_committed_golden_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The numbers behind the observability claims, checkable without a cluster.
+
+    Run from a directory where the log really is `var/telemetry.ndjson`, so the header line is
+    compared too rather than normalized away.
+    """
+    (tmp_path / "var").mkdir()
+    (tmp_path / "var" / "telemetry.ndjson").write_text(
+        SAMPLE.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+
+    assert telemetry.summary(Path("var/telemetry.ndjson")) == GOLDEN.read_text(encoding="utf-8")
+
+
+def test_percentages_truncate_rather_than_round() -> None:
+    """Pinned by name, because a port that rounds produces a different line and still looks right.
+
+    12 of 26 is 46.15 and agrees either way; 8 of 26 is 30.77 and does not.
+    """
+    assert telemetry._pct(12, 26) == 46
+    assert telemetry._pct(8, 26) == 30
+    assert telemetry._pct(2, 26) == 7
+    assert telemetry._pct(1, 0) == 0, "an empty population is not a division by zero"
+
+
+def test_percentiles_use_nearest_rank_without_interpolating() -> None:
+    """An interpolating percentile drifts the last digit and breaks the golden compare."""
+    values = [1.0, 2.0, 3.0, 4.0]
+    assert telemetry._percentile(values, 50) == 2.0  # interpolation would say 2.5
+    assert telemetry._percentile(values, 95) == 4.0
+    assert telemetry._percentile([7.0], 50) == 7.0
+
+
+def test_a_missing_log_is_not_an_error(tmp_path: Path) -> None:
+    """Before the first answer there is no log, and asking for the summary is still reasonable."""
+    report = telemetry.summary(tmp_path / "absent.ndjson")
+    assert "no events recorded yet" in report
+
+
+def test_the_summary_counts_what_the_log_holds(sink: Path) -> None:
+    """A round trip: emit through the real sink, then read those events back."""
+    envelope = grounded_answer("1,000,000", [EXACT_CITE], DETERMINISTIC, None)
+    telemetry.record("a b", envelope, total_ms=1.0, deterministic_ms=1.0)
+    telemetry.record("c d", envelope, total_ms=2.0, deterministic_ms=2.0)
+
+    report = telemetry.summary(sink)
+    assert "events: 2" in report
+    assert "DIRECT 2 (100%)" in report
+    assert "hit 2   miss 0" in report
