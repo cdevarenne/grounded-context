@@ -51,6 +51,10 @@ the central tradeoff — is in **[docs/design.md](docs/design.md)**. Diagram :
 
 ## Run it
 
+Step by step, from `git clone` to a citation block with every command's real output — including
+what must exist before the semantic path works: **[docs/quickstart.md](docs/quickstart.md)**. The
+short version follows.
+
 ### Deterministic path — no cloud account, no API key
 
 ```bash
@@ -180,7 +184,6 @@ the roadmap, not a wish list:
 
 - [#1 — capture the pre-fusion relevance score in telemetry](https://github.com/cdevarenne/grounded-context/issues/1),
   so a refusal shows *how far* below the floor a query landed, not just that it was blocked
-- [#2 — a quickstart from clone to first grounded answer](https://github.com/cdevarenne/grounded-context/issues/2)
 - [#3 — a staleness early warning](https://github.com/cdevarenne/grounded-context/issues/3), so a
   governance cliff is visible before a citation block starts printing `STALE`
 - [#4 — OpenAI/Codex as a third MCP consumer](https://github.com/cdevarenne/grounded-context/issues/4)
@@ -189,6 +192,9 @@ the roadmap, not a wish list:
 
 ## Learn more
 
+- **[docs/quickstart.md](docs/quickstart.md)** — clone to first grounded answer, in order, with
+  captured output: the deterministic path with no cloud, then the semantic prerequisites, MCP,
+  and the telemetry readback.
 - **[docs/design.md](docs/design.md)** — the five design properties, OKF grounding, the
   two-corpora governance split, the core tradeoff, and the observability plan.
 - **[docs/findings.md](docs/findings.md)** — three things that surfaced while building the
