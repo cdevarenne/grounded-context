@@ -40,6 +40,13 @@ def cmd_telemetry_summary(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_telemetry_index(args: argparse.Namespace) -> int:
+    """Project the local log into Elasticsearch. Imported here so the CLI stays lean."""
+    from .telemetry_index import run
+
+    return run(telemetry.sink_path(args.log), index=args.index, recreate=args.recreate)
+
+
 def cmd_entities(args: argparse.Namespace) -> int:
     bundle = load_bundle(args.bundle)
     as_of = as_of_date(args.as_of)
@@ -142,6 +149,12 @@ def build_parser() -> argparse.ArgumentParser:
     q = telemetry_sub.add_parser("summary", help="aggregate the local log — no cloud needed")
     q.add_argument("--log", metavar="PATH", help="the ndjson log (default: the configured sink)")
     q.set_defaults(func=cmd_telemetry_summary)
+
+    q = telemetry_sub.add_parser("index", help="project the log into Elasticsearch")
+    q.add_argument("--log", metavar="PATH", help="the ndjson log (default: the configured sink)")
+    q.add_argument("--index", default=telemetry.TELEMETRY_INDEX, help="target index")
+    q.add_argument("--recreate", action="store_true", help="delete and rebuild the index first")
+    q.set_defaults(func=cmd_telemetry_index)
 
     p = sub.add_parser("eval", help="run the eval set from docs/specs/eval.md")
     p.add_argument(
