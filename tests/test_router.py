@@ -66,3 +66,25 @@ def test_every_decision_carries_a_rationale():
         decision = route(query)
         assert decision.rationale
         assert decision.as_dict()["route"] in {DETERMINISTIC, SEMANTIC, BOTH}
+
+
+# --- the precision exception to the BOTH fallback (docs/specs/router.md) ---------------
+
+
+def test_a_cross_entity_comparison_is_marked_precision() -> None:
+    """A comparison asks for exact values, so a ranked passage cannot be a correct answer."""
+    decision = route("Is Sonnet 5 cheaper than Opus 5?")
+    assert decision.route == BOTH
+    assert decision.precision is True
+
+
+def test_an_ambiguous_both_is_not_marked_precision() -> None:
+    """Mixed signals may genuinely be exploratory, so that BOTH keeps its semantic fallback."""
+    decision = route("What is the recommended pricing approach?")
+    assert decision.route == BOTH
+    assert decision.precision is False
+
+
+def test_precision_is_not_serialized() -> None:
+    """The envelope's router block is a published contract; its shape does not change."""
+    assert set(route("compare a and b").as_dict()) == {"route", "rationale"}

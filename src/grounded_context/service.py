@@ -148,8 +148,17 @@ def _semantic_answer(
 
 
 def _merge(exact: dict[str, Any], extra: list[dict[str, Any]], decision: Route) -> dict[str, Any]:
-    """router.md: query both, prefer an exact hit where one exists, never drop provenance."""
+    """router.md: query both, prefer an exact hit where one exists, never drop provenance.
+
+    One exception, and it is the point of the whole design: when the router identified a
+    precision question — a cross-entity comparison asks for exact values by construction — a
+    deterministic miss is a *curation gap*, not an invitation to rank. Falling back to passages
+    there is exactly the failure this project exists to prevent: a plausible, cited, adjacent
+    answer to a question that had a right one. So it refuses instead.
+    """
     if not exact["citations"]:
+        if decision.precision:
+            return exact
         return _semantic_answer(extra, decision)
     if not extra:
         return exact

@@ -15,7 +15,7 @@ import pytest
 
 from grounded_context import service, telemetry
 from grounded_context.bundle import Bundle
-from grounded_context.provenance import MIXED
+from grounded_context.provenance import MIXED, NOT_FOUND
 from grounded_context.router import BOTH, DETERMINISTIC as ROUTE_DETERMINISTIC, SEMANTIC as ROUTE_SEMANTIC, route
 from grounded_context.service import as_of_date, ask, load_bundle, lookup_field
 
@@ -255,3 +255,51 @@ def test_an_unconfigured_engine_reports_no_score(monkeypatch: pytest.MonkeyPatch
 
     assert result.floor_passed is None
     assert result.floor_score is None
+
+
+# --- a precision miss refuses rather than ranking (docs/specs/router.md) ---------------
+
+# Routes to BOTH as a cross-entity comparison, and "cheaper" maps to no single canonical
+# field — so the deterministic path misses and the fallback is the thing under test.
+PRECISION_MISS_QUERY = "Is Sonnet 5 cheaper than Opus 5?"
+
+
+def test_the_comparison_sample_is_a_precision_both() -> None:
+    """Guards the premise: if routing changed, the test below would pass while proving nothing."""
+    decision = route(PRECISION_MISS_QUERY)
+    assert decision.route == BOTH
+    assert decision.precision is True
+
+
+def test_a_precision_miss_refuses_instead_of_ranking(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The failure the whole design exists to prevent, pinned.
+
+    A comparison asks for exact values. When the bundle does not hold them, passages about an
+    adjacent topic are not an answer — they are a plausible, cited, wrong one. The curation gap
+    is reported as a refusal, which the telemetry then counts as a canonical miss.
+    """
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult([PASSAGE], floor_passed=True, floor_score=19.0),
+    )
+    envelope = ask(bundle, PRECISION_MISS_QUERY, as_of_date())
+
+    assert envelope["answer"] == NOT_FOUND
+    assert envelope["citations"] == []
+
+
+def test_an_ambiguous_both_still_falls_back_to_passages(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The exception is narrow. Only a comparison switches the fallback off."""
+    assert route(BOTH_QUERY).precision is False
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult([PASSAGE], floor_passed=True, floor_score=19.0),
+    )
+    envelope = ask(bundle, BOTH_QUERY, as_of_date())
+
+    assert envelope["answer"] == PASSAGE["snippet"]
+    assert len(envelope["citations"]) == 1

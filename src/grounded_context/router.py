@@ -17,6 +17,8 @@ BOTH = "BOTH"
 # Asks for an exact value that must never be ranked.
 PRECISION_SIGNALS = (
     "context window",
+    "ctx window",
+    "context length",
     "max tokens",
     "max output",
     "maximum output",
@@ -57,7 +59,16 @@ EXPLORATORY_SIGNALS = (
 )
 
 # Cross-entity: the same exact field asked of two entities. Worth asking both engines.
-COMPARISON_SIGNALS = ("compare", " vs ", " versus ")
+COMPARISON_SIGNALS = (
+    "compare",
+    " vs ",
+    " versus ",
+    # Comparatives name a cross-entity question without using the word "compare".
+    "cheaper",
+    "more expensive",
+    "less expensive",
+    "compared to",
+)
 
 # A pinned or aliased Claude model id appearing verbatim in the query.
 MODEL_ID = re.compile(r"claude-[a-z0-9.-]+", re.IGNORECASE)
@@ -67,6 +78,12 @@ MODEL_ID = re.compile(r"claude-[a-z0-9.-]+", re.IGNORECASE)
 class Route:
     route: str
     rationale: str
+    #: True when the query is a precision question *by construction*, whatever path runs.
+    #: A cross-entity comparison is one: "is X cheaper than Y" asks for two exact values, so a
+    #: ranked passage is never a correct answer to it. `service.py` reads this to decide whether
+    #: a deterministic miss may fall back to semantic passages. Deliberately not serialized —
+    #: the envelope's router block is a published contract and its shape does not change.
+    precision: bool = False
 
     def as_dict(self) -> dict[str, str]:
         return {"route": self.route, "rationale": self.rationale}
@@ -84,8 +101,9 @@ def route(query: str) -> Route:
     if comparison:
         return Route(
             BOTH,
-            f"cross-entity comparison ({_quote(comparison)}) — query both, "
-            "prefer an exact hit where one exists",
+            f"cross-entity comparison ({_quote(comparison)}) — exact values are required, "
+            "so a deterministic miss refuses rather than falling back to passages",
+            precision=True,
         )
 
     if precision and exploratory:
