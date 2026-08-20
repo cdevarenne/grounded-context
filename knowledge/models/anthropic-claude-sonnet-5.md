@@ -24,6 +24,11 @@ stale_after: 2026-09-09
 # --- local extensions ---
 id: anthropic.claude-sonnet-5
 provider: anthropic
+aliases:
+  - sonnet 5
+  - sonnet-5
+  - claude sonnet 5
+  - sonnet
 links:
   - "[Anthropic Messages API](../endpoints/anthropic-messages.md)"
   - "[Claude Opus 5](anthropic-claude-opus-5.md)"

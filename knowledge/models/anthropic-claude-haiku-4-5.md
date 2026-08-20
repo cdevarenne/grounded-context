@@ -24,6 +24,11 @@ stale_after: 2026-09-09
 # --- local extensions ---
 id: anthropic.claude-haiku-4-5
 provider: anthropic
+aliases:
+  - haiku 4.5
+  - haiku 4-5
+  - claude haiku 4.5
+  - haiku
 links:
   - "[Anthropic Messages API](../endpoints/anthropic-messages.md)"
 

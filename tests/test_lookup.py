@@ -86,3 +86,36 @@ def test_sonnet_carries_both_standard_and_introductory_pricing(bundle):
     assert lookup(bundle, entity, "input_price_per_mtok_usd").value == 3.0
     assert lookup(bundle, entity, "introductory_input_price_per_mtok_usd").value == 2.0
     assert str(lookup(bundle, entity, "introductory_pricing_ends").value) == "2026-08-31"
+
+
+@pytest.mark.parametrize(
+    "phrasing, expected",
+    [
+        ("Opus 5", "anthropic.claude-opus-5"),
+        ("opus", "anthropic.claude-opus-5"),
+        ("the Opus model", "anthropic.claude-opus-5"),
+        ("Sonnet 5", "anthropic.claude-sonnet-5"),
+        ("Haiku 4.5", "anthropic.claude-haiku-4-5"),
+    ],
+)
+def test_a_model_resolves_by_the_names_people_use(bundle, phrasing, expected):
+    """A canonical layer is only authoritative over the questions it can recognise.
+
+    Without aliases the lookup answered only to the hyphenated identifier, so "Opus 5" resolved
+    to nothing and the query fell through to ranked passages — a confident, cited, adjacent
+    answer to a question the bundle held exactly. That is the failure this project exists to
+    prevent, and it was self-inflicted.
+    """
+    assert find_entity(bundle, phrasing) == expected
+
+
+def test_the_canonical_identifier_still_wins_over_a_short_alias(bundle):
+    """Longest match, so a bare "opus" cannot shadow a pinned id that contains it."""
+    assert find_entity(bundle, "claude-haiku-4-5-20251001") == "anthropic.claude-haiku-4-5"
+    assert find_entity(bundle, "ctx window for claude-opus-5") == "anthropic.claude-opus-5"
+
+
+def test_an_abbreviated_field_still_resolves(bundle):
+    """`ctx window` is what people type; `context_window_tokens` is what the bundle calls it."""
+    assert find_field(bundle, "whats the ctx window for opus") == "context_window_tokens"
+    assert find_field(bundle, "context length of sonnet 5") == "context_window_tokens"

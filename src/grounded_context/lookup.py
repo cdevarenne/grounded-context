@@ -111,6 +111,8 @@ def find_field(bundle: Bundle, text: str, entity_id: str | None = None) -> str |
 # "max output" wins over a bare "output" substring.
 SYNONYMS: dict[str, str] = {
     "context window": "context_window_tokens",
+    "ctx window": "context_window_tokens",
+    "context length": "context_window_tokens",
     "max output": "max_output_tokens",
     "maximum output": "max_output_tokens",
     "output tokens": "max_output_tokens",
