@@ -32,15 +32,27 @@ Q9   semantic       semantic       BOTH          5      PASS
 Q10  mixed          mixed          BOTH          6      PASS
 Q11  refusal        refusal        DETERMINISTIC 0      PASS
 Q12  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q13  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q14  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q15  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q16  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q17  deterministic  deterministic  DETERMINISTIC 1      PASS
+Q18  refusal        refusal        BOTH          0      PASS
 
 Q3 KNOWN — eval.md expects a deterministic list. Lookup answers one entity at a time, so a cross-model rollup has no engine and falls through to semantic passages that do not really answer it. docs/compatibility-matrix.md is what answers this today.
 
-11 pass · 1 known deviation · 0 fail
+17 pass · 1 known deviation · 0 fail
 ```
 
 Q3 is a declared deviation, not a pass: a multi-entity rollup ("which models support vision?")
 has no engine on the deterministic path, which answers one entity at a time. The harness reports
 it as `KNOWN` rather than letting it read as green.
+
+Q13–Q18 are paraphrases: the same canonical facts, asked without using the bundle's vocabulary.
+They were added after a defect that broke every natural phrasing survived a green suite for six
+days — the model files carried no aliases, so `Opus 5` resolved to nothing and the query fell
+through to ranked passages. Q18 is the precision exception: a comparison the bundle cannot answer
+refuses rather than falling back.
 
 ## Neither arm wins both phrasings
 

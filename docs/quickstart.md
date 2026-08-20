@@ -307,7 +307,7 @@ Q12  deterministic  deterministic  DETERMINISTIC 1      PASS
 
 Q3 KNOWN — eval.md expects a deterministic list. Lookup answers one entity at a time, so a cross-model rollup has no engine and falls through to semantic passages that do not really answer it. docs/compatibility-matrix.md is what answers this today.
 
-11 pass · 1 known deviation · 0 fail
+17 pass · 1 known deviation · 0 fail
 ```
 
 Q3 is reported as a known deviation rather than quietly passed. To compare the retrieval arms

@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from datetime import date
 
+import re
+from pathlib import Path
+
 import pytest
 
 from grounded_context.es_client import is_configured
@@ -29,8 +32,20 @@ def bundle():
     return load_bundle()
 
 
-def test_the_set_matches_the_spec_size() -> None:
-    assert [case.id for case in CASES] == [f"Q{n}" for n in range(1, 13)]
+def test_the_set_matches_the_ids_the_spec_lists() -> None:
+    """The spec is the contract, so the guard reads it rather than restating its length.
+
+    This previously pinned a hardcoded `range(1, 13)`, which meant adding a case to the set and
+    a row to the spec still failed until someone bumped a third number that was not the truth
+    of either. Reading the table makes the spec and the code the only two things that can drift.
+    """
+    spec = (Path(__file__).resolve().parents[1] / "docs" / "specs" / "eval.md").read_text(
+        encoding="utf-8"
+    )
+    documented = re.findall(r"^\| (Q\d+) \|", spec, flags=re.MULTILINE)
+
+    assert documented, "the spec no longer lists any cases"
+    assert [case.id for case in CASES] == documented
 
 
 def test_every_expectation_is_a_real_path() -> None:

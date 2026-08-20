@@ -86,6 +86,23 @@ CASES: tuple[EvalCase, ...] = (
              "guardrail: absent from both the bundle and the corpus"),
     EvalCase("Q12", "What is the exact context window of claude-haiku-4-5?", DETERMINISTIC,
              "shows OKF verified / stale_after on a governed fact"),
+    # --- paraphrases: the same canonical facts, asked the way a person types them -------
+    # Q1-Q12 all name the canonical identifier verbatim, which is how a bug that broke
+    # every natural phrasing survived a green suite. These ask for facts the bundle holds
+    # without using its vocabulary, so they fail when matching or routing regresses.
+    EvalCase("Q13", "Whats the ctx window for opus", DETERMINISTIC,
+             "abbreviated field, bare alias, no punctuation"),
+    EvalCase("Q14", "How big is the Opus 5 context window?", DETERMINISTIC,
+             "natural interrogative, spaced alias"),
+    EvalCase("Q15", "What is the context length of Sonnet 5", DETERMINISTIC,
+             "field synonym rather than the canonical field name"),
+    EvalCase("Q16", "Haiku 4.5 max output", DETERMINISTIC,
+             "dotted version alias, no question form"),
+    EvalCase("Q17", "the Opus model endpoint", DETERMINISTIC,
+             "alias plus a one-hop traversal to the endpoint concept"),
+    EvalCase("Q18", "Is Sonnet 5 cheaper than Opus 5?", REFUSAL,
+             "precision exception: a comparison the bundle cannot answer refuses "
+             "rather than falling back to passages (router.md)"),
 )
 
 

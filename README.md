@@ -104,7 +104,7 @@ uv sync --extra dev --extra es
 uv run python scripts/fetch_corpus.py                  # 25 curated pages → corpus/raw/ (gitignored)
 uv run --extra es python scripts/index_corpus.py --recreate
 uv run --extra es gctx ask "How should I chunk documents for retrieval?"
-uv run --extra es gctx eval                            # the 12-question set, with verdicts
+uv run --extra es gctx eval                            # the 18-question set, with verdicts
 uv run --extra es gctx eval --compare rank_constant    # ELSER vs BM25 vs hybrid
 uv run --extra es gctx telemetry index                 # project the local log into ES
 ```
@@ -172,7 +172,7 @@ strengthen it.
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
-| Eval harness (`gctx eval`) | ✅ 12 questions, 11 pass + 1 declared deviation |
+| Eval harness (`gctx eval`) | ✅ 18 questions, 17 pass + 1 declared deviation |
 | Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, schema v2, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
 | Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |
