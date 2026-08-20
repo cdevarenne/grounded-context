@@ -61,9 +61,25 @@ provenance, and freshness… first-class"* and standardizes precisely what a gro
 | `stale_after` | Absolute date — a concept is stale when `today >= stale_after` |
 
 Those flow straight into the citation block, which is why the provenance contract here is
-thinner than it would otherwise have to be. An earlier draft of this repo invented its own
-`source_url` and `last_verified` fields; aligning to OKF's was a strict improvement, and the
-`stale_after` absolute date is a better design than the relative TTL it replaced.
+thinner than it would otherwise have to be.
+
+**How this repo got there is the reason [`specs/okf-bundle.md`](specs/okf-bundle.md) carries a
+rule about it.** The canonical layer was designed against OKF **v0.1**, which standardizes the
+file shape but not trust: no provenance chain, no staleness. A canonical layer without those is a
+config file, so this repo invented its own — a `source_url`, a `last_verified` date, and a
+relative staleness threshold. When the format was finally cited properly, the citation still
+asserted that OKF did not define them. It did: **v0.2** had already made trust, provenance and
+freshness first-class and standardized all three. The local fields were deleted and replaced with
+OKF's the same day — `sources`, `generated` / `verified`, and `status` + `stale_after` — and the
+bundle spec gained the rule *use OKF's field names and semantics, do not invent local
+equivalents*.
+
+Aligning was a strict improvement on its own terms: `stale_after` as an absolute date is a better
+design than the relative TTL it replaced. The more useful lesson is the one that cost something.
+A local equivalent that a standard has since absorbed is a maintenance burden rather than an
+asset — and the false claim about what v0.2 contained came from reading a summary of the spec
+instead of the spec. That is the same failure as [findings.md](findings.md) §2, in a different
+place: an explanation that fits is not an explanation you have checked.
 
 **What this repo adds is the retrieval half, which OKF deliberately leaves open.** The spec is
 *"minimally opinionated, freely extensible"* — it defines no canonical field values and no
