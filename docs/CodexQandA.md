@@ -87,7 +87,7 @@ query: What is the price of sourdough bread?
 4. Cancel                   Cancel this tool call.
 ```
 
-A human had to say yes before the agent could reach the tools, and could read the exact query
+A user had to say yes before the agent could reach the tools, and could read the exact query
 first. Worth stating plainly for a server with no authentication of its own.
 
 ---
@@ -482,5 +482,5 @@ Stated so it is not read for more than it demonstrates:
 - **The relevance floor was never seen blocking.** Every semantic query in these sessions cleared
   it. The refusals came from the deterministic path, not from a low-scoring semantic result.
 - **No authentication anywhere.** Codex labels the server `Auth: Unsupported`, which is accurate.
-  Access control is the human at the approval prompt.
+  Access control is the user at the approval prompt.
 - **The stdio handshake is still driven by hand**, in this runtime as in the others.
