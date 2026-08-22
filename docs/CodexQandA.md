@@ -1,7 +1,6 @@
 # Third-runtime transcript — OpenAI Codex CLI
 
-A third agent runtime driving this repo's MCP server, so the model-agnostic claim now spans
-both partners the work is about. Nothing here is a code change: the server is the same
+A third agent runtime driving this repo's MCP server, so the model-agnostic claim now is stronger. Nothing here is a code change: the server is the same
 executable the Claude and Antigravity sides run.
 
 | | |
