@@ -180,11 +180,7 @@ strengthen it.
 | Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |
 | Observability — corpus-state snapshot (2 remaining signals) | ⬜ [#5](https://github.com/cdevarenne/grounded-context/issues/5) |
 
-**What's next.** Work to be done is tracked in [GitHub issues](https://github.com/cdevarenne/grounded-context/issues) —
-the roadmap:
-
-- [#3 — a staleness early warning](https://github.com/cdevarenne/grounded-context/issues/3), so a
-  governance cliff is visible before a citation block starts printing `STALE`
+**What's next.** Work to be done is tracked in [GitHub issues](https://github.com/cdevarenne/grounded-context/issues)
 
 ---
 
