@@ -48,6 +48,20 @@ def test_the_three_tools_are_registered_and_described() -> None:
     assert all(registered[name].description for name in registered)
 
 
+def test_ask_grounded_description_names_both_retrieval_paths() -> None:
+    """A tool description is shipped context, not a code comment.
+
+    Codex pastes the server instructions and this docstring verbatim into the model's prompt
+    (docs/CodexQandA.md), so a description that omits or denies a live retrieval path
+    misinforms every foreign runtime. It said the semantic path was not wired up for as long
+    as it took to notice.
+    """
+    description = tools()["ask_grounded"].description.lower()
+    assert "exact lookup" in description
+    assert "semantic" in description
+    assert "not wired up" not in description
+
+
 def test_lookup_schema_marks_the_entity_and_field_required() -> None:
     schema = tools()["lookup_canonical_fact"].input_schema
     assert set(schema["required"]) == {"entity_id", "field"}

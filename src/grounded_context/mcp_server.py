@@ -60,9 +60,11 @@ def lookup_canonical_fact(
 def ask_grounded(query: str, as_of: str | None = None) -> dict[str, Any]:
     """Answer a natural-language question, choosing a retrieval path first.
 
-    Precision questions route to exact lookup. Exploratory ones are declined, because the
-    semantic path is not wired up in this build — an honest refusal beats a ranked guess.
-    The routing decision and its rationale come back in `router` and are part of the audit
+    Precision questions route to exact lookup. Exploratory ones route to hybrid semantic
+    search and come back as passage citations; with no cluster configured that path returns
+    nothing and the answer is the refusal, never a guess. A cross-entity comparison queries
+    both, and a deterministic miss there refuses rather than falling back to passages. The
+    routing decision and its rationale come back in `router` and are part of the audit
     trail. Prefer `lookup_canonical_fact` when you already know the entity id and field.
     """
     return _with_citation_block(ask(_bundle(), query, as_of_date(as_of)))
