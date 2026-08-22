@@ -140,9 +140,11 @@ uv run gctx-mcp        # serves on stdio; a client drives it
 
 [`.mcp.json`](.mcp.json) wires it up for Claude Code on clone. Three tools:
 `lookup_canonical_fact`, `ask_grounded`, `list_entities`. The same `gctx-mcp` command was driven
-from Claude **and** from Gemini (via the Antigravity CLI) with no adapter and no code change —
-the model-agnostic claim, demonstrated rather than asserted. Full transcript and wiring:
-**[docs/AntigravityQandA.md](docs/AntigravityQandA.md)**. A third runtime, OpenAI's Codex CLI, is [#4](https://github.com/cdevarenne/grounded-context/issues/4).
+from Claude, from Gemini (via the Antigravity CLI) **and** from OpenAI's Codex CLI with no
+adapter and no code change — the model-agnostic claim, demonstrated rather than asserted. Each
+foreign runtime needed one config entry pointing at the same executable. Full transcripts and
+wiring: **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** and
+**[docs/CodexQandA.md](docs/CodexQandA.md)**.
 
 **On FastMCP.** `mcp.server.MCPServer` *is* FastMCP: the class was folded into the official SDK
 in 2024 and renamed in SDK 2.0 to distinguish it from the standalone project, which now ships
@@ -171,7 +173,7 @@ strengthen it.
 | Compatibility matrix (generated view over the model files) | ✅ [`docs/compatibility-matrix.md`](docs/compatibility-matrix.md), drift-tested |
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
-| MCP server (3 tools, stdio) | ✅ driven from Claude and from Gemini/Antigravity, unchanged |
+| MCP server (3 tools, stdio) | ✅ driven from Claude, Gemini/Antigravity and OpenAI/Codex, unchanged |
 | Eval harness (`gctx eval`) | ✅ 18 questions, 17 pass + 1 declared deviation |
 | Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, schema v2, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
@@ -183,7 +185,6 @@ the roadmap:
 
 - [#3 — a staleness early warning](https://github.com/cdevarenne/grounded-context/issues/3), so a
   governance cliff is visible before a citation block starts printing `STALE`
-- [#4 — OpenAI/Codex as a third MCP consumer](https://github.com/cdevarenne/grounded-context/issues/4)
 
 ---
 
@@ -220,6 +221,10 @@ the roadmap:
   re-verifying a concept, moving `stale_after`, refreshing the corpus, and what a build already
   checks for you.
 - **[docs/AntigravityQandA.md](docs/AntigravityQandA.md)** — the model-agnostic MCP proof.
+- **[docs/CodexQandA.md](docs/CodexQandA.md)** — the same proof in OpenAI's Codex CLI, including
+  the same question answered twice one turn apart: once from the model's own training, once from
+  the grounded layer with five cited sources. Also how that runtime reaches MCP tools, where the
+  server's instructions land in its context, and what those instructions do not control.
 
 
 ---
@@ -239,6 +244,13 @@ the roadmap:
 - **No auth, no multi-tenancy, no scale story.** Single user, single index. The MCP server runs
   over stdio as a local subprocess with no authentication or authorization layer — fine for a
   read-only local prototype; a remote transport would need both.
+- **Nothing here makes an agent *use* the layer.** The server's `instructions` field reaches the
+  model and governs how it answers once a tool is called — verbatim citations, verbatim refusal,
+  staleness passed on, in three runtimes. It does not decide whether the tool gets called at all.
+  A Codex session asked cold answered a retrieval question from its own training and never
+  touched the server ([docs/CodexQandA.md](docs/CodexQandA.md)). Binding an agent to the grounded
+  layer is a harness concern — system prompt, required tool choice, or a policy layer above the
+  model — and it is deliberately not solved here.
 - **Curated corpus, not a crawl.** Two rules that hold regardless of build state: whole sites are
   never scraped, and third-party document text is never committed to this repo.
 - **Small-n evaluation.** The eval set is illustrative — which engine answers, and that

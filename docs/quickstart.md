@@ -346,9 +346,16 @@ uv run gctx-mcp        # serves on stdio; a client drives it
 
 [`.mcp.json`](../.mcp.json) wires it up for Claude Code on clone. Three tools —
 `lookup_canonical_fact`, `ask_grounded`, `list_entities` — carrying the same citation block the
-CLI prints. The same command was driven from Claude **and** from Gemini via the Antigravity CLI
-with no adapter and no code change; the transcript is
-[`docs/AntigravityQandA.md`](AntigravityQandA.md).
+CLI prints. The same command was driven from Claude, from Gemini via the Antigravity CLI **and**
+from OpenAI's Codex CLI with no adapter and no code change; the transcripts are
+[`docs/AntigravityQandA.md`](AntigravityQandA.md) and [`docs/CodexQandA.md`](CodexQandA.md).
+
+Codex needs one config entry, and an absolute path rather than `uv run`, because a client spawns
+the server from its own working directory:
+
+```bash
+codex mcp add grounded-context -- /ABSOLUTE/PATH/TO/grounded-context/.venv/bin/gctx-mcp
+```
 
 Because it is stdio, **stdout is the JSON-RPC channel**. All logging goes to stderr.
 

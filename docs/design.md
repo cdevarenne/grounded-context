@@ -13,7 +13,7 @@ Every decision in this repo serves these, in preference to cleverness or scope:
 | **Useful** | Answers real questions about real API docs, not a toy corpus |
 | **Secure** | Read-only; no credentials in the retrieval path; provenance on every claim |
 | **Repeatable** | Same query, same route, same citations — the deterministic path is pure functions over Markdown |
-| **Composable** | One MCP tool, consumed unchanged by two agent runtimes — Claude and Gemini |
+| **Composable** | One MCP tool, consumed unchanged by three agent runtimes — Claude, Gemini and Codex |
 | **Deterministic where it matters** | Exact facts never touch a ranking function |
 
 ## The two paths

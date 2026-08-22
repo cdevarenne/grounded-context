@@ -2,7 +2,7 @@
 
 A second agent runtime driving this repo's MCP server, to show the model-agnostic claim rather
 than assert it. Nothing here is a code change: the server is the same executable the Claude
-side runs.
+side runs. A third runtime, OpenAI's Codex CLI, is in [`docs/CodexQandA.md`](CodexQandA.md).
 
 | | |
 |---|---|
@@ -139,5 +139,12 @@ Using only the grounded-context MCP server, how should I chunk documents for ret
 ## Antigravity answer:
 
 Not found in the grounded sources.
+
+> **Dated behavior.** On 13 August 2026 the semantic path was not yet wired into `ask`, so an
+> exploratory question had nowhere to go but the refusal. The Elasticsearch hybrid path shipped
+> after this transcript was taken. The same question today routes `SEMANTIC` and comes back with
+> cited passages from the corpus. The refusal above is real, and it is what the build did then —
+> it is not a claim about the current one. What still holds unchanged is *why* it refused: the
+> model declined to answer from its own training, which it plainly could have done.
 
 ---
