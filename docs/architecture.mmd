@@ -9,7 +9,8 @@ flowchart LR
     subgraph AGENT["Agent layer — model-agnostic"]
         direction TB
         CL["Claude<br/>(primary)"]
-        AV["Antigravity<br/>(second consumer)"]
+        CX["Codex<br/>(second consumer)"]
+        AV["Antigravity<br/>(third consumer)"]
     end
 
     M["MCP server<br/>retrieval tool"]
@@ -40,6 +41,7 @@ flowchart LR
     U --> CL
     U --> AV
     CL -->|MCP| M
+    CX -->|MCP| M
     AV -->|MCP| M
     M --> R
     R -->|"canonical / precision"| DET
