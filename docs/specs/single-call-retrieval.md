@@ -144,8 +144,11 @@ each weight:
 | `anthropic-ratelimit-tokens-reset` | token | 1 | 1 | 1 | 1 | 1 |
 | `anthropic-ratelimit-tokens-reset` | sentence | 1 | 1 | 1 | 1 | 2 |
 
-Ranked against the pinned defining chunks in `evaluation.DEFINING_CHUNKS`, so these are directly
-comparable with the `findings.md` §1 table.
+Ranked against the pinned defining chunks in `evaluation.DEFINING_CHUNKS`. One caveat on reading
+this against the `findings.md` §1 table: this sweep phrases every sentence query as "What does the
+`<term>` parameter do?", while §1 asks the rate-limit one as a *header* rather than a parameter.
+That row's ranks therefore differ between the two tables. RRF and the candidate are measured on
+identical queries here, so every column-to-column comparison below holds.
 
 The separation margin and the ranking pull in opposite directions, and the crossover is sharp.
 At `w=1.0` and `w=0.5` the candidate reproduces RRF's ranking on **all eight** lookups — and the
@@ -186,10 +189,9 @@ The control holds, and the floor did not move.
 - **`findings.md` §2 reproduced to the digit**: 44 of 149 hyphenated improved, 0 of 87 underscored,
   0 regressed, 137 of 568 invisible to `content.exact`, 6 chunks collapsing to 1. It is a finding
   about tokenization, which a new inference endpoint cannot move.
-- **§1's eight ranks moved in two cells**, both ELSER (`num_candidates` sentence 2 → 1,
-  `anthropic-ratelimit-tokens-reset` sentence 1 → 3). Every claim in §1 survives: the hybrid is
-  still never worse than the weaker arm on all eight, and still matches or beats the stronger arm
-  on exactly six of eight.
+- **§1's eight ranks moved in one cell**: ELSER on the `num_candidates` sentence, 2 → 1. Every
+  claim in §1 survives — the hybrid is still never worse than the weaker arm on all eight, and
+  still matches or beats the stronger arm on exactly six of eight.
 - **§3's numbers drifted and two claims got stronger.** The best off-topic query now outranks *all
   six* genuine ones rather than four, and at 0.0952 it reaches the RRF ceiling `2/(k+1)` exactly —
   so the highest fused score this corpus can produce belongs to a question it cannot answer.

@@ -1,7 +1,8 @@
 # What broke while building the hybrid path
 
-Three things surfaced building the semantic path. None is exotic. Two are about the analyzer
-underneath the lexical arm, and one is about reciprocal rank fusion itself.
+Four things surfaced building the semantic path. None is exotic. Two are about the analyzer
+underneath the lexical arm, one is about reciprocal rank fusion itself, and the fourth is about
+the optimization the third one invites.
 
 Every number below was measured against the live index described in the README — 320 chunks of
 curated Elastic and Anthropic documentation — and every one is regenerable. Per-query ranks come
@@ -29,7 +30,7 @@ three different source documents and two vendors:
 | `num_candidates` | token | 1 | 1 | **1** |
 | `num_candidates` | sentence | 1 | 5 | **1** |
 | `anthropic-ratelimit-tokens-reset` | token | 2 | 1 | **1** |
-| `anthropic-ratelimit-tokens-reset` | sentence | 3 | 1 | **1** |
+| `anthropic-ratelimit-tokens-reset` | sentence | 1 | 1 | **1** |
 | `rank_window_size` | token | 6 | 2 | 5 |
 | `rank_window_size` | sentence | 7 | 2 | 3 |
 
@@ -169,7 +170,106 @@ sample documents. The retrieval is correct. A doc page's illustrative data is pa
 retrievable surface, whether or not it is part of the subject.
 
 One cost worth naming: this floor is a second retrieval on every semantic query, since the probe
-runs before the fusion it gates.
+runs before the fusion it gates. Removing it looks easy, which is finding 4.
+
+## 4. The obvious way to remove that second call makes the floor worse
+
+Finding 3 ends with a cost: two round trips per semantic query, because the score that gates the
+answer is not the score that ranks it. Elasticsearch has an apparent fix. The `linear` retriever
+combines arms by weighted sum instead of by rank, `min_score` filters a compound retriever after
+scoring, and together they should collapse the probe and the fusion into one call.
+
+I built it and measured it. It does not work, and the way it fails is more interesting than the
+saving would have been.
+
+### Normalizing to [0, 1] does not make a score mean anything
+
+The natural configuration is `minmax` normalization — it is what the docs use in nearly every
+`linear` example, and it puts both arms on a comparable scale. Top score across the same sixteen
+probes:
+
+| Config | 10 off-topic | 6 genuine | Gap |
+|---|---|---|---|
+| `rrf` (current) | 0.0476 – 0.0952 | 0.0707 – 0.0931 | −0.0245 |
+| `linear` / `minmax` | 1.0000 – 2.0000 | 1.0000 – 1.8971 | **−1.0000** |
+| `linear` / `l2_norm` | 0.3421 – 0.8172 | 0.3318 – 0.7786 | −0.4854 |
+| `linear` / `none` | 4.5191 – 50.2991 | 50.4771 – 72.0512 | +0.1780 |
+
+MinMax overlaps *worse than the RRF it was supposed to fix*, and the exact values say why. Scores
+land on precisely 1.0000 and precisely 2.0000 because minmax is `(score − min) / (max − min)`
+computed over each sub-retriever's own result set — so the top document of each arm always
+normalizes to exactly 1.0, whatever it scored. The sum is pinned to [1.0, 2.0] and measures how
+far the two arms agreed on a first place. That is the same quantity RRF reports, reached by
+different arithmetic. "What are the symptoms of vitamin D deficiency?" scores a flat 2.0000.
+
+`l2_norm` fails for the same underlying reason: it is also relative to the candidate set.
+
+The lesson generalizes past this corpus. Normalization makes scores from different retrievers
+*comparable to each other*. It does not make them *interpretable on their own*, and a floor needs
+the second property. Only `none` keeps it.
+
+### With raw scores there is a threshold, and no good place to stand
+
+`none` does separate, and `min_score` does gate it in a single call. But under `none` the sum
+inherits BM25's magnitude, and BM25 rewards long questions full of common words regardless of
+subject. The lever is the weight on the lexical arm. Sweeping it against the sixteen tuning probes
+picked 0.25, so I wrote twenty more off-topic and ten more in-domain questions, scored them once,
+and applied both floors without refitting either:
+
+| Config | Margin on the 16 tuning probes | Margin on 30 held-out |
+|---|---|---|
+| Pre-fusion ELSER (shipped) | 57.1% | **59.8%** |
+| `linear`/`none` w=1.0 | 0.4% | **−42.9%** |
+| `linear`/`none` w=0.5 | 0.8% | −9.1% |
+| `linear`/`none` w=0.25 | 9.5% | 21.9% |
+| `linear`/`none` w=0.1 | −6.9% | 49.2% |
+
+Both shipped and candidate classify all thirty held-out probes correctly — no off-topic question
+answered, no genuine one refused. The candidate is not broken. It is dominated, in three ways.
+
+**Its tuned constant does not survive contact with new queries.** Weight 0.25 was the optimum on
+the probes it was fitted to, where 0.1 scored negative; on held-out probes 0.1 is the best setting
+and 0.25 is less than half as good. The optimum is decided by whichever single off-topic outlier a
+probe set happens to contain — the marathon question at 16.11 in the first set, nothing like it in
+the second. The shipped floor has no such constant to move: 57.1% on the set that produced it,
+59.8% on a set it had never seen.
+
+**Equal weights fail outright on held-out data.** At w=1.0 the margin is −42.9%, and "How do I get
+a passport renewed?" scores 56.25 — above every genuine question in the set. The 0.4% margin on
+the tuning probes was not a narrow pass. It was too few long off-topic queries.
+
+**No weight is good at both jobs.** Separation improves monotonically as the weight falls,
+converging on the shipped floor because it converges on *being* the shipped floor. Ranking moves
+the other way: at w=1.0 and w=0.5 the candidate reproduces RRF's rank for the defining chunk on
+all eight identifier lookups from finding 1; at w=0.25 it loses two, at w=0.1 it loses four. Every
+unit of BM25 that helps the ranking degrades the answerability signal.
+
+Both tables are regenerable: `uv run --extra es python scripts/single_call_probe.py`, captured in
+[`eval-output.md`](eval-output.md). The held-out probes live in `scripts/measure_findings.py`, and
+a test asserts they stay disjoint from the sixteen the floor was derived from — a held-out set
+that quietly acquires a tuning query stops being evidence and nothing else would catch it.
+
+### What the second call is actually buying
+
+It is not overhead. It is the separation of concerns: one score is read to *rank*, a different
+score to decide *whether to answer at all*, and neither has to compromise for the other. Fusing
+them into one number forces a single scale to serve two purposes that pull in opposite directions.
+
+That is finding 3 one level up. RRF discards magnitude and therefore cannot report confidence; a
+weighted sum keeps magnitude but contaminates it with an arm that is in the query for an unrelated
+reason. Both are the same mistake — asking the ranking score to also be the confidence score.
+
+So the two-call design stays, and the cost paragraph at the end of finding 3 stands as a cost
+rather than a defect. What came out of the attempt is worth more than the round trip: thirty
+probes the floor was never fitted to, which now run as regression coverage
+(`heldout_floor_check`), and a measured reason to distrust the configuration the documentation
+demonstrates first.
+
+<!-- Framing note, not for publication: keep finding 4 scoped to this corpus and this index. The
+     defensible claim is "measured here, and the mechanism explains why" — minmax pinning the top
+     document to 1.0 is arithmetic and does generalize; the weight instability and the specific
+     margins are properties of a 320-chunk corpus and 46 probes. Never write that linear
+     retrievers cannot support a floor. Write that this one could not, and show the numbers. -->
 
 <!-- Framing note, not for publication: the rank-based property is RRF's headline selling point
      and is documented everywhere as an advantage. The *consequence* — that you cannot threshold

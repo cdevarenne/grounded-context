@@ -4,8 +4,10 @@ The numbers in [`findings.md`](findings.md) come from a live index, which a read
 reach: the corpus is fetched rather than committed, and the cluster is mine. This file is the
 run, captured verbatim, so the claims are checkable without either.
 
-Captured 2026-08-13 against Elastic Cloud Serverless 9.6, index `grounded-context-corpus`,
-320 chunks, ELSER via the preconfigured `.elser-2-elasticsearch` endpoint.
+Captured 2026-08-28 against Elastic Cloud Serverless 9.6.0, index `grounded-context-corpus`,
+320 chunks, ELSER via the preconfigured `.elser-2-elasticsearch` endpoint. The corpus was
+reindexed onto a new deployment that day, so these supersede an earlier capture; the ELSER
+figures moved slightly and the BM25 and analyzer ones did not.
 
 To reproduce, with `ES_URL` and `ES_API_KEY` in `.env`:
 
@@ -93,7 +95,7 @@ $ uv run --extra es gctx eval --compare "What does the num_candidates parameter 
 query: 'What does the num_candidates parameter do?'
 target: elastic-knn chunk:7 — the chunk that defines the term
 
-  elser    rank 2
+  elser    rank 1
   bm25     rank 5
   hybrid   rank 1
 ```
@@ -159,10 +161,10 @@ for t in ['rank_constant', 'num_candidates', 'claude-opus-5', 'claude-haiku-4-5'
     exa = [x['token'] for x in es.indices.analyze(index=INDEX, field='content.exact', text=t)['tokens']]
     print(f'{t:18} content={str(std):38} content.exact={exa}')
 "
-rank_constant      content=['rank_constant']              content.exact=['rank_constant']
-num_candidates     content=['num_candidates']             content.exact=['num_candidates']
-claude-opus-5      content=['claude', 'opus', '5']        content.exact=['claude-opus-5']
-claude-haiku-4-5   content=['claude', 'haiku', '4', '5']  content.exact=['claude-haiku-4-5']
+rank_constant      content=['rank_constant']                      content.exact=['rank_constant']
+num_candidates     content=['num_candidates']                     content.exact=['num_candidates']
+claude-opus-5      content=['claude', 'opus', '5']                content.exact=['claude-opus-5']
+claude-haiku-4-5   content=['claude', 'haiku', '4', '5']          content.exact=['claude-haiku-4-5']
 ```
 
 ## The corpus-wide figures
@@ -193,23 +195,27 @@ Finding 2 — rank improved by the content.exact subfield
 
 Finding 3 — fused vs pre-fusion score (floor = 8.0)
   kind            fused  sparse  query
-  off-topic      0.0678    2.61  How do I bake sourdough bread?
-  off-topic      0.0680    4.52  What is the capital of France?
-  off-topic      0.0725   16.14  What is the best way to train for a marathon?
-  off-topic      0.0889    1.66  Who won the 1998 World Cup?
-  off-topic      0.0754    1.75  What is a good recipe for beef bourguignon?
-  off-topic      0.0893    5.90  How do I change a flat tire on a bicycle?
-  off-topic      0.0911    2.34  What are the symptoms of vitamin D deficiency?
-  off-topic      0.0476    2.87  When did the Berlin Wall fall?
-  off-topic      0.0707    3.94  How tall is Mount Kilimanjaro?
-  off-topic      0.0687    5.06  What is the plot of Hamlet?
-  in-domain      0.0729   16.79  How do I stream responses from the API?
-  in-domain      0.0893   17.66  How should I chunk documents for retrieval?
-  in-domain      0.0931   19.48  What is reciprocal rank fusion?
-  in-domain      0.0889   16.87  How does prompt caching work?
-  in-domain      0.0931   18.05  What are the rate limit headers?
-  in-domain      0.0723   14.10  How do I use semantic_text?
-  wrong-entity   0.0893   19.39  What is the price per million tokens of GPT-5?
+  off-topic      0.0635    2.05  How do I bake sourdough bread?
+  off-topic      0.0680    4.37  What is the capital of France?
+  off-topic      0.0682   16.11  What is the best way to train for a marathon?
+  off-topic      0.0889    1.56  Who won the 1998 World Cup?
+  off-topic      0.0810    1.80  What is a good recipe for beef bourguignon?
+  off-topic      0.0893    6.01  How do I change a flat tire on a bicycle?
+  off-topic      0.0952    2.05  What are the symptoms of vitamin D deficiency?
+  off-topic      0.0476    2.48  When did the Berlin Wall fall?
+  off-topic      0.0707    3.99  How tall is Mount Kilimanjaro?
+  off-topic      0.0702    4.88  What is the plot of Hamlet?
+  in-domain      0.0729   16.86  How do I stream responses from the API?
+  in-domain      0.0893   17.81  How should I chunk documents for retrieval?
+  in-domain      0.0931   19.25  What is reciprocal rank fusion?
+  in-domain      0.0889   17.39  How does prompt caching work?
+  in-domain      0.0931   17.73  What are the rate limit headers?
+  in-domain      0.0707   14.02  How do I use semantic_text?
+  wrong-entity   0.0893   18.84  What is the price per million tokens of GPT-5?
+
+Finding 3 — the floor on held-out probes (floor = 8.0, applied not fitted)
+  20 off-topic  top score 5.34   -> 0 false accepts
+  10 in-domain  low score 13.28   -> 0 false rejects
 ```
 
 Read the two score columns against each other, because that is the whole of Finding 3.
@@ -239,6 +245,7 @@ compare to the score Elasticsearch reported. `k` is `RANK_CONSTANT`, 20.
 
 ```console
 $ uv run --extra es python scripts/rrf_audit.py
+
 === 'What is reciprocal rank fusion?'   (k=20) ===
 doc                                 bm25  elser  predicted  observed     delta
 elastic-rrf:0                          2      1   0.093074  0.093074  3.07e-09
@@ -253,9 +260,9 @@ elastic-rrf:12                         6      2   0.083916  0.083916  3.92e-09
 
 === 'How do I bake sourdough bread?'   (k=20) ===
 doc                                 bm25  elser  predicted  observed     delta
-anthropic-batch-processing:11          9     10   0.067816  0.067816  1.95e-09
-anthropic-prompt-caching:36            6     45   0.053846  0.053846  1.54e-10
-anthropic-batch-processing:2          13     23   0.053559  0.053559  7.43e-10
+anthropic-batch-processing:19          3     30   0.063478  0.063478  8.70e-10
+anthropic-batch-processing:11          9     16   0.062261  0.062261  3.60e-09
+anthropic-batch-processing:2          13     31   0.049911  0.049911  4.40e-10
 ```
 
 Agreement to about 1e-9 on every row — floating-point noise. The fused score is exactly the sum
@@ -264,12 +271,48 @@ of reciprocal ranks, and nothing else. No similarity, no magnitude.
 Two things fall out of this that are worth stating.
 
 **It explains the ceiling, and corrected a claim.** A document ranked 1 by both arms scores
-`2/(k+1)` = 0.0952. The best score across the sixteen probes is 0.0931, so the ceiling looked
-unreachable — but it is not. The query `reciprocal rank fusion` ranks `elastic-rrf:0` first in
-both arms and scores exactly 0.095238. What 0.0931 means is `1/21 + 1/22`: first in one arm,
-second in the other. The score reports how much the two arms agree and nothing else.
+`2/(k+1)` = 0.0952. On the first index the best score across the sixteen probes was 0.0931, so
+the ceiling looked unreachable — but it is not. The query `reciprocal rank fusion` ranks
+`elastic-rrf:0` first in both arms and scores exactly 0.095238. What 0.0931 means is
+`1/21 + 1/22`: first in one arm, second in the other. The score reports how much the two arms
+agree and nothing else. On this index the probe set reaches the ceiling on its own: "what are the
+symptoms of vitamin D deficiency?" scores 0.0952, so the highest fused score in the table belongs
+to a question the corpus cannot answer.
 
-**It explains the sourdough number.** The off-topic top hit scored 0.0678, quoted in Finding 3.
-That is `1/(20+9) + 1/(20+10)` — a document ranked 9th and 10th by two arms that found nothing
-better. A confidence threshold reading that number sees 0.068 and cannot tell it apart from a
-genuine answer, because the number never described relevance in the first place.
+**It explains the sourdough number.** The off-topic top hit scored 0.0635, quoted in Finding 3.
+That is `1/(20+3) + 1/(20+30)` — a chunk of the batch-processing page ranked 3rd by BM25 and 30th
+by ELSER, which is to say two arms that found nothing better. A confidence threshold reading that
+number sees 0.0635 and cannot tell it apart from a genuine answer, because the number never
+described relevance in the first place.
+
+
+## The single-call candidate
+
+Finding 4. Two tables: the four scoring configurations over the sixteen tuning probes, and the
+lexical-arm weight sweep scored against those probes and against the thirty held-out ones.
+
+The first table is the whole argument against `minmax`. Its range is [1.0000, 2.0000] and the
+endpoints are exact, because minmax pins the top document of each arm to 1.0 whatever it scored —
+so the sum reports arm agreement, which is the quantity RRF already failed to threshold on.
+
+The second is the argument against the whole candidate. Read the two margin columns against each
+other: the weight that wins on the probes it was fitted to is not the weight that wins on probes
+it has not seen, and the setting that separates best (0.1) is the one that damages the ranking
+most. The floor that shipped scores 57.1% and 59.8% on those same two sets.
+
+```console
+$ uv run --extra es python scripts/single_call_probe.py
+=== normalizer comparison, 16 tuning probes ===
+config                           off-topic             genuine       gap
+rrf (shipped)            0.0476 – 0.0952     0.0707 – 0.0931     -0.0245
+linear / minmax          1.0000 – 2.0000     1.0000 – 1.8971     -1.0000
+linear / l2_norm         0.3421 – 0.8172     0.3318 – 0.7786     -0.4854
+linear / none            4.5191 – 50.2991   50.4771 – 72.0512    +0.1780
+
+=== lexical-arm weight sweep, linear / none ===
+weight       tuning margin   held-out margin   worst held-out off-topic
+1.0                   0.4%            -42.9%     56.25  How do I get a passport renewed?
+0.5                   0.8%             -9.1%     28.95  How do I get a passport renewed?
+0.25                  9.5%             21.9%     15.30  How do I get a passport renewed?
+0.1                  -6.9%             49.2%      7.70  How long should I marinate chicken before grilling?
+```
