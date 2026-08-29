@@ -60,6 +60,46 @@ IN_DOMAIN = (
 )
 WRONG_ENTITY = ("What is the price per million tokens of GPT-5?",)
 
+# A second, larger probe set, written without looking at how it scores and never used to choose
+# the floor. The sixteen probes above are what RELEVANCE_FLOOR was derived from, so they cannot
+# also be evidence that it generalizes; these can. The off-topic half deliberately includes the
+# shapes a score-magnitude floor is weakest against — long queries full of common words, and
+# health/exercise topics, which collide with the sample documents on Elastic's semantic_text page.
+OFF_TOPIC_HELDOUT = (
+    "What is the boiling point of water at high altitude?",
+    "How do I replace the brake pads on a car?",
+    "Who painted the ceiling of the Sistine Chapel?",
+    "What are the rules of cricket?",
+    "How long should I marinate chicken before grilling?",
+    "What causes the northern lights?",
+    "When is the best time to plant tomatoes?",
+    "How do I get a passport renewed?",
+    "What is the population of Brazil?",
+    "How do I teach a dog to sit?",
+    "What are the health benefits of swimming regularly?",
+    "How many calories are in a banana?",
+    "What is the tallest building in the world?",
+    "How do I fix a leaking kitchen faucet?",
+    "What year did the Titanic sink?",
+    "How do I knit a scarf for beginners?",
+    "What is the best way to remove a coffee stain from carpet?",
+    "How should I prepare for a job interview at a large company?",
+    "What is the difference between a violin and a viola?",
+    "How do I set up a tent in the rain?",
+)
+IN_DOMAIN_HELDOUT = (
+    "How do I use extended thinking?",
+    "What is ELSER and how does it work?",
+    "How do I handle errors from the API?",
+    "What is the batch processing API for?",
+    "How does tool use work?",
+    "What is a dense vector mapping?",
+    "How do I run a kNN search?",
+    "What does the inference API do?",
+    "How do I send images to the model?",
+    "What is a sparse vector field?",
+)
+
 
 def _all_chunks(es: Any) -> list[dict[str, Any]]:
     """Every indexed chunk. The corpus is small enough to read in one page."""
@@ -193,6 +233,28 @@ def probe_scores(es: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def heldout_floor_check(es: Any, floor: float = RELEVANCE_FLOOR) -> dict[str, Any]:
+    """Score the held-out probes and count what the floor gets wrong on them.
+
+    The floor is applied, not fitted. A false accept is an off-topic question scoring at or above
+    it; a false reject is a genuine one scoring below. Both are reported with their queries,
+    because the count alone does not say whether a miss is marginal or nowhere near.
+    """
+    scored = {
+        kind: [(q, search_semantic_only(q, size=1, es=es)[0]["score"]) for q in queries]
+        for kind, queries in (("off-topic", OFF_TOPIC_HELDOUT), ("in-domain", IN_DOMAIN_HELDOUT))
+    }
+    off, genuine = scored["off-topic"], scored["in-domain"]
+    return {
+        "floor": floor,
+        "off_topic_max": round(max(s for _, s in off), 2),
+        "in_domain_min": round(min(s for _, s in genuine), 2),
+        "false_accepts": [(q, round(s, 2)) for q, s in off if s >= floor],
+        "false_rejects": [(q, round(s, 2)) for q, s in genuine if s < floor],
+        "counts": {"off_topic": len(off), "in_domain": len(genuine)},
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="emit raw numbers")
@@ -211,6 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         "invisible_to_exact": sweep_invisible_to_exact(es, chunks),
         "floor": RELEVANCE_FLOOR,
         "probes": probe_scores(es),
+        "heldout": heldout_floor_check(es),
     }
 
     if args.json:
@@ -245,6 +308,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {'kind':13} {'fused':>7} {'sparse':>7}  query")
     for row in report["probes"]:
         print(f"  {row['kind']:13} {row['fused']:7.4f} {row['sparse']:7.2f}  {row['query']}")
+
+    held = report["heldout"]
+    print(f"\nFinding 3 — the floor on held-out probes (floor = {held['floor']}, applied not fitted)")
+    print(f"  {held['counts']['off_topic']} off-topic  top score {held['off_topic_max']:.2f}"
+          f"   -> {len(held['false_accepts'])} false accepts")
+    for query, score in held["false_accepts"]:
+        print(f"      {score:7.2f}  {query}")
+    print(f"  {held['counts']['in_domain']} in-domain  low score {held['in_domain_min']:.2f}"
+          f"   -> {len(held['false_rejects'])} false rejects")
+    for query, score in held["false_rejects"]:
+        print(f"      {score:7.2f}  {query}")
     return 0
 
 

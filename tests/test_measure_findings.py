@@ -60,6 +60,11 @@ def probes(es):
     return measure_findings.probe_scores(es)
 
 
+@pytest.fixture(scope="module")
+def heldout(es):
+    return measure_findings.heldout_floor_check(es)
+
+
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -174,3 +179,26 @@ def test_the_pre_fusion_score_is_what_actually_separates(probes) -> None:
     assert min(genuine) > RELEVANCE_FLOOR, "a genuine question fell below the floor"
     # Nine of ten sit well below it; the tenth is the declared marathon leaker.
     assert off_topic[-2] < RELEVANCE_FLOOR
+
+
+def test_the_heldout_probes_are_disjoint_from_the_ones_the_floor_was_derived_from() -> None:
+    """The held-out set is only evidence if it shares no query with the tuning set."""
+    tuning = set(measure_findings.OFF_TOPIC + measure_findings.IN_DOMAIN
+                 + measure_findings.WRONG_ENTITY)
+    held = set(measure_findings.OFF_TOPIC_HELDOUT + measure_findings.IN_DOMAIN_HELDOUT)
+    assert not tuning & held
+    assert len(held) == len(measure_findings.OFF_TOPIC_HELDOUT) + len(
+        measure_findings.IN_DOMAIN_HELDOUT
+    )
+
+
+@requires_index
+def test_the_floor_generalizes_to_probes_it_was_not_derived_from(heldout) -> None:
+    """The claim Phase 2 of docs/specs/single-call-retrieval.md rests on.
+
+    A floor chosen against sixteen probes could be fitted to them. On thirty it never saw, it
+    misclassifies none — which is what makes it a guardrail rather than a coincidence.
+    """
+    assert heldout["false_accepts"] == []
+    assert heldout["false_rejects"] == []
+    assert heldout["off_topic_max"] < heldout["floor"] < heldout["in_domain_min"]

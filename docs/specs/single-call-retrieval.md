@@ -162,7 +162,7 @@ lexical-arm argument is built on — would.
 | Phase | Work | Est. |
 |---|---|---|
 | ~~**1. Re-derive the control**~~ | **Done 2026-08-28** — see below | — |
-| **2. Held-out validation** | ~20 off-topic + ~10 in-domain probes *not* used for tuning; re-sweep weights against them; **go/no-go** | 2–3 h |
+| ~~**2. Held-out validation**~~ | **Done 2026-08-28 — NO-GO.** See below | — |
 | **3. Implementation** | `linear_retriever()` in `semantic.py`; collapse the two calls in `semantic_citations()`; new floor constant; update `test_semantic.py` (16 tests) and `test_service.py` mocks, which assume two calls | 2–3 h |
 | **4. Re-measure** | New arms in `measure_findings.py`; regenerate `eval-output.md` | 2 h |
 | **5. Write-up** | `findings.md` §4; amend §3's closing cost paragraph | 2–3 h |
@@ -230,3 +230,59 @@ cutover. That belongs in the `observability.md` notes if the candidate ships.
   is index- *and* weight-specific. What ports is still the method, never the constant.
 - **17 probes is not a labeled evaluation set.** Same limitation `findings.md` §3 already declares.
   Phase 2 widens it; it does not remove it.
+
+
+## Phase 2 result (2026-08-28): no-go
+
+Twenty off-topic and ten in-domain probes, written before scoring and sharing no query with the
+tuning set. Both live in `scripts/measure_findings.py` as `OFF_TOPIC_HELDOUT` and
+`IN_DOMAIN_HELDOUT`; a test asserts the two sets stay disjoint. Floors applied, not refitted:
+incumbent 8.0, candidate 17.0 (the midpoint of the tuning gap [16.11, 17.81]).
+
+**Both classify the held-out set perfectly — 0 false accepts in 20, 0 false rejects in 10.** The
+candidate is not broken. It is simply dominated:
+
+| Config | Tuning margin | Held-out margin | Held-out off ≤ / gen ≥ |
+|---|---|---|---|
+| Incumbent (ELSER raw) | 57.1% | **59.8%** | 5.34 / 13.28 |
+| Candidate w=1.0 | 0.4% | **−42.9%** | 56.25 / 39.36 |
+| Candidate w=0.5 | 0.8% | −9.1% | 28.95 / 26.52 |
+| Candidate w=0.25 | 9.5% | 21.9% | 15.30 / 19.58 |
+| Candidate w=0.1 | −6.9% | 49.2% | 7.70 / 15.15 |
+
+Three things kill it.
+
+**The incumbent generalizes and the candidate's weight does not.** ELSER raw scores 57.1% on the
+set it was derived from and 59.8% on one it has never seen — the floor is a real signal, not a
+fit. The candidate's *optimal weight moves*: 0.25 was best on tuning, where 0.1 was negative; on
+held-out 0.1 is the best config and 0.25 is less than half as good. The optimum is set by whichever
+single off-topic outlier a probe set happens to contain — marathon at 16.11 in tuning, nothing
+equivalent in held-out. A constant chosen that way cannot be trusted at a floor.
+
+**Equal weights fail outright.** At w=1.0 the held-out margin is −42.9%: "How do I get a passport
+renewed?" scores 56.25, above every genuine query in the set. The tuning set's 0.4% margin was not
+a thin pass, it was an accident of having too few long off-topic queries. This is Elastic's
+documented warning about `none` showing up exactly as documented.
+
+**There is no weight that is good at both jobs.** Separation improves monotonically as the weight
+falls — 42.9% → −9.1% → 21.9% → 49.2% — converging on the incumbent, because it converges on
+*being* the incumbent. Ranking moves the other way: w=1.0 and w=0.5 reproduce RRF on all eight
+identifier lookups, w=0.25 loses two, w=0.1 loses four. Every unit of BM25 that helps the ranking
+degrades the answerability signal, and vice versa.
+
+### What this actually establishes
+
+The second call is not overhead to be optimized away. It is what buys the separation of concerns:
+one score is read for *ranking*, a different score for *answerability*, and neither has to
+compromise for the other. Fusing them into a single number forces one scale to serve two purposes
+that pull in opposite directions — which is the same lesson as §3 of `findings.md`, one level up.
+RRF discards magnitude and cannot report confidence; a linear combination keeps magnitude but
+contaminates it with the arm that exists for a different reason.
+
+**Recommendation: keep the two-call design.** The cost is one extra round trip on semantic queries
+only, against a floor that is 2.7× better separated, ranking that is strictly better, a bounded
+and better-understood score, and no tunable constant that moves with the probe set.
+
+Phases 3–5 are cancelled. What survives is the held-out probe set, which is now permanent
+regression coverage for the floor, and this document as the record of why the obvious optimization
+is the wrong one.
