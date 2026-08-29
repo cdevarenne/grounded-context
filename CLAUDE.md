@@ -54,6 +54,9 @@ grounded answer with a citation block.
   without being checked. A decimal that is not a measurement is declared `<!--lit-->9.6.0<!--/-->`.
   After any reindex: `uv run --extra es python scripts/publish_figures.py`, then run the suite and
   fix whatever it reports. `--check` re-measures and tells you what moved without writing.
+- **One command verifies all of it:** `uv run --extra es --extra mcp python scripts/verify.py`
+  — matrix, suite, figures, eval and captures, read-only, ~7 min. `--update` regenerates instead.
+  Run it before publishing anything and after any reindex. See `docs/maintenance.md`.
 - **Console output is captured, never pasted.** `scripts/capture.py` runs every command
   `eval-output.md` shows, writes each block to `docs/captures/<name>.txt` and splices the same
   text into the document; `tests/test_captures.py` asserts the two copies agree and that no

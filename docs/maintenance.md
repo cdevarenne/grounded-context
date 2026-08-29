@@ -92,6 +92,39 @@ uv run --extra es python scripts/capture.py           # docs/captures/*.txt + ev
 the fence it belongs in, so no console block is ever pasted by hand. `--only NAME` regenerates one
 block; `--check` re-runs everything and reports what moved without writing.
 
+## Verifying everything at once
+
+Knowing the repo is honest should not depend on remembering five commands and what each one
+covers, so there is one:
+
+```bash
+uv run --extra es --extra mcp python scripts/verify.py            # check, writes nothing
+uv run --extra es --extra mcp python scripts/verify.py --update   # regenerate, after a reindex
+```
+
+Read-only by default. A `verify` that rewrites what it is verifying is not a verification, and the
+last thing wanted before a demo is a command that quietly edits published documents.
+
+It prints what it ran against before it runs anything — index, chunk count, Elasticsearch version,
+inference endpoint, commit and whether the tree is clean, plus the dates on the two data files —
+so the verdict can be quoted rather than just believed. **Measured 2026-08-29: 7.1 minutes.**
+
+```
+  ok   compatibility matrix      0.3s   ok: compatibility-matrix.md matches the bundle
+  ok   test suite              149.6s   439 passed
+  ok   published figures       127.7s   every figure reproduces
+  ok   eval result               4.0s   the eval reproduces
+  ok   console captures        147.0s   all 9 captures reproduce
+```
+
+The figures and the captures both re-run the measurement scripts, which is where most of the time
+goes. That is not waste: one checks the recorded numbers and the other checks the published
+console text, and they can disagree.
+
+A stage list that falls behind would be worse than no command at all — `verify` would report
+success over an artifact it never looked at. `tests/test_verify.py` derives the list instead of
+trusting it: any script in `scripts/` offering a `--check` mode must appear in a stage.
+
 ## Rebuilding the index, rehearsed
 
 The index is a rebuildable projection, but "rebuildable" is a claim, and a claim about a step you
