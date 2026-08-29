@@ -9,6 +9,13 @@ from `gctx eval --compare`; the corpus-wide figures come from
 `scripts/measure_findings.py`. Both are captured verbatim in [`eval-output.md`](eval-output.md),
 so none of this has to be taken on trust.
 
+The figures were re-measured on 2026-08-28, after the corpus was reindexed onto a new
+Elasticsearch deployment. Section 2 came back identical to the digit — it is a finding about
+tokenization, which a new inference endpoint cannot move. Everything that shifted in sections 1
+and 3 is ELSER's. Section 1's claims survive unchanged. Two of section 3's got *stronger*, and
+both are marked where they appear: the best off-topic query now outranks all six genuine ones
+rather than four, and it reaches the RRF ceiling exactly.
+
 ## 1. Neither retrieval arm wins both phrasings of the same question
 
 The test case is an identifier and the one chunk that defines it. Ask for it two ways — as a
@@ -20,9 +27,9 @@ three different source documents and two vendors:
 | `rank_constant` | token | 5 | 1 | **1** |
 | `rank_constant` | sentence | 2 | 3 | **1** |
 | `num_candidates` | token | 1 | 1 | **1** |
-| `num_candidates` | sentence | 2 | 5 | **1** |
+| `num_candidates` | sentence | 1 | 5 | **1** |
 | `anthropic-ratelimit-tokens-reset` | token | 2 | 1 | **1** |
-| `anthropic-ratelimit-tokens-reset` | sentence | 1 | 1 | **1** |
+| `anthropic-ratelimit-tokens-reset` | sentence | 3 | 1 | **1** |
 | `rank_window_size` | token | 6 | 2 | 5 |
 | `rank_window_size` | sentence | 7 | 2 | 3 |
 
@@ -99,18 +106,18 @@ The refusal guarantee — *no answer without a grounded source* — quietly assu
 when it has found nothing. Fusion does not.
 
 Asked "how do I bake sourdough bread?", this corpus returns five confident, cited chunks about
-Elasticsearch. The fused score of the top hit is **0.068**. For a real question about streaming
-API responses it is **0.073**. Two queries is a coincidence, though, so I ran sixteen — ten
+Elasticsearch. The fused score of the top hit is **0.0635**. For a real question about streaming
+API responses it is **0.0729**. Two queries is a coincidence, though, so I ran sixteen — ten
 off-topic, six genuine — and the result is worse than "indistinguishable":
 
 | | fused (RRF) | pre-fusion (ELSER) |
 |---|---|---|
-| 10 off-topic questions | 0.0476 – 0.0911 | 1.66 – 16.14 |
-| 6 genuine questions | 0.0723 – 0.0931 | 14.10 – 19.48 |
+| 10 off-topic questions | 0.0476 – 0.0952 | 1.56 – 16.11 |
+| 6 genuine questions | 0.0707 – 0.0931 | 14.02 – 19.25 |
 
 The fused ranges **overlap across almost their whole span**. The best-scoring off-topic
-question — "what are the symptoms of vitamin D deficiency?" at 0.0911 — outranks **four of the
-six genuine questions**, including "how do I stream responses from the API?" at 0.0729. A
+question — "what are the symptoms of vitamin D deficiency?" at 0.0952 — outranks **all six
+genuine questions**, including "how do I stream responses from the API?" at 0.0729. A
 threshold on the fused score would not merely be unreliable; it would actively prefer a
 question the corpus cannot answer over one it can.
 
@@ -125,17 +132,23 @@ inferred from output. Taking each returned document's rank in the two arms separ
 computing the sum reproduces the score Elasticsearch reported to about 1e-9, every time —
 `scripts/rrf_audit.py`, captured in [`eval-output.md`](eval-output.md).
 
-The audit also corrected a claim. Sixteen probes topped out at 0.0931, which suggested the
-ceiling `2/(k+1)` = 0.0952 is unreachable because the arms rarely agree on first place. That
-conclusion is about all queries, and sixteen probes cannot support it. Tested directly, the
-query `reciprocal rank fusion` ranks the same chunk first in *both* arms and scores exactly
-0.095238. What 0.0931 means is `1/21 + 1/22` — first in one arm, second in the other. The score
-reports arm agreement and nothing else.
+The audit also corrected a claim. On the first index, sixteen probes topped out at 0.0931, which
+suggested the ceiling `2/(k+1)` = 0.0952 is unreachable because the arms rarely agree on first
+place. That conclusion is about all queries, and sixteen probes cannot support it. Tested
+directly, the query `reciprocal rank fusion` ranks the same chunk first in *both* arms and scores
+exactly 0.095238. What 0.0931 means is `1/21 + 1/22` — first in one arm, second in the other. The
+score reports arm agreement and nothing else.
+
+The rebuilt index then made the same point without the direct test. "What are the symptoms of
+vitamin D deficiency?" now scores 0.0952 — the ceiling itself — because both arms happen to agree
+on a first place for a question this corpus cannot answer at all. The highest fused score the
+corpus can produce belongs to an off-topic query, which is the cleanest statement of the problem
+this section describes.
 
 The pre-fusion scores keep that magnitude, and there the separation is clean: **9 of the 10
-off-topic land at 1.66–5.90** against **14.10–19.48** for all six genuine ones — a gap of more
-than 8 with nothing in it. So the semantic path probes that score first and returns nothing
-below a floor of 8. An empty result becomes the refusal. The tenth off-topic probe scored 16.14
+off-topic land at 1.56–6.01** against **14.02–19.25** for all six genuine ones — a gap of eight
+points with nothing in it. So the semantic path probes that score first and returns nothing
+below a floor of 8. An empty result becomes the refusal. The tenth off-topic probe scored 16.11
 and is the second limit below — it is not an outlier to be waved away, and the floor lets it
 through.
 
@@ -145,12 +158,12 @@ Two limits, both worth stating plainly, because a floor that *looks* like a corr
 more dangerous than no floor at all.
 
 It does not catch a question that is in-domain but about the wrong entity. "The price per
-million tokens of GPT-5" scores 19.4, because the corpus genuinely discusses pricing — just
+million tokens of GPT-5" scores 18.84, because the corpus genuinely discusses pricing — just
 Anthropic's. Relevance and correct-entity are different problems, and the second belongs to the
 router and the canonical layer, not the retriever.
 
 And it measures the corpus as *text*, not as subject matter. "What is the best way to train for
-a marathon?" clears the floor at 16.1, which looked like a bug until I read the passage it
+a marathon?" clears the floor at 16.11, which looked like a bug until I read the passage it
 matched: Elastic's `semantic_text` documentation teaches the feature using running and exercise
 sample documents. The retrieval is correct. A doc page's illustrative data is part of the
 retrievable surface, whether or not it is part of the subject.

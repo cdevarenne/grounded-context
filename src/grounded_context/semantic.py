@@ -26,11 +26,16 @@ DEFAULT_SIZE = 5
 SNIPPET_CHARS = 320
 
 # Minimum pre-fusion sparse score for a query to count as answerable at all. Chosen from 16
-# probes against this corpus — 9 of 10 off-topic landed at 1.7–5.9 and all 6 genuine ones at
-# 14.1–19.5, with one off-topic probe at 16.1 that this floor does not catch (see
+# probes against this corpus — 9 of 10 off-topic landed at 1.6–6.0 and all 6 genuine ones at
+# 14.0–19.3, with one off-topic probe at 16.1 that this floor does not catch (see
 # `is_relevant`). Not tuned on a labeled set: a guardrail, not a classifier. The number is a
 # property of this index — re-chunk, re-index, or change the inference model and it means
 # nothing. What ports is the method (read a pre-fusion score), never the constant.
+#
+# Re-derived 2026-08-28 against the rebuilt index and left at 8.0. The usable gap moved from
+# [5.9, 14.1] to [6.0, 14.0], so 8.0 still sits inside it. Centering it at 10.0 would balance the
+# headroom (4.0 either side, against 2.0/6.0 at a floor of 8.0) but classifies all 17 probes
+# identically, so the change would be churn on a published constant with no measured effect.
 RELEVANCE_FLOOR = 8.0
 
 METHOD = "hybrid(bm25+elser,rrf)"

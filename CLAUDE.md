@@ -75,5 +75,7 @@ stage-3 addition via a metered API key — not needed for v1.
   - `observability.md` — the per-query telemetry event, its emit sites, and the three
     non-negotiables (emitted after the answer, best-effort, never blocks)
   - `observability-corpus-state.md` — the bundle-governance snapshot: the other two signals
+  - `single-call-retrieval.md` — the one-call answerability candidate: why MinMax and `min_score`
+    were rejected on measurement, and the control the candidate must beat
 - Keeping the canonical layer current: `docs/maintenance.md` — re-verification, `stale_after`,
   corpus refresh, and which checks are automated.
