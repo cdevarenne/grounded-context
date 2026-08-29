@@ -58,11 +58,58 @@ It is also RRF's own parameter — the fusion step this system uses — so the d
 retrieval method while proving why lexical matching still earns its place in it.
 
 ## Pass criteria
-- Right path chosen (or BOTH when appropriate), with a logged `rationale`.
-- Answer is grounded and carries a valid citation block (provenance.md).
+
+Each case declares two expectations, and both are asserted. They are different claims: a question
+can reach the right answer by the wrong path.
+
+| Field | What it claims | Checked by |
+|---|---|---|
+| `expected` | which engine answers — `deterministic`, `semantic`, `mixed` or `refusal` | `run_case` |
+| `expected_route` | which route the router chose — `DETERMINISTIC`, `SEMANTIC` or `BOTH` | `run_case` |
+
+A case passes when both match **and** the answer is grounded: at least one citation, unless the
+answer is the refusal, which carries none by definition. Anything else is `FAIL`.
+
+Asserting the route is not redundant. Q19 refuses correctly whether the router sends it to the
+semantic arm or the deterministic one — but only the semantic route runs the relevance floor,
+which is the entire reason the case exists. Without the route assertion it could silently become
+a second copy of Q11 and the suite would stay green.
+
+### Declared deviations
+
+A case that fails for an understood reason carries a `known_deviation` and reports `KNOWN`. It is
+counted apart from a pass and never reads as green.
+
+`known_deviation` silences a failure, so the set of cases allowed to carry one is pinned in
+`tests/test_evaluation.py` as `DECLARED_DEVIATIONS`. Adding a deviation therefore means editing a
+test, which is a visible act, rather than turning the suite green quietly. Today the set is
+exactly **Q3** and **Q20**, and both are explained where they appear.
+
+### Two cases that must keep working
+
 - **Q11 refuses** rather than inventing.
 - **Q9 demonstrably differs** between pure-vector and hybrid — this is the moment that proves
   platform depth, so verify it reproduces before the interview.
+
+### How the result is published and checked
+
+`scripts/publish_eval.py` writes the whole run to [`docs/data/eval.json`](../data/eval.json) with
+the bundle, the index, the date and the commit behind it. It refuses to write a run made without a
+reachable cluster, because every semantic case would record a false refusal.
+
+Two tests read it, and the split is what makes the guarantee complete:
+
+- **Without credentials** — the verdict table published in
+  [`eval-output.md`](../eval-output.md) is compared row by row to `eval.json`: expected, actual,
+  route, citation count and verdict, plus the totals line. A bare clone catches a document that
+  drifted from the run it claims to show.
+- **Against the cluster** — the eval is re-run and asserted to still reproduce `eval.json`. This
+  is the half the first cannot cover: a document that faithfully reports a result that stopped
+  being true.
+
+After a reindex or a bundle change: `uv run --extra es python scripts/publish_eval.py`, then
+recapture `gctx eval` into `eval-output.md`. `--check` re-runs and reports what moved without
+writing.
 
 ## Q19–Q20: why the floor needs its own cases
 

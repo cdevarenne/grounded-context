@@ -1,0 +1,237 @@
+{
+  "run": {
+    "measured_at": "2026-08-29",
+    "bundle": "knowledge",
+    "concepts": 4,
+    "index": "grounded-context-corpus",
+    "elasticsearch_configured": true,
+    "git_sha": "b04def7"
+  },
+  "totals": {
+    "pass": 18,
+    "known": 2,
+    "fail": 0
+  },
+  "cases": [
+    {
+      "id": "Q1",
+      "question": "What is the exact context window of claude-opus-5?",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"context window\", \"exact\") plus a named model (claude-opus-5) \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q2",
+      "question": "What is the endpoint path for Anthropic's Messages API?",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"endpoint\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q3",
+      "question": "Which of these models support vision?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "BOTH",
+      "route": "BOTH",
+      "rationale": "no decisive signal \u2014 defaulting to BOTH, which is the safe side",
+      "citations": 5,
+      "verdict": "KNOWN"
+    },
+    {
+      "id": "Q4",
+      "question": "What is the max output tokens for claude-haiku-4-5?",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"max output\") plus a named model (claude-haiku-4-5) \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q5",
+      "question": "How do I stream responses from the API?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"how do i\"), no exact field requested",
+      "citations": 5,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q6",
+      "question": "What's the recommended way to do hybrid search in Elasticsearch?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"recommended\"), no exact field requested",
+      "citations": 5,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q7",
+      "question": "How should I chunk documents for retrieval?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"how should i\", \"should i\"), no exact field requested",
+      "citations": 5,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q8",
+      "question": "What's the difference between BM25 and vector search?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"difference between\"), no exact field requested",
+      "citations": 5,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q9",
+      "question": "What does the rank_constant parameter do?",
+      "expected": "semantic",
+      "actual": "semantic",
+      "expected_route": "BOTH",
+      "route": "BOTH",
+      "rationale": "no decisive signal \u2014 defaulting to BOTH, which is the safe side",
+      "citations": 5,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q10",
+      "question": "Compare claude-opus-5 and claude-sonnet-5 on max output tokens.",
+      "expected": "mixed",
+      "actual": "mixed",
+      "expected_route": "BOTH",
+      "route": "BOTH",
+      "rationale": "cross-entity comparison (\"compare\") \u2014 exact values are required, so a deterministic miss refuses rather than falling back to passages",
+      "citations": 6,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q11",
+      "question": "What is the price per million tokens of GPT-5?",
+      "expected": "refusal",
+      "actual": "refusal",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"price\") \u2014 an exact fact must not be ranked",
+      "citations": 0,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q12",
+      "question": "What is the exact context window of claude-haiku-4-5?",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"context window\", \"exact\") plus a named model (claude-haiku-4-5) \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q13",
+      "question": "Whats the ctx window for opus",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"ctx window\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q14",
+      "question": "How big is the Opus 5 context window?",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"context window\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q15",
+      "question": "What is the context length of Sonnet 5",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"context length\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q16",
+      "question": "Haiku 4.5 max output",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"max output\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q17",
+      "question": "the Opus model endpoint",
+      "expected": "deterministic",
+      "actual": "deterministic",
+      "expected_route": "DETERMINISTIC",
+      "route": "DETERMINISTIC",
+      "rationale": "precision phrasing (\"endpoint\") \u2014 an exact fact must not be ranked",
+      "citations": 1,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q18",
+      "question": "Is Sonnet 5 cheaper than Opus 5?",
+      "expected": "refusal",
+      "actual": "refusal",
+      "expected_route": "BOTH",
+      "route": "BOTH",
+      "rationale": "cross-entity comparison (\"cheaper\") \u2014 exact values are required, so a deterministic miss refuses rather than falling back to passages",
+      "citations": 0,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q19",
+      "question": "How do I bake sourdough bread?",
+      "expected": "refusal",
+      "actual": "refusal",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"how do i\"), no exact field requested",
+      "citations": 0,
+      "verdict": "PASS"
+    },
+    {
+      "id": "Q20",
+      "question": "What is the best way to train for a marathon?",
+      "expected": "refusal",
+      "actual": "semantic",
+      "expected_route": "SEMANTIC",
+      "route": "SEMANTIC",
+      "rationale": "exploratory phrasing (\"best way\"), no exact field requested",
+      "citations": 5,
+      "verdict": "KNOWN"
+    }
+  ]
+}

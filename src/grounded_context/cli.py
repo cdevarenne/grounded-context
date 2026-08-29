@@ -100,9 +100,12 @@ def cmd_eval(args: argparse.Namespace) -> int:
     else:
         print(f"{'id':5}{'expected':15}{'actual':15}{'route':14}{'cites':7}verdict")
         for r in results:
+            # A route the case did not expect is marked inline: the verdict already counts it as
+            # a failure, and without the marker the table would look merely different, not wrong.
+            route = r.route if r.routed_as_expected else f"{r.route}!={r.case.expected_route}"
             print(
                 f"{r.case.id:5}{r.case.expected:15}{r.actual:15}"
-                f"{r.route:14}{r.citations:<7}{r.verdict}"
+                f"{route:14}{r.citations:<7}{r.verdict}"
             )
         for r in results:
             if r.case.known_deviation:
