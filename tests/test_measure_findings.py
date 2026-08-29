@@ -253,3 +253,32 @@ def test_confusion_counts_a_floor_applied_to_scores_it_did_not_choose() -> None:
     """At the floor exactly, an off-topic query is accepted — `>=` matches `is_relevant`."""
     accepts, rejects = measure_findings.confusion([9.0, 4.0], [8.0, 1.0], floor=8.0)
     assert (accepts, rejects) == (1, 1)
+
+
+# --- the floor verdict a rebuild prints -----------------------------------------------------
+
+
+@requires_index
+def test_the_shipped_floor_still_holds_against_this_index(es) -> None:
+    """What `index_corpus.py --recreate` runs before it reports success.
+
+    The constant is a property of the index, and a rebuild is the event that can invalidate it.
+    This is the same check, run as part of the suite so it is not only true immediately after a
+    rebuild.
+    """
+    verdict = measure_findings.floor_verdict(es)
+    assert verdict["ok"], (
+        f"RELEVANCE_FLOOR no longer classifies the held-out probes: {verdict['false_accepts']} "
+        f"false accepts, {verdict['false_rejects']} false rejects"
+    )
+    low, high = verdict["usable_gap"]
+    assert verdict["inside_gap"], f"floor {verdict['floor']} is outside the gap [{low}, {high}]"
+
+
+@requires_index
+@pytest.mark.parametrize(("floor", "breaks"), [(20.0, "false_rejects"), (1.0, "false_accepts")])
+def test_a_floor_that_no_longer_works_is_reported_as_broken(es, floor: float, breaks: str) -> None:
+    """A verdict that cannot fail would make the rebuild check theatre rather than a gate."""
+    verdict = measure_findings.floor_verdict(es, floor)
+    assert not verdict["ok"]
+    assert verdict[breaks], f"a floor of {floor} should produce {breaks}"

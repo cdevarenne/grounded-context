@@ -113,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--recreate", action="store_true", help="delete and rebuild the index first"
     )
+    parser.add_argument(
+        "--skip-floor-check", action="store_true",
+        help="index without checking that RELEVANCE_FLOOR still holds (it will not be checked "
+             "anywhere else, so only do this when the index is not the one being published)",
+    )
     args = parser.parse_args(argv)
 
     from elasticsearch.helpers import bulk
@@ -135,7 +140,20 @@ def main(argv: list[str] | None = None) -> int:
     count = es.count(index=INDEX)["count"]
     print(f"indexed {succeeded} chunks, {len(errors) if errors else 0} errors")
     print(f"{INDEX} now holds {count} documents")
-    return 1 if errors else 0
+    if errors:
+        return 1
+    if args.skip_floor_check:
+        print("\nfloor check skipped — RELEVANCE_FLOOR is unverified against this index")
+        return 0
+
+    # The floor is a property of the index, and this is the moment the index changes. Checking
+    # here rather than leaving it to whoever remembers is the whole point: a rebuild that
+    # invalidates the refusal guarantee should not look like a success.
+    from measure_findings import floor_verdict, print_floor_verdict
+
+    verdict = floor_verdict(es)
+    print_floor_verdict(verdict)
+    return 0 if verdict["ok"] else 1
 
 
 if __name__ == "__main__":

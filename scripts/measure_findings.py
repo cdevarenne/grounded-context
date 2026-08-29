@@ -354,6 +354,52 @@ def build_report(es: Any) -> dict[str, Any]:
     }
 
 
+def floor_verdict(es: Any, floor: float = RELEVANCE_FLOOR) -> dict[str, Any]:
+    """Is `RELEVANCE_FLOOR` still a valid floor for the index that exists right now?
+
+    `semantic.py` states outright that the constant is a property of the index: re-chunk,
+    re-index or change the inference model and it means nothing. The 2026-08-28 rebuild moved
+    the usable gap from [5.9, 14.1] to [6.0, 14.0] and 8.0 happened to survive, which is luck
+    rather than evidence. This is what turns the next rebuild's luck into a verdict.
+
+    Both probe sets are scored. The tuning set says whether the floor still sits inside the gap
+    it was derived from; the held-out set says whether it still classifies queries it has never
+    seen. The second is the one that matters, so a miss there is what makes the verdict fail.
+    """
+    tuning = {
+        kind: [search_semantic_only(q, size=1, es=es)[0]["score"] for q in queries]
+        for kind, queries in (("off-topic", OFF_TOPIC), ("in-domain", IN_DOMAIN))
+    }
+    # The marathon probe sits inside the genuine band, so the usable gap is derived from the
+    # other nine — the same nine 8.0 was originally chosen from.
+    off_topic_ceiling = sorted(tuning["off-topic"])[-2]
+    genuine_low = min(tuning["in-domain"])
+    held = heldout_floor_check(es, floor)
+    return {
+        "floor": floor,
+        "usable_gap": [round(off_topic_ceiling, 2), round(genuine_low, 2)],
+        "inside_gap": off_topic_ceiling < floor < genuine_low,
+        "false_accepts": held["false_accepts"],
+        "false_rejects": held["false_rejects"],
+        "ok": not held["false_accepts"] and not held["false_rejects"],
+    }
+
+
+def print_floor_verdict(verdict: dict[str, Any]) -> None:
+    """One block a rebuild can print, readable without opening anything else."""
+    low, high = verdict["usable_gap"]
+    print(f"\nrelevance floor {verdict['floor']} against this index")
+    print(f"  usable gap [{low}, {high}] from the 16 tuning probes"
+          f"   -> floor {'sits inside it' if verdict['inside_gap'] else 'IS OUTSIDE IT'}")
+    for label, misses in (("false accepts", verdict["false_accepts"]),
+                          ("false rejects", verdict["false_rejects"])):
+        print(f"  {len(misses)} {label} across 30 held-out probes")
+        for query, score in misses:
+            print(f"      {score:7.2f}  {query}")
+    print("  VERDICT: " + ("floor still holds" if verdict["ok"] else
+                           "FLOOR NO LONGER HOLDS — re-derive it before publishing anything"))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="emit raw numbers")

@@ -77,8 +77,86 @@ uv run --extra es python scripts/index_corpus.py --recreate # rebuild the index 
 Two consequences worth knowing before you do it. Re-fetching changes the source text, so chunk
 boundaries can move — and the figures published in [`findings.md`](findings.md) and
 [`eval-output.md`](eval-output.md) are properties of the corpus as fetched. If the counts move,
-the published numbers must be regenerated (`scripts/measure_findings.py`) rather than left to
-disagree with the index. Adding or removing a page in `corpus/manifest.yml` has the same effect.
+the published numbers must be regenerated rather than left to disagree with the index. Adding or
+removing a page in `corpus/manifest.yml` has the same effect.
+
+Regenerating is two commands, and the suite tells you if you forgot:
+
+```bash
+uv run --extra es python scripts/publish_figures.py   # docs/data/measurements.json
+uv run --extra es python scripts/publish_eval.py      # docs/data/eval.json
+uv run --extra es gctx eval                           # recapture into eval-output.md by hand
+```
+
+## Rebuilding the index, rehearsed
+
+The index is a rebuildable projection, but "rebuildable" is a claim, and a claim about a step you
+have never run is a guess. Rehearse it against a **scratch index** rather than the live one:
+`ES_INDEX` names the target, so nothing needs editing.
+
+```bash
+export ES_INDEX=grounded-context-scratch
+
+uv run --extra es python scripts/index_corpus.py --recreate      # build it
+uv run --extra es python scripts/publish_figures.py --check      # do the figures still hold?
+uv run --extra es python scripts/publish_eval.py --check         # does the eval still hold?
+uv run --extra es --extra mcp pytest -q                          # does anything break?
+
+uv run --extra es python -c "
+from elasticsearch import Elasticsearch
+from grounded_context.es_client import client
+client().indices.delete(index='grounded-context-scratch')"
+
+unset ES_INDEX
+```
+
+Both `--check` modes re-measure and report what moved without writing, so a rehearsal cannot
+overwrite a published figure by accident.
+
+`index_corpus.py` will not report success on a rebuild it cannot vouch for. After indexing it
+scores the 16 tuning and 30 held-out probes and prints a verdict, exiting non-zero if the floor
+has stopped working:
+
+```
+relevance floor 8.0 against this index
+  usable gap [6.01, 14.02] from the 16 tuning probes   -> floor sits inside it
+  0 false accepts across 30 held-out probes
+  0 false rejects across 30 held-out probes
+  VERDICT: floor still holds
+```
+
+`--skip-floor-check` turns it off, and nothing else will check for you if you use it.
+
+**Measured 2026-08-29**, from `corpus/raw/` as fetched on 2026-08-13, against Elastic Cloud
+Serverless 9.6.0:
+
+| | |
+|---|---|
+| Rebuild | **3.94 s**, 320 chunks, 0 errors |
+| ELSER readiness | immediate — a semantic query straight after the bulk returned the expected score |
+| Figures | every one reproduced |
+| Eval | reproduced, 18 pass · 2 known · 0 fail |
+| Suite | 426 passed |
+
+Nothing moved. Chunking, BM25 and ELSER are all deterministic for a given corpus and inference
+endpoint, so a rebuild is safe to do the week of a demo.
+
+Three things that will bite, in the order they bite:
+
+- **`ES_INFERENCE_ID` is baked into the mapping when the index is created.** A wrong value is not
+  a setting you correct afterwards; it is an index you rebuild. Check it before you build, not
+  after.
+- **A fresh project offers more than one ELSER endpoint, and their names differ by one word.**
+  This project lists both `.elser-2-elasticsearch` (the one used here) and `.elser-2-elastic`.
+  `uv run --extra es python -c "from grounded_context.es_client import client;
+  print([e['inference_id'] for e in client().inference.get()['endpoints']])"` lists what a project
+  actually has.
+- **`ES_INDEX` is read once, at import time.** Exporting it works; setting it inside a Python
+  session after `grounded_context.es_client` is imported does not.
+
+When you rebuild the **real** index rather than a scratch one, the same three `--check` commands
+become the acceptance test, and then both publishers must be run for real so
+`docs/data/*.json` describe the index that now exists.
 
 ## What is automated today, and what is not
 
