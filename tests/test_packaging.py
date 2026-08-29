@@ -38,8 +38,9 @@ def gctx(tmp_path: Path) -> Runner:
 
     def run(*args: str) -> subprocess.CompletedProcess[str]:
         assert GCTX is not None  # guarded by requires_install
+        # check=False: the callers assert on returncode themselves, including non-zero exits.
         return subprocess.run(
-            [GCTX, *args], capture_output=True, text=True, cwd=tmp_path
+            [GCTX, *args], capture_output=True, text=True, cwd=tmp_path, check=False
         )
 
     return run

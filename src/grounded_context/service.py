@@ -7,8 +7,9 @@ product here, so it lives in one place rather than being re-implemented per surf
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field as dataclass_field
-from datetime import date, datetime, timezone
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from datetime import UTC, date, datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -39,7 +40,7 @@ def load_bundle(explicit: str | None = None) -> Bundle:
 def as_of_date(raw: str | None = None) -> date:
     """Parse an ISO date for staleness evaluation, defaulting to today."""
     if raw is None:
-        return datetime.now(timezone.utc).date()
+        return datetime.now(UTC).date()
     return date.fromisoformat(raw)
 
 

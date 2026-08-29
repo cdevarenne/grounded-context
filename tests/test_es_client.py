@@ -30,9 +30,9 @@ def _no_credentials_needed(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def library_default(name: str) -> Any:
     """What the client would use if we set nothing — the thing these settings exist to change."""
-    from elastic_transport import Transport
-
     import inspect
+
+    from elastic_transport import Transport
 
     return inspect.signature(Transport.__init__).parameters[name].default
 

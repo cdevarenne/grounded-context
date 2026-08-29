@@ -1,7 +1,12 @@
 """Audit the fusion math: does ES's fused score equal the RRF formula from the two arms' ranks?"""
-from grounded_context.es_client import client, INDEX
+from grounded_context.es_client import INDEX, client
 from grounded_context.semantic import (
-    RANK_CONSTANT, RANK_WINDOW_SIZE, _lexical, _sparse, hybrid_retriever)
+    RANK_CONSTANT,
+    RANK_WINDOW_SIZE,
+    _lexical,
+    _sparse,
+    hybrid_retriever,
+)
 
 es = client()
 K = RANK_CONSTANT
@@ -28,5 +33,5 @@ for query in ["What is reciprocal rank fusion?", "rank_constant",
         rs = spa.index(doc) + 1 if doc in spa else None
         predicted = (1 / (K + rl) if rl else 0) + (1 / (K + rs) if rs else 0)
         label = f"{doc[0]}:{doc[1]}"
-        print(f"{label:34} {str(rl):>5} {str(rs):>6} {predicted:10.6f} {observed:9.6f} "
+        print(f"{label:34} {rl!s:>5} {rs!s:>6} {predicted:10.6f} {observed:9.6f} "
               f"{abs(predicted - observed):9.2e}")

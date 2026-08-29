@@ -19,7 +19,11 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from grounded_context.es_client import INDEX, client
-from grounded_context.semantic import RELEVANCE_FLOOR, hybrid_retriever, search_semantic_only
+from grounded_context.semantic import (
+    RELEVANCE_FLOOR,
+    hybrid_retriever,
+    search_semantic_only,
+)
 
 # Identifier shapes. Underscore and hyphen are separated because the whole point is that the
 # standard analyzer treats them differently.
@@ -367,13 +371,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"    rank of the defining chunk: content-only {mech['rank_content_only']}"
           f" -> with exact {mech['rank_with_exact']}")
 
-    print(f"\nFinding 2 — rank improved by the content.exact subfield")
+    print("\nFinding 2 — rank improved by the content.exact subfield")
     print(f"  (tokens unique to one chunk, longer than {MIN_UNIQUE_LEN} characters)")
     for shape, data in report["subfield_effect"].items():
         print(f"    {shape:12} {data['improved']:3} of {data['total']:3} improved,"
               f" {data['regressed']} regressed")
     hidden = report["invisible_to_exact"]
-    print(f"\n  tokens matching `content` but INVISIBLE to `content.exact`")
+    print("\n  tokens matching `content` but INVISIBLE to `content.exact`")
     print(f"  (hyphenated or underscored, at least {MIN_VISIBLE_LEN} characters):")
     print(f"    {hidden['invisible']} of {hidden['total']}")
     print(f"    first three alphabetically: {', '.join(hidden['examples'][:3])}")

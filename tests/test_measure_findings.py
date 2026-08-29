@@ -21,7 +21,7 @@ def _index_ready() -> bool:
 
     try:
         return bool(client().indices.exists(index=INDEX))
-    except Exception:
+    except Exception:  # noqa: BLE001 - any failure to reach the cluster means skip, not crash
         return False
 
 

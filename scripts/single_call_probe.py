@@ -17,13 +17,28 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from measure_findings import (
+    IN_DOMAIN,
+    IN_DOMAIN_HELDOUT,
+    METRIC_LEGEND,
+    OFF_TOPIC,
+    OFF_TOPIC_HELDOUT,
+    auc,
+    confusion,
+    margin,
+    tuning_midpoint,
+)
+
 from grounded_context.es_client import INDEX, client
 from grounded_context.semantic import (
-    RANK_CONSTANT, RANK_WINDOW_SIZE, RELEVANCE_FLOOR, _lexical, _sparse, hybrid_retriever,
-    search_semantic_only)
-from measure_findings import (
-    IN_DOMAIN, IN_DOMAIN_HELDOUT, METRIC_LEGEND, OFF_TOPIC, OFF_TOPIC_HELDOUT, auc, confusion,
-    margin, tuning_midpoint)
+    RANK_CONSTANT,
+    RANK_WINDOW_SIZE,
+    RELEVANCE_FLOOR,
+    _lexical,
+    _sparse,
+    hybrid_retriever,
+    search_semantic_only,
+)
 
 es = client()
 WEIGHTS = (1.0, 0.5, 0.25, 0.1)
@@ -109,7 +124,7 @@ for name, score in sweep:
           f"{auc(gen_h, off_h):>8.3f}{margin(gen_h, off_h):>7.1f}%   {label:<28}{errors}")
 
 print("\n=== min_score on the inner ELSER arm ===")
-print(f"One call. The parent still returns the lexical arm's hits, so the refusal rule cannot be")
+print("One call. The parent still returns the lexical arm's hits, so the refusal rule cannot be")
 print(f"'zero hits' — it is 'top score is at the single-arm ceiling {SINGLE_ARM_CEILING:.6f}',")
 print("which is where a document ranked first by BM25 lands when nothing survives the gate.")
 print(f"\n{'set':<11}{'class':<12}{'n':>4}{'refused':>9}{'accept':>8}{'reject':>8}"

@@ -17,7 +17,12 @@ from typing import Any
 import pytest
 
 from grounded_context import telemetry
-from grounded_context.provenance import DETERMINISTIC, MIXED, NOT_FOUND, SEMANTIC, grounded_answer
+from grounded_context.provenance import (
+    DETERMINISTIC,
+    MIXED,
+    SEMANTIC,
+    grounded_answer,
+)
 
 # Only what a citation needs for the event to be derivable; the full shape is pinned elsewhere.
 EXACT_CITE: dict[str, Any] = {"path": DETERMINISTIC, "locator": "canonical.context_window_tokens"}

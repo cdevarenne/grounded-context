@@ -7,9 +7,8 @@ known deviation must never be counted as a pass.
 
 from __future__ import annotations
 
-from datetime import date
-
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest

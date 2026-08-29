@@ -16,7 +16,9 @@ import pytest
 from grounded_context import service, telemetry
 from grounded_context.bundle import Bundle
 from grounded_context.provenance import MIXED, NOT_FOUND
-from grounded_context.router import BOTH, DETERMINISTIC as ROUTE_DETERMINISTIC, SEMANTIC as ROUTE_SEMANTIC, route
+from grounded_context.router import BOTH, route
+from grounded_context.router import DETERMINISTIC as ROUTE_DETERMINISTIC
+from grounded_context.router import SEMANTIC as ROUTE_SEMANTIC
 from grounded_context.service import as_of_date, ask, load_bundle, lookup_field
 
 # Cross-entity, so the router sends it to BOTH, and the bundle holds no single exact answer.

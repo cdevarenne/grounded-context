@@ -38,7 +38,7 @@ def compare_captures() -> dict[str, dict[str, int]]:
     blocks = re.findall(
         r"^\$ .*gctx eval --compare \"(?P<query>[^\"]+)\"\n(?P<body>(?:.*\n)*?)(?=^\$ |^```)",
         CAPTURED,
-        re.M,
+        re.MULTILINE,
     )
     captures = {
         query: {arm: int(rank) for arm, rank in re.findall(r"(elser|bm25|hybrid)\s+rank (\d+)", body)}
@@ -55,7 +55,7 @@ def findings_arm_table() -> list[tuple[str, str, dict[str, int]]]:
         for identifier, phrasing, elser, bm25, hybrid in re.findall(
             r"^\| `([^`]+)` \| (token|sentence) \| (\d+) \| (\d+) \| \*{0,2}(\d+)\*{0,2} \|$",
             FINDINGS,
-            re.M,
+            re.MULTILINE,
         )
     ]
 
@@ -93,7 +93,7 @@ def test_every_published_rank_matches_the_capture(
 
 def probe_scores() -> dict[str, list[tuple[float, float]]]:
     """The per-probe fused and pre-fusion scores from the captured sweep."""
-    rows = re.findall(r"^\s+(off-topic|in-domain)\s+([\d.]+)\s+([\d.]+)\s+\S", CAPTURED, re.M)
+    rows = re.findall(r"^\s+(off-topic|in-domain)\s+([\d.]+)\s+([\d.]+)\s+\S", CAPTURED, re.MULTILINE)
     scores: dict[str, list[tuple[float, float]]] = {"off-topic": [], "in-domain": []}
     for kind, fused, sparse in rows:
         scores[kind].append((float(fused), float(sparse)))
@@ -131,7 +131,7 @@ def test_the_normalizer_table_in_section_4_matches_the_captured_run(
 ) -> None:
     line = re.search(
         rf"^{re.escape(capture_label)}\s+(\S+ – \S+)\s+(\S+ – \S+)\s+(\S+)\s+([\d.]+)$",
-        CAPTURED, re.M,
+        CAPTURED, re.MULTILINE,
     )
     assert line, f"no captured row for {capture_label}"
     off, genuine, gap, auc = (normalize(g) for g in line.groups())
@@ -168,7 +168,7 @@ def test_the_weight_sweep_in_section_4_matches_the_captured_run(
     line = re.search(
         rf"^{re.escape(capture_label)}\s+([\d.]+)\s+(\S+)%\s+([\d.]+)\s+(\S+)%"
         rf"\s+([\d.]+ \w+)\s+(\d+)\s+(\d+)$",
-        CAPTURED, re.M,
+        CAPTURED, re.MULTILINE,
     )
     assert line, f"no captured sweep row for {capture_label}"
     auc_t, margin_t, auc_h, margin_h, floor, accepts, rejects = line.groups()
@@ -194,7 +194,7 @@ def readback_prose() -> str:
 
 def captured_probe(kind: str, column: int) -> float:
     """One score from the finding-3 probe table: `column` 1 is fused, 2 is pre-fusion."""
-    match = re.search(rf"^\s+{kind}\s+([\d.]+)\s+([\d.]+)\s+\S", CAPTURED, re.M)
+    match = re.search(rf"^\s+{kind}\s+([\d.]+)\s+([\d.]+)\s+\S", CAPTURED, re.MULTILINE)
     assert match, f"no captured {kind} probe row"
     return float(match.group(column))
 

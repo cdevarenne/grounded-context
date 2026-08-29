@@ -13,7 +13,7 @@ import json
 import math
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -83,7 +83,7 @@ def event(
     """
     router = envelope.get("router")
     return {
-        "@timestamp": datetime.now(timezone.utc)
+        "@timestamp": datetime.now(UTC)
         .isoformat(timespec="milliseconds")
         .replace("+00:00", "Z"),
         "schema_version": SCHEMA_VERSION,
