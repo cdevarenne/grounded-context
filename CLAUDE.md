@@ -71,11 +71,14 @@ stage-3 addition via a metered API key — not needed for v1.
   - `okf-bundle.md` — canonical bundle format (OKF v0.2: YAML front-matter, Markdown-link convention) + compatibility-matrix schema
   - `provenance.md` — the exact citation-block shape
   - `router.md` — classification rules + interface
-  - `eval.md` — the ~12-question eval set + expected engine per question
+  - `eval.md` — the 20-question eval set + expected engine per question
   - `observability.md` — the per-query telemetry event, its emit sites, and the three
     non-negotiables (emitted after the answer, best-effort, never blocks)
   - `observability-corpus-state.md` — the bundle-governance snapshot: the other two signals
-  - `single-call-retrieval.md` — the one-call answerability candidate: why MinMax and `min_score`
-    were rejected on measurement, and the control the candidate must beat
+  - `single-call-retrieval.md` — the one-call answerability candidates, both measured and both
+    rejected: MinMax and `l2_norm` cannot carry a floor, a `none`-normalized weight does not
+    survive held-out probes, and `min_score` on the inner ELSER arm classifies perfectly while
+    destroying `floor_score`. Also the AUC-beside-margin convention every published percentage
+    now follows
 - Keeping the canonical layer current: `docs/maintenance.md` — re-verification, `stale_after`,
   corpus refresh, and which checks are automated.

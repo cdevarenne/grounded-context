@@ -115,6 +115,13 @@ off-topic, six genuine — and the result is worse than "indistinguishable":
 |---|---|---|
 | 10 off-topic questions | 0.0476 – 0.0952 | 1.56 – 16.11 |
 | 6 genuine questions | 0.0707 – 0.0931 | 14.02 – 19.25 |
+| AUC — P(genuine outscores off-topic) | **0.758** | **0.983** |
+
+The AUC row is there because ranges are two numbers and can be moved by one query. It reads every
+genuine/off-topic pair: 1.000 would mean the score orders the two classes perfectly, 0.500 that it
+carries nothing. The fused score at 0.758 is not noise — it gets the ordering right about three
+times in four — but a refusal guarantee is not a three-in-four proposition, and the ranges show
+why no threshold recovers the rest.
 
 The fused ranges **overlap across almost their whole span**. The best-scoring off-topic
 question — "what are the symptoms of vitamin D deficiency?" at 0.0952 — outranks **all six
@@ -146,9 +153,9 @@ on a first place for a question this corpus cannot answer at all. The highest fu
 corpus can produce belongs to an off-topic query, which is the cleanest statement of the problem
 this section describes.
 
-The pre-fusion scores keep that magnitude, and there the separation is clean: **9 of the 10
-off-topic land at 1.56–6.01** against **14.02–19.25** for all six genuine ones — a gap of eight
-points with nothing in it. So the semantic path probes that score first and returns nothing
+The pre-fusion scores keep that magnitude, and there the separation is nearly clean — AUC 0.983,
+one pair in sixty out of order: **9 of the 10 off-topic land at 1.56–6.01** against
+**14.02–19.25** for all six genuine ones, a gap of eight points with nothing in it. So the semantic path probes that score first and returns nothing
 below a floor of 8. An empty result becomes the refusal. The tenth off-topic probe scored 16.11
 and is the second limit below — it is not an outlier to be waved away, and the floor lets it
 through.
@@ -179,8 +186,9 @@ answer is not the score that ranks it. Elasticsearch has an apparent fix. The `l
 combines arms by weighted sum instead of by rank, `min_score` filters a compound retriever after
 scoring, and together they should collapse the probe and the fusion into one call.
 
-I built it and measured it. It does not work, and the way it fails is more interesting than the
-saving would have been.
+I built both shapes and measured them. Neither ships, and what they cost is more interesting than
+what they would have saved: the first cannot separate, and the second separates perfectly and
+cannot say why.
 
 ### Normalizing to [0, 1] does not make a score mean anything
 
@@ -188,14 +196,15 @@ The natural configuration is `minmax` normalization — it is what the docs use 
 `linear` example, and it puts both arms on a comparable scale. Top score across the same sixteen
 probes:
 
-| Config | 10 off-topic | 6 genuine | Gap |
-|---|---|---|---|
-| `rrf` (current) | 0.0476 – 0.0952 | 0.0707 – 0.0931 | −0.0245 |
-| `linear` / `minmax` | 1.0000 – 2.0000 | 1.0000 – 1.8971 | **−1.0000** |
-| `linear` / `l2_norm` | 0.3421 – 0.8172 | 0.3318 – 0.7786 | −0.4854 |
-| `linear` / `none` | 4.5191 – 50.2991 | 50.4771 – 72.0512 | +0.1780 |
+| Config | 10 off-topic | 6 genuine | Gap | AUC |
+|---|---|---|---|---|
+| `rrf` (current) | 0.0476 – 0.0952 | 0.0707 – 0.0931 | −0.0245 | 0.758 |
+| `linear` / `minmax` | 1.0000 – 2.0000 | 1.0000 – 1.8971 | **−1.0000** | **0.658** |
+| `linear` / `l2_norm` | 0.3421 – 0.8172 | 0.3318 – 0.7786 | −0.4854 | 0.400 |
+| `linear` / `none` | 4.5191 – 50.2991 | 50.4771 – 72.0512 | +0.1780 | 1.000 |
 
-MinMax overlaps *worse than the RRF it was supposed to fix*, and the exact values say why. Scores
+MinMax overlaps *worse than the RRF it was supposed to fix* — 0.658 against 0.758, and `l2_norm`
+at 0.400 is worse than a coin flip — and the exact values say why. Scores
 land on precisely 1.0000 and precisely 2.0000 because minmax is `(score − min) / (max − min)`
 computed over each sub-retriever's own result set — so the top document of each arm always
 normalizes to exactly 1.0, whatever it scored. The sum is pinned to [1.0, 2.0] and measures how
@@ -213,30 +222,54 @@ the second property. Only `none` keeps it.
 `none` does separate, and `min_score` does gate it in a single call. But under `none` the sum
 inherits BM25's magnitude, and BM25 rewards long questions full of common words regardless of
 subject. The lever is the weight on the lexical arm. Sweeping it against the sixteen tuning probes
-picked 0.25, so I wrote twenty more off-topic and ten more in-domain questions, scored them once,
-and applied both floors without refitting either:
+picked 0.25, so I wrote twenty more off-topic and ten more in-domain questions and scored them
+once, refitting nothing.
 
-| Config | Margin on the 16 tuning probes | Margin on 30 held-out |
-|---|---|---|
-| Pre-fusion ELSER (shipped) | 57.1% | **59.8%** |
-| `linear`/`none` w=1.0 | 0.4% | **−42.9%** |
-| `linear`/`none` w=0.5 | 0.8% | −9.1% |
-| `linear`/`none` w=0.25 | 9.5% | 21.9% |
-| `linear`/`none` w=0.1 | −6.9% | 49.2% |
+What comes back is a **separability sweep, not a fixed-threshold classification**: every row is a different
+score scale, so each row's floor is derived from that row's own tuning probes — the midpoint of
+the gap — then applied unchanged to the held-out ones. Where a row's tuning sets overlap there is
+no midpoint, and nothing to test.
 
-Both shipped and candidate classify all thirty held-out probes correctly — no off-topic question
-answered, no genuine one refused. The candidate is not broken. It is dominated, in three ways.
+| Config | Tuning AUC | Tuning margin | Held-out AUC | Held-out margin | Floor | Held-out errors |
+|---|---|---|---|---|---|---|
+| Pre-fusion ELSER (shipped) | 0.983 | −14.9% | **1.000** | **59.8%** | 8.00 published | **0 / 0** |
+| `linear`/`none` w=1.0 | 1.000 | 0.4% | 0.855 | **−42.9%** | 50.39 midpoint | 1 / 4 |
+| `linear`/`none` w=0.5 | 1.000 | 0.8% | 0.990 | −9.1% | 25.48 midpoint | 1 / 0 |
+| `linear`/`none` w=0.25 | 1.000 | 9.5% | **1.000** | 21.9% | 16.96 midpoint | **0 / 0** |
+| `linear`/`none` w=0.1 | 0.983 | −6.9% | **1.000** | 49.2% | none — sets overlap | n/a |
+
+**Two rows classify all thirty held-out probes correctly: the shipped floor, and the candidate at
+w=0.25.** Not the candidate in general — at w=1.0 its own tuning floor answers one off-topic
+question and refuses four genuine ones. The scoped claim is the true one, and it is the only one
+worth making.
+
+Read the two metric columns against each other, because they disagree and that is the finding.
+**AUC** asks whether the score orders the classes at all; every pair counts, so no single query
+moves it far. **margin** asks how much room the threshold has; it is two order statistics, so one
+query can move it freely. On held-out probes the shipped floor and w=0.25 both score a perfect
+1.000 — the candidate separates just as well. What differs is the headroom behind the threshold,
+59.8% against 21.9%, and whether the setting that produced it could have been chosen in advance.
+
+The candidate is not broken. It is dominated, in three ways.
 
 **Its tuned constant does not survive contact with new queries.** Weight 0.25 was the optimum on
-the probes it was fitted to, where 0.1 scored negative; on held-out probes 0.1 is the best setting
-and 0.25 is less than half as good. The optimum is decided by whichever single off-topic outlier a
-probe set happens to contain — the marathon question at 16.11 in the first set, nothing like it in
-the second. The shipped floor has no such constant to move: 57.1% on the set that produced it,
-59.8% on a set it had never seen.
+the probes it was fitted to, where 0.1 scored negative; on held-out probes 0.1 has the widest
+headroom and 0.25 less than half as much. The optimum is decided by whichever single off-topic
+outlier a probe set happens to contain — the marathon question at 16.11 in the first set, nothing
+like it in the second. The AUC column shows the same thing from the other side: w=1.0 is a perfect
+1.000 on tuning and 0.855 on held-out, so the tuning set did not merely mislead about the size of
+the margin, it could not have revealed the problem at all. The shipped floor has no *weight* to
+tune, and its one constant held on both sets without being refitted.
+
+That constant is fitted too, and the table says so. 8.0 is marked *published* rather than
+*midpoint* because no midpoint exists — marathon sits inside the genuine band, so 8.0 was chosen
+from the other nine probes. The argument is not that one number was fitted and the other was not.
+It is that one of them moved when the probe set changed and the other did not.
 
 **Equal weights fail outright on held-out data.** At w=1.0 the margin is −42.9%, and "How do I get
-a passport renewed?" scores 56.25 — above every genuine question in the set. The 0.4% margin on
-the tuning probes was not a narrow pass. It was too few long off-topic queries.
+a passport renewed?" scores 56.25 — above every genuine question in the set. Applying that row's
+own tuning floor of 50.39 answers it and refuses four genuine questions. The 0.4% margin on the
+tuning probes was not a narrow pass. It was too few long off-topic queries.
 
 **No weight is good at both jobs.** Separation improves monotonically as the weight falls,
 converging on the shipped floor because it converges on *being* the shipped floor. Ranking moves
@@ -249,11 +282,48 @@ Both tables are regenerable: `uv run --extra es python scripts/single_call_probe
 a test asserts they stay disjoint from the sixteen the floor was derived from — a held-out set
 that quietly acquires a tuning query stops being evidence and nothing else would catch it.
 
+### The other single-call shape, which nearly worked
+
+There is a second way to do this in one call, and it is the one a reviewer asks about: leave RRF
+alone and push the floor *into* the ELSER arm as a `min_score`, which the `standard` retriever
+supports. Same constant, same score, evaluated server-side.
+
+It does not refuse the way you would expect. Gating one arm does not gate the query — the parent
+still holds BM25, which always returns something, so "zero hits" fired on none of the thirty
+held-out off-topic probes. But with the sparse arm emptied, every surviving document is ranked by
+one arm alone, so the best score available is a single `1/(k+rank)` term at rank 1: `1/21`,
+exactly 0.047619. Treat that value as the refusal signal and it classifies **all forty-six probes
+correctly**, marathon included — better than the floor that shipped.
+
+I still would not ship it, and the reason is the one this whole section is about.
+
+| | refused | distinct scores among refusals | true ELSER behind them |
+|---|---|---|---|
+| 30 off-topic (both sets) | 30 | **1** | 1.56 – 16.11 |
+| 16 genuine (both sets) | 0 | — | 13.28 – 19.25 |
+
+Every refusal reports the same number. A query that missed by a hair and a query that was never
+in domain arrive identically, and the distinction between them is the one the telemetry exists to
+draw — it is what separates a curation gap from an off-topic question in the refusal histogram.
+The classification survives the collapse into one call. The *explanation* does not.
+
+And the marathon result is not what it looks like. That query's gated arm is not empty; three
+chunks clear the floor. It lands on 0.047619 because all three come from Elastic's
+`semantic_text` page and none of them appears in BM25's fifty-document window, so the arms
+overlap on nothing. The rule fires on "the sparse arm found nothing" **or** "the arms agreed on
+nothing" — and the second is rank agreement, the quantity finding 3 spent its length establishing
+is not a relevance signal. Crediting this design with fixing marathon means crediting the thing
+the finding rejects. It is also a false-reject waiting to happen, on exactly the in-domain
+arm-divergence case finding 1 documents.
+
 ### What the second call is actually buying
 
-It is not overhead. It is the separation of concerns: one score is read to *rank*, a different
-score to decide *whether to answer at all*, and neither has to compromise for the other. Fusing
-them into one number forces a single scale to serve two purposes that pull in opposite directions.
+It is not overhead, and — this is the part the second shape sharpened — it is not buying the
+classification either. The classification is available in one call. What the second call buys is
+the *number*: a refusal that can say how far off it was. It is the separation of concerns made
+literal: one score is read to *rank*, a different score to decide *whether to answer at all*, and
+neither has to compromise for the other. Fusing them into one number forces a single scale to
+serve two purposes that pull in opposite directions.
 
 That is finding 3 one level up. RRF discards magnitude and therefore cannot report confidence; a
 weighted sum keeps magnitude but contaminates it with an arm that is in the query for an unrelated
@@ -262,8 +332,10 @@ reason. Both are the same mistake — asking the ranking score to also be the co
 So the two-call design stays, and the cost paragraph at the end of finding 3 stands as a cost
 rather than a defect. What came out of the attempt is worth more than the round trip: thirty
 probes the floor was never fitted to, which now run as regression coverage
-(`heldout_floor_check`), and a measured reason to distrust the configuration the documentation
-demonstrates first.
+(`heldout_floor_check`); a measured reason to distrust the configuration the documentation
+demonstrates first; and a second metric, because the margin these tables are built on is two
+order statistics and one query moves it — the shipped floor's own tuning margin is −14.9% or
++57.1% depending on whether marathon is in the set, while its AUC barely notices.
 
 <!-- Framing note, not for publication: keep finding 4 scoped to this corpus and this index. The
      defensible claim is "measured here, and the mechanism explains why" — minmax pinning the top

@@ -20,6 +20,12 @@ from .provenance import SEMANTIC
 # RRF tuning. rank_constant sets how much influence lower-ranked documents keep; a higher
 # value flattens the contribution curve. rank_window_size is how deep each retriever is read
 # before fusion.
+#
+# 20 rather than the default: omitting `rank_constant` reproduces `rank_constant=60` to the
+# digit against this cluster, and 20 is the value Elastic's own reciprocal-rank-fusion
+# reference sets in its worked examples. The choice moves the numbers, not the argument — a
+# document ranked first by both arms scores `2/(k+1)`, which is 0.0952 at k=20 and 0.0328 at
+# k=60. The ceiling exists at every k; only where it sits changes.
 RANK_CONSTANT = 20
 RANK_WINDOW_SIZE = 50
 DEFAULT_SIZE = 5
@@ -34,8 +40,9 @@ SNIPPET_CHARS = 320
 #
 # Re-derived 2026-08-28 against the rebuilt index and left at 8.0. The usable gap moved from
 # [5.9, 14.1] to [6.0, 14.0], so 8.0 still sits inside it. Centering it at 10.0 would balance the
-# headroom (4.0 either side, against 2.0/6.0 at a floor of 8.0) but classifies all 17 probes
-# identically, so the change would be churn on a published constant with no measured effect.
+# headroom (4.0 either side, against 2.0/6.0 at a floor of 8.0) but classifies all 16 tuning
+# probes identically, so the change would be churn on a published constant with no measured
+# effect.
 RELEVANCE_FLOOR = 8.0
 
 METHOD = "hybrid(bm25+elser,rrf)"
@@ -130,15 +137,23 @@ def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> b
     RRF scores cannot answer this. They are computed from rank position — `1/(k+rank)` — so
     the top hit scores about the same whether it is a perfect match or the least bad of
     hundreds of irrelevant chunks. Measured on this index, "how do I bake sourdough bread?"
-    fused to 0.068 against 0.073 for a real question about streaming. The pre-fusion sparse
+    fused to 0.0635 against 0.0729 for a real question about streaming. The pre-fusion sparse
     score keeps the magnitude those two share, so that is what the floor reads.
 
-    Two things it does not do, both by construction. It does not catch an in-domain question
-    about the wrong entity — "the price of GPT-5" scores 19.4 against real pricing prose, just
+    Three things it does not do, all by construction. It does not catch an in-domain question
+    about the wrong entity — "the price of GPT-5" scores 18.8 against real pricing prose, just
     the wrong vendor's — which belongs to the router and the canonical layer. And it measures
     the corpus as *text*, not as subject matter: a question about marathon training clears the
     floor at 16.1, because Elastic's `semantic_text` page teaches the feature with running and
     exercise sample documents. The retrieval is correct; only the topic is a surprise.
+
+    And it gates the *corpus*, not the *document*. Clearing the floor says the index holds text
+    the sparse model scored as relevant; it says nothing about whether the chunk RRF then
+    returns at rank 1 is the right one. The two come apart — `findings.md` §1's
+    `rank_window_size` row is a case where ELSER spreads its attention across a page while BM25
+    carries the defining chunk, so the floor passes on a score that belongs to a document the
+    ranking does not surface first. Per-document correctness is the ranking's problem, and this
+    probe deliberately does not touch it.
     """
     cleared, _ = probe(query, es=es, floor=floor)
     return cleared

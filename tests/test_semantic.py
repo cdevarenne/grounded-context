@@ -19,8 +19,10 @@ from grounded_context.semantic import (
     EXACT_TOKEN_BOOST,
     RANK_CONSTANT,
     RANK_WINDOW_SIZE,
+    RELEVANCE_FLOOR,
     citation,
     hybrid_retriever,
+    probe,
     search,
     search_lexical_only,
     search_semantic_only,
@@ -143,6 +145,22 @@ def test_rrf_score_cannot_separate_relevant_from_irrelevant() -> None:
     off_topic = search("What is the capital of France?", size=1, floor=None)
     assert on_topic and off_topic
     assert abs(on_topic[0]["score"] - off_topic[0]["score"]) < 0.02
+
+
+@requires_index
+def test_clearing_the_floor_does_not_promise_the_defining_chunk_is_first() -> None:
+    """The floor gates the corpus, not the document — observability.md leans on this.
+
+    `rank_window_size` is findings.md §1's row where the two come apart: the query is squarely
+    in domain, so the probe clears comfortably, and the chunk that defines the parameter still
+    is not what fusion returns first. Reading `relevance_floor_passed` as an answer-quality
+    signal would call this a pass; it is a pass on answerability and a miss on ranking.
+    """
+    query = "rank_window_size"
+    cleared, score = probe(query)
+    assert cleared and score >= RELEVANCE_FLOOR
+    rank = _rank_of_defining_chunk(search(query, size=20))
+    assert rank is not None and rank > 1, "the case is only interesting while this still misses"
 
 
 @requires_index

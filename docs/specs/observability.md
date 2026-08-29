@@ -108,6 +108,16 @@ filtered without saying so.
 | `cites` | answer envelope | citation count on the answer |
 | `latency_ms` | timers in `service.py` | wall-clock per path; a path not taken is `null`; `total` on `route: BOTH` is the cost of running both — **signal 6** |
 
+`relevance_floor_passed: true` is a statement about the **corpus**, not about the document the
+answer cites. The probe reads a pre-fusion sparse score; the citations come back ranked by RRF.
+So a cleared floor certifies that the index holds text the sparse model scored as relevant — not
+that the chunk at rank 1 is the one that defines the thing asked about. [findings.md](../findings.md)
+§1's `rank_window_size` row is the case where those come apart: ELSER spreads its score across a
+page while BM25 carries the defining chunk. Read `relevance_floor_passed` as *should this have
+been answered at all*, and leave *was the right chunk returned* to the ranking, which
+`gctx eval --compare` measures separately. A dashboard that reads the floor as an answer-quality
+signal is reading a gate as a grade.
+
 `canonical_hit` being *absent* rather than `false` on a pure-semantic query is load-bearing: a
 missing canonical field (a precision query the bundle could not answer) and a query that never
 asked for one are different facts, and the curation-backlog number is only honest if they do not

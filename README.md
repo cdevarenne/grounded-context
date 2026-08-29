@@ -104,10 +104,21 @@ uv sync --extra dev --extra es
 uv run python scripts/fetch_corpus.py                  # 25 curated pages → corpus/raw/ (gitignored)
 uv run --extra es python scripts/index_corpus.py --recreate
 uv run --extra es gctx ask "How should I chunk documents for retrieval?"
-uv run --extra es gctx eval                            # the 18-question set, with verdicts
+uv run --extra es gctx eval                            # the 20-question set, with verdicts
 uv run --extra es gctx eval --compare rank_constant    # ELSER vs BM25 vs hybrid
 uv run --extra es gctx telemetry index                 # project the local log into ES
 ```
+
+**The semantic path needs a paid tier; the deterministic path does not.** Elastic's
+[subscriptions page](https://www.elastic.co/subscriptions) lists *Reciprocal Rank Fusion (RRF)
+for hybrid search* as an Enterprise feature. It is included on Elastic Cloud Serverless, which is
+what this project runs on, and on Cloud and trial deployments — but a team on a self-managed
+Basic license cannot run the hybrid arm as written. That is a real constraint on "clone it and
+point it at your Elasticsearch," and it is worth knowing before you try.
+
+It does not touch the deterministic path, which is the guaranteed deliverable: canonical lookup,
+provenance, refusal and the MCP server are pure Python over Markdown and need no Elasticsearch,
+no license and no cloud account at all.
 
 Without those credentials the exploratory branch returns `Not found in the grounded sources.`
 rather than failing — an unavailable engine is a refusal, not an error, and never a fallback to

@@ -15,7 +15,8 @@ import collections
 import json
 import re
 import sys
-from typing import Any, Iterable
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from grounded_context.es_client import INDEX, client
 from grounded_context.semantic import RELEVANCE_FLOOR, hybrid_retriever, search_semantic_only
@@ -37,6 +38,17 @@ MECHANISM_TARGET = ("elastic-rrf", 1)
 # Tokens findings.md names as examples of the invisible-to-exact set. Printed with their
 # membership so the prose and this output cannot cite different things.
 DOCUMENTED_EXAMPLES = ("batch_id", "claude-sonnet-4-6")
+
+# Printed wherever a separability figure is, so no percentage in the docs is unfalsifiable.
+# Both scripts import this: one definition, quoted identically in every capture.
+METRIC_LEGEND = (
+    "  AUC     P(a genuine probe outscores an off-topic one), ties counting half. 1.000 is full\n"
+    "          separation, 0.500 no signal. Every pair counts, so one outlier moves it by at\n"
+    "          most 1/(genuine x off-topic).\n"
+    "  margin  (min(genuine) - max(off-topic)) / min(genuine) * 100 — the headroom a threshold\n"
+    "          has. Two order statistics and nothing else, so one outlier can move it freely.\n"
+    "          Negative means the two sets overlap and no threshold separates them."
+)
 
 OFF_TOPIC = (
     "How do I bake sourdough bread?",
@@ -233,6 +245,47 @@ def probe_scores(es: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def auc(genuine: Sequence[float], off_topic: Sequence[float]) -> float:
+    """Probability a random genuine probe outscores a random off-topic one; ties count half.
+
+    The Mann-Whitney form of ROC-AUC. It reads every genuine/off-topic pair, so one outlier
+    moves it by at most `1 / (len(genuine) * len(off_topic))` — which is the whole reason it is
+    reported next to `margin` rather than instead of it.
+    """
+    wins = sum((g > o) + 0.5 * (g == o) for g in genuine for o in off_topic)
+    return wins / (len(genuine) * len(off_topic))
+
+
+def margin(genuine: Sequence[float], off_topic: Sequence[float]) -> float:
+    """Headroom between the two sets as a percentage of the lowest genuine score.
+
+        (min(genuine) - max(off_topic)) / min(genuine) * 100
+
+    Negative when the sets overlap. This is two order statistics and nothing else: it says how
+    much room a threshold has, and a single outlier at either extreme moves it a long way.
+    `auc` is what says whether the rest of the set agrees.
+    """
+    lowest = min(genuine)
+    return (lowest - max(off_topic)) / lowest * 100 if lowest else 0.0
+
+
+def tuning_midpoint(genuine: Sequence[float], off_topic: Sequence[float]) -> float | None:
+    """A floor halfway between the two sets, or `None` when they overlap so none separates.
+
+    Chosen on the tuning probes and then applied unchanged, which is what makes a held-out
+    count evidence rather than a fit.
+    """
+    lowest, highest = min(genuine), max(off_topic)
+    return (lowest + highest) / 2 if lowest > highest else None
+
+
+def confusion(
+    genuine: Sequence[float], off_topic: Sequence[float], floor: float
+) -> tuple[int, int]:
+    """`(false accepts, false rejects)` for a floor applied to probes already scored."""
+    return sum(s >= floor for s in off_topic), sum(s < floor for s in genuine)
+
+
 def heldout_floor_check(es: Any, floor: float = RELEVANCE_FLOOR) -> dict[str, Any]:
     """Score the held-out probes and count what the floor gets wrong on them.
 
@@ -245,13 +298,34 @@ def heldout_floor_check(es: Any, floor: float = RELEVANCE_FLOOR) -> dict[str, An
         for kind, queries in (("off-topic", OFF_TOPIC_HELDOUT), ("in-domain", IN_DOMAIN_HELDOUT))
     }
     off, genuine = scored["off-topic"], scored["in-domain"]
+    off_scores = [s for _, s in off]
+    genuine_scores = [s for _, s in genuine]
     return {
         "floor": floor,
-        "off_topic_max": round(max(s for _, s in off), 2),
-        "in_domain_min": round(min(s for _, s in genuine), 2),
+        "off_topic_max": round(max(off_scores), 2),
+        "in_domain_min": round(min(genuine_scores), 2),
         "false_accepts": [(q, round(s, 2)) for q, s in off if s >= floor],
         "false_rejects": [(q, round(s, 2)) for q, s in genuine if s < floor],
         "counts": {"off_topic": len(off), "in_domain": len(genuine)},
+        "auc": round(auc(genuine_scores, off_scores), 3),
+        "margin_pct": round(margin(genuine_scores, off_scores), 1),
+    }
+
+
+def probe_separation(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    """How well each score column separates the tuning probes, by both measures.
+
+    The wrong-entity probe is excluded: it is neither off-topic nor answerable from the bundle,
+    so it belongs to neither class and would only blur the comparison it exists to complicate.
+    """
+    off = [r for r in rows if r["kind"] == "off-topic"]
+    genuine = [r for r in rows if r["kind"] == "in-domain"]
+    return {
+        column: {
+            "auc": round(auc([r[column] for r in genuine], [r[column] for r in off]), 3),
+            "margin_pct": round(margin([r[column] for r in genuine], [r[column] for r in off]), 1),
+        }
+        for column in ("sparse", "fused")
     }
 
 
@@ -266,13 +340,15 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     chunks = _all_chunks(es)
+    probes = probe_scores(es)
     report = {
         "chunks": len(chunks),
         "mechanism": mechanism_counts(es),
         "subfield_effect": sweep_subfield_effect(es, chunks),
         "invisible_to_exact": sweep_invisible_to_exact(es, chunks),
         "floor": RELEVANCE_FLOOR,
-        "probes": probe_scores(es),
+        "probes": probes,
+        "separation": probe_separation(probes),
         "heldout": heldout_floor_check(es),
     }
 
@@ -309,6 +385,12 @@ def main(argv: list[str] | None = None) -> int:
     for row in report["probes"]:
         print(f"  {row['kind']:13} {row['fused']:7.4f} {row['sparse']:7.2f}  {row['query']}")
 
+    print("\n  separability of each column, 10 off-topic vs 6 in-domain (wrong-entity excluded)")
+    print(METRIC_LEGEND)
+    print(f"    {'column':<8}{'AUC':>8}{'margin':>10}")
+    for column, scores in report["separation"].items():
+        print(f"    {column:<8}{scores['auc']:>8.3f}{scores['margin_pct']:>9.1f}%")
+
     held = report["heldout"]
     print(f"\nFinding 3 — the floor on held-out probes (floor = {held['floor']}, applied not fitted)")
     print(f"  {held['counts']['off_topic']} off-topic  top score {held['off_topic_max']:.2f}"
@@ -319,6 +401,7 @@ def main(argv: list[str] | None = None) -> int:
           f"   -> {len(held['false_rejects'])} false rejects")
     for query, score in held["false_rejects"]:
         print(f"      {score:7.2f}  {query}")
+    print(f"  separability  AUC {held['auc']:.3f}   margin {held['margin_pct']:.1f}%")
     return 0
 
 

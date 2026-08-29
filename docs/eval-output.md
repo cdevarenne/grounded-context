@@ -4,10 +4,15 @@ The numbers in [`findings.md`](findings.md) come from a live index, which a read
 reach: the corpus is fetched rather than committed, and the cluster is mine. This file is the
 run, captured verbatim, so the claims are checkable without either.
 
-Captured 2026-08-28 against Elastic Cloud Serverless 9.6.0, index `grounded-context-corpus`,
-320 chunks, ELSER via the preconfigured `.elser-2-elasticsearch` endpoint. The corpus was
-reindexed onto a new deployment that day, so these supersede an earlier capture; the ELSER
-figures moved slightly and the BM25 and analyzer ones did not.
+Captured against Elastic Cloud Serverless 9.6.0, index `grounded-context-corpus`, 320 chunks,
+ELSER via the preconfigured `.elser-2-elasticsearch` endpoint. The eval and comparison runs are
+from 2026-08-28, when the corpus was reindexed onto a new deployment; the corpus-wide and
+single-call captures were re-run on 2026-08-29 to add the separability metrics. These supersede
+an earlier capture: the ELSER figures moved slightly, the BM25 and analyzer ones did not.
+
+Every percentage below is defined in the capture that prints it — the `AUC` and `margin` legend
+appears in the run itself, not only in the prose, so no figure quoted anywhere in this repo is
+unfalsifiable against this file.
 
 To reproduce, with `ES_URL` and `ES_API_KEY` in `.env`:
 
@@ -225,26 +230,47 @@ Finding 3 — fused vs pre-fusion score (floor = 8.0)
   in-domain      0.0707   14.02  How do I use semantic_text?
   wrong-entity   0.0893   18.84  What is the price per million tokens of GPT-5?
 
+  separability of each column, 10 off-topic vs 6 in-domain (wrong-entity excluded)
+  AUC     P(a genuine probe outscores an off-topic one), ties counting half. 1.000 is full
+          separation, 0.500 no signal. Every pair counts, so one outlier moves it by at
+          most 1/(genuine x off-topic).
+  margin  (min(genuine) - max(off-topic)) / min(genuine) * 100 — the headroom a threshold
+          has. Two order statistics and nothing else, so one outlier can move it freely.
+          Negative means the two sets overlap and no threshold separates them.
+    column       AUC    margin
+    sparse     0.983    -14.9%
+    fused      0.758    -34.7%
+
 Finding 3 — the floor on held-out probes (floor = 8.0, applied not fitted)
   20 off-topic  top score 5.34   -> 0 false accepts
   10 in-domain  low score 13.28   -> 0 false rejects
+  separability  AUC 1.000   margin 59.8%
 ```
 
 Read the two score columns against each other, because that is the whole of Finding 3.
 
-**`sparse` separates.** Nine of the ten off-topic questions sit at 1.66–5.90; all six genuine
-ones sit at 14.10–19.48. Nothing lands in between. That gap is what the floor of 8 is cutting.
+**`sparse` separates.** Nine of the ten off-topic questions sit at 1.56–6.01; all six genuine
+ones sit at 14.02–19.25. Nothing lands in between. That gap is what the floor of 8 is cutting.
 
-**`fused` does not.** Off-topic spans 0.0476–0.0911 and genuine spans 0.0723–0.0931 — nearly the
-same interval. "What are the symptoms of vitamin D deficiency?" fuses to 0.0911 and beats four
-of the six genuine questions, including "how do I stream responses from the API?" at 0.0729. A
-confidence threshold on the fused score would prefer the vitamin question.
+**`fused` does not.** Off-topic spans 0.0476–0.0952 and genuine spans 0.0707–0.0931 — the
+off-topic range now *contains* the genuine one. "What are the symptoms of vitamin D deficiency?"
+fuses to 0.0952 and beats all six genuine questions, including "how do I stream responses from
+the API?" at 0.0729. A confidence threshold on the fused score would prefer the vitamin question
+to every real one.
+
+The two summary rows put a number on that. On the same probes, `sparse` scores AUC 0.983 and
+`fused` 0.758: the fused score is not noise — it orders a genuine question above an off-topic one
+about three times in four — but three in four is not a guarantee, and the margin column shows why
+no threshold rescues it. Both columns have a negative margin here, and for opposite reasons:
+`fused` because the two classes genuinely overlap, `sparse` because of one probe. Which one is the
+subject of the next paragraph.
 
 The last two exceptions are the floor's declared limits, not noise. The wrong-entity question
-scores 19.39 on `sparse` because the corpus really does discuss pricing, just Anthropic's. The
-marathon question scores 16.14 because Elastic's `semantic_text` page teaches the feature with
+scores 18.84 on `sparse` because the corpus really does discuss pricing, just Anthropic's. The
+marathon question scores 16.11 because Elastic's `semantic_text` page teaches the feature with
 running and exercise sample documents — the retrieval is correct, only the subject is a
-surprise.
+surprise. Marathon is also the whole of `sparse`'s −14.9% margin: drop it and the margin is
++57.1%, which is why the AUC of 0.983 is the more honest summary of the same ten probes.
 
 ## The fusion math, checked against the formula
 
@@ -300,31 +326,74 @@ described relevance in the first place.
 
 ## The single-call candidate
 
-Finding 4. Two tables: the four scoring configurations over the sixteen tuning probes, and the
-lexical-arm weight sweep scored against those probes and against the thirty held-out ones.
+Finding 4. Three tables: the four scoring configurations over the sixteen tuning probes, the
+lexical-arm weight sweep scored against those probes and against the thirty held-out ones, and the
+other single-call shape — `min_score` pushed into the ELSER arm of the shipped RRF.
 
 The first table is the whole argument against `minmax`. Its range is [1.0000, 2.0000] and the
 endpoints are exact, because minmax pins the top document of each arm to 1.0 whatever it scored —
-so the sum reports arm agreement, which is the quantity RRF already failed to threshold on.
+so the sum reports arm agreement, which is the quantity RRF already failed to threshold on. Its
+AUC of 0.658 is worse than the 0.758 of the RRF it was meant to replace.
 
-The second is the argument against the whole candidate. Read the two margin columns against each
-other: the weight that wins on the probes it was fitted to is not the weight that wins on probes
-it has not seen, and the setting that separates best (0.1) is the one that damages the ranking
-most. The floor that shipped scores 57.1% and 59.8% on those same two sets.
+The second is the argument against the whole candidate, and it needs both metric columns to read
+correctly. **AUC** says the incumbent, w=0.25 and w=0.1 all order the held-out probes perfectly at
+1.000 — so the candidate is not broken, and any claim that it "fails to separate" is false.
+**margin** says what separates them anyway: how much room the threshold has, 59.8% against 21.9%.
+And the two columns together are what convict the weight. w=1.0 is a perfect 1.000 on the probes
+it was tuned against and 0.855 on probes it has not seen; applying its own tuning floor of 50.39
+to the held-out set answers one off-topic question and refuses four genuine ones. The tuning set
+could not have told you that.
+
+Two figures in that table deserve to be read slowly. The incumbent's tuning margin is **−14.9%**,
+not the 57.1% quoted elsewhere: 57.1% excludes the marathon probe, and every candidate row here
+includes all ten. And its floor is marked *published* rather than *midpoint* because no midpoint
+exists — marathon sits inside the genuine band, so 8.0 was chosen from the other nine. The
+incumbent is a fitted constant too, and the comparison is more honest for saying so.
+
+The third table is the construction that nearly worked. Gating the ELSER arm with `min_score`
+inside one call refuses every off-topic probe in both sets and answers every genuine one — 46 for
+46, better than the shipped floor, which lets marathon through. The two columns that kill it are
+the last ones. **`distinct scores` is 1**: every refused query reports the same `0.047619`, the
+score of a document ranked first by BM25 with nothing surviving the gate beside it. And the **true
+ELSER range** those single scores stand for is 1.56 – 16.11. The refusals are correct and
+completely undifferentiated, which is exactly the signal `relevance_score` exists to carry.
 
 ```console
 $ uv run --extra es python scripts/single_call_probe.py
 === normalizer comparison, 16 tuning probes ===
-config                           off-topic             genuine       gap
-rrf (shipped)            0.0476 – 0.0952     0.0707 – 0.0931     -0.0245
-linear / minmax          1.0000 – 2.0000     1.0000 – 1.8971     -1.0000
-linear / l2_norm         0.3421 – 0.8172     0.3318 – 0.7786     -0.4854
-linear / none            4.5191 – 50.2991   50.4771 – 72.0512    +0.1780
+config                           off-topic             genuine       gap     AUC
+rrf (shipped)            0.0476 – 0.0952     0.0707 – 0.0931     -0.0245   0.758
+linear / minmax          1.0000 – 2.0000     1.0000 – 1.8971     -1.0000   0.658
+linear / l2_norm         0.3421 – 0.8172     0.3318 – 0.7786     -0.4854   0.400
+linear / none            4.5191 – 50.2991   50.4771 – 72.0512    +0.1780   1.000
 
 === lexical-arm weight sweep, linear / none ===
-weight       tuning margin   held-out margin   worst held-out off-topic
-1.0                   0.4%            -42.9%     56.25  How do I get a passport renewed?
-0.5                   0.8%             -9.1%     28.95  How do I get a passport renewed?
-0.25                  9.5%             21.9%     15.30  How do I get a passport renewed?
-0.1                  -6.9%             49.2%      7.70  How long should I marinate chicken before grilling?
+A separability sweep, not a fixed-threshold classification: each row is a different
+score scale, so a floor is derived per row from that row's tuning probes and then
+applied unchanged to the held-out ones. Confusion counts are held-out only.
+  AUC     P(a genuine probe outscores an off-topic one), ties counting half. 1.000 is full
+          separation, 0.500 no signal. Every pair counts, so one outlier moves it by at
+          most 1/(genuine x off-topic).
+  margin  (min(genuine) - max(off-topic)) / min(genuine) * 100 — the headroom a threshold
+          has. Two order statistics and nothing else, so one outlier can move it freely.
+          Negative means the two sets overlap and no threshold separates them.
+
+config                          tuning        held-out   floor                         held-out errors
+                           AUC  margin     AUC  margin                                  accept  reject
+ELSER raw (shipped)      0.983  -14.9%   1.000   59.8%   8.00 published                      0       0
+linear/none w=1.0        1.000    0.4%   0.855  -42.9%   50.39 midpoint                      1       4
+linear/none w=0.5        1.000    0.8%   0.990   -9.1%   25.48 midpoint                      1       0
+linear/none w=0.25       1.000    9.5%   1.000   21.9%   16.96 midpoint                      0       0
+linear/none w=0.1        0.983   -6.9%   1.000   49.2%   none — tuning sets overlap        n/a     n/a
+
+=== min_score on the inner ELSER arm ===
+One call. The parent still returns the lexical arm's hits, so the refusal rule cannot be
+'zero hits' — it is 'top score is at the single-arm ceiling 0.047619',
+which is where a document ranked first by BM25 lands when nothing survives the gate.
+
+set        class          n  refused  accept  reject  distinct scores   true ELSER range
+tuning     off-topic     10       10       0                        1   1.56 – 16.11
+tuning     in-domain      6        0               0                -   14.02 – 19.25
+held-out   off-topic     20       20       0                        1   1.54 – 5.34
+held-out   in-domain     10        0               0                -   13.28 – 19.18
 ```

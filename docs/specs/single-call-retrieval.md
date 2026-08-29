@@ -7,12 +7,27 @@ since the probe runs before the fusion it gates."* Every semantic answer makes t
 `probe()` reads a pre-fusion ELSER score to decide answerability, then `search()` runs the RRF
 fusion it gated. `service.py:130` makes both.
 
-This spec covers the candidate for collapsing those into one call, what was measured about it,
-and the order the work has to happen in.
+This spec covers the candidates for collapsing those into one call, what was measured about them,
+and the order the work had to happen in.
 
-Everything below was measured on 2026-08-28 against the rebuilt index: 320 chunks, Elasticsearch
-9.6.0 serverless, ELSER `.elser-2-elasticsearch`. The probe set is the 10 off-topic + 6 in-domain
-+ 1 wrong-entity queries already defined in `scripts/measure_findings.py`.
+> **Verdict: no-go, and the two-call design stays.** Two shapes were built and measured. A
+> `linear` retriever with a down-weighted lexical arm separates on the probes it was tuned
+> against and its weight does not survive held-out ones. `min_score` on the inner ELSER arm
+> classifies every probe correctly and cannot report *why* it refused. The sections below are in
+> the order the work happened, so the design decisions are stated before the results that
+> overturned two of them — read [Phase 2](#phase-2-result-2026-08-28-no-go) for the conclusion.
+
+Everything below was measured against the rebuilt index: 320 chunks, Elasticsearch 9.6.0
+serverless, ELSER `.elser-2-elasticsearch`. Phases 1 and 2 ran on 2026-08-28; the nested-gate
+result and the AUC figures were added on 2026-08-29 against the same index.
+
+**Probe counts, used the same way everywhere.** The **tuning set is 16** — the 10 off-topic and
+6 in-domain queries in `scripts/measure_findings.py` — and it is what `RELEVANCE_FLOOR` was
+derived from. The **held-out set is 30**, written before scoring and sharing no query with it.
+That is **46 classified probes**. The wrong-entity query ("the price of GPT-5") is counted in
+neither: it is neither off-topic nor answerable from the bundle, so it belongs to no class and
+is carried as a **diagnostic**, reported separately wherever it appears. Any separability
+figure below is computed on 16 or on 30, never on 17 or 47.
 
 ## Rejected: MinMax normalization
 
@@ -41,7 +56,7 @@ This is worth stating plainly because the intuition is strong and wrong. Normali
 makes scores *comparable between arms*; it does not make them *interpretable as confidence*. Only
 `none` preserves the magnitude a threshold needs.
 
-## Decision
+## Decision (superseded by Phase 2 — kept as the record of what was built)
 
 Single `linear` retriever over the existing two arms with `normalizer: "none"`, weighted toward
 the sparse arm, with the floor compared **in Python against the top hit's score** — not with
@@ -67,7 +82,7 @@ min_score=50.4   What is reciprocal rank fusion?  -> 3 hits, top=72.0512
 
 It is still the wrong tool here. It discards the score of everything it filters, so a blocked
 query returns zero hits and *no number*. That destroys `SemanticResult.floor_score`
-(`service.py:106`), which exists precisely so a near miss at 7.9 is distinguishable after the fact
+(`service.py:108`), which exists precisely so a near miss at 7.9 is distinguishable after the fact
 from a query that was never in domain at 1.7 — the distinction `probe()` documents and
 `telemetry.py` reports as `relevance_score`.
 
@@ -75,13 +90,66 @@ Comparing the returned top score to the floor in Python is the same single round
 the number. `min_score` buys nothing the client-side comparison does not, and costs an
 observability signal the repo already committed to.
 
+### Rejected: `min_score` on the inner ELSER arm
+
+`min_score` is documented on the `standard` retriever, not only on compound ones, so nothing stops
+applying it to the sparse child *inside* one hybrid call:
+
+```
+rrf(
+  { standard: <bm25> },
+  { standard: <elser>, min_score: 8.0 },
+  rank_window_size: 50, rank_constant: 20
+)
+```
+
+This is the shape that most looks like the two-call design collapsed into one — the same floor,
+the same constant, evaluated server-side — so it was measured rather than argued about. All 46
+probes, 2026-08-29:
+
+**The obvious refusal rule fails 20 out of 20.** Gating one arm does not refuse a query. The
+parent still holds the lexical arm, which always returns something, so `hits == 0` fired on none
+of the thirty held-out probes.
+
+**A second rule does work.** With the sparse arm gated empty, every surviving document is ranked
+by BM25 alone, so the best score available is a single `1/(k+rank)` term at rank 1 —
+`1/(20+1) = 0.047619`. Read "top score is at that ceiling" as the refusal signal and it classifies
+**all 46 probes correctly**, including the marathon query the shipped floor gets wrong.
+
+So this one is not rejected for failing. It is rejected for three other things, and the first
+settles it on its own.
+
+**It destroys `floor_score`.** All thirty refused off-topic probes report the identical
+`0.0476191`, while their true sparse scores span 1.56 to 16.11. `observability.md` defines
+`relevance_score` as precisely what separates a near miss at 7.9 from a query that was never in
+domain at 1.7, and `telemetry.py:192` reads it back grouped by verdict on *both* sides. That is
+the same objection that rejected `min_score` on the compound retriever, arrived at by a better
+route: the classification is available in one call, the *number* is not.
+
+**The marathon result is the right answer for the wrong reason.** Marathon's gated sparse arm is
+not empty — three chunks clear 8.0. It lands at the ceiling because all three are from
+`elastic-semantic-text` and none appears in BM25's fifty-document window:
+
+```
+marathon:  bm25 window 50 docs  |  gated ELSER 3 docs  |  overlap 0
+```
+
+The rule therefore fires on `sparse arm empty` **or** `the arms share no document`. The second
+disjunct is rank agreement, which `findings.md` §3 establishes is not a relevance signal. Crediting
+this construction with fixing marathon would be crediting the exact quantity the finding rejects.
+
+**That second disjunct is a false-reject mode two calls do not have.** A genuine question whose
+arms disagree is refused, with no score to explain why. It fired on none of the sixteen genuine
+probes — but `findings.md` §1's `rank_window_size` row is arm divergence on an in-domain query, so
+the mode is real rather than theoretical, and it is invisible in telemetry by construction.
+
 ## The control comes first
 
 **Re-deriving the incumbent floor is Phase 1, ahead of any candidate work.** Not as housekeeping
 — the incumbent is the control the candidate is measured against, and on this index it is
 stronger than the candidate on most of the probe set.
 
-`RELEVANCE_FLOOR = 8.0` is documented in `semantic.py:31` as "a property of this index — re-chunk,
+`RELEVANCE_FLOOR = 8.0` is documented in `semantic.py:45` as "a property of this index — re-chunk,
 re-index, or change the inference model and it means nothing." The rebuild is exactly that event.
 The published figures have already drifted: `findings.md` §3 quotes off-topic ELSER at 1.66–16.14
 and genuine at 14.10–19.48; on 2026-08-28 the same probes give 1.5647–16.1074 and 14.0186–19.2503.
@@ -123,7 +191,7 @@ equal weights. Down-weighting the lexical arm is the lever:
 | 0.1 | 16.1074 | 15.0687 | −6.9% |
 | 0.0 | 16.1074 | 14.0186 | −14.9% |
 
-**This sweep is fitted on the same 17 probes it is evaluated against.** The 9.5% figure is
+**This sweep is fitted on the same 16 probes it is evaluated against.** The 9.5% figure is
 therefore an upper bound on what held-out queries will show, and `w=0.25` is a starting point, not
 a result. Phase 2 exists to correct for this, and it is the phase most likely to kill the
 candidate.
@@ -184,8 +252,9 @@ The control holds, and the floor did not move.
 
 - **`RELEVANCE_FLOOR` stays at 8.0.** The usable gap moved from [5.9, 14.1] to [6.0, 14.0], so 8.0
   still sits inside it. Centering at 10.0 would balance the headroom — 4.0 either side against
-  2.0/6.0 on 2026-08-28 — but classifies all 17 probes identically, so the change would be churn on a
-  published constant with no measured effect. The derivation is recorded at `semantic.py:31`.
+  2.0/6.0 on 2026-08-28 — but classifies all 16 identically (and the diagnostic too), so the
+  change would be churn on a
+  published constant with no measured effect. The derivation is recorded at `semantic.py:45`.
 - **`findings.md` §2 reproduced to the digit**: 44 of 149 hyphenated improved, 0 of 87 underscored,
   0 regressed, 137 of 568 invisible to `content.exact`, 6 chunks collapsing to 1. It is a finding
   about tokenization, which a new inference endpoint cannot move.
@@ -230,7 +299,7 @@ cutover. That belongs in the `observability.md` notes if the candidate ships.
 - **The floor becomes less portable, not more.** Raw combined scores are unbounded and scale with
   query length and corpus statistics. The current floor is already index-specific; the candidate's
   is index- *and* weight-specific. What ports is still the method, never the constant.
-- **17 probes is not a labeled evaluation set.** Same limitation `findings.md` §3 already declares.
+- **16 probes is not a labeled evaluation set.** Same limitation `findings.md` §3 already declares.
   Phase 2 widens it; it does not remove it.
 
 
@@ -238,33 +307,68 @@ cutover. That belongs in the `observability.md` notes if the candidate ships.
 
 Twenty off-topic and ten in-domain probes, written before scoring and sharing no query with the
 tuning set. Both live in `scripts/measure_findings.py` as `OFF_TOPIC_HELDOUT` and
-`IN_DOMAIN_HELDOUT`; a test asserts the two sets stay disjoint. Floors applied, not refitted:
-incumbent 8.0, candidate 17.0 (the midpoint of the tuning gap [16.11, 17.81]).
+`IN_DOMAIN_HELDOUT`; a test asserts the two sets stay disjoint.
 
-**Both classify the held-out set perfectly — 0 false accepts in 20, 0 false rejects in 10.** The
-candidate is not broken. It is simply dominated:
+**This is a separability sweep, not a fixed-threshold classification.** Every row is a different
+score scale, so there is no single floor to apply across them. Each row's floor is derived from
+that row's *tuning* probes — the midpoint of the gap — and then applied unchanged to the held-out
+ones. Where a row's tuning sets overlap, no midpoint exists and the row has no floor to test.
 
-| Config | Tuning margin | Held-out margin | Held-out off ≤ / gen ≥ |
-|---|---|---|---|
-| Incumbent (ELSER raw) | 57.1% | **59.8%** | 5.34 / 13.28 |
-| Candidate w=1.0 | 0.4% | **−42.9%** | 56.25 / 39.36 |
-| Candidate w=0.5 | 0.8% | −9.1% | 28.95 / 26.52 |
-| Candidate w=0.25 | 9.5% | 21.9% | 15.30 / 19.58 |
-| Candidate w=0.1 | −6.9% | 49.2% | 7.70 / 15.15 |
+Two measures, because they disagree and the disagreement is the finding:
 
-Three things kill it.
+- **AUC** — the probability a random genuine probe outscores a random off-topic one. Every pair
+  counts, so no single query can move it far. It says whether the score *orders* the two classes.
+- **margin** — `(min(genuine) − max(off-topic)) / min(genuine)`. Two order statistics and nothing
+  else, so one outlier moves it freely. It says how much *headroom* a threshold has.
 
-**The incumbent generalizes and the candidate's weight does not.** ELSER raw scores 57.1% on the
-set it was derived from and 59.8% on one it has never seen — the floor is a real signal, not a
-fit. The candidate's *optimal weight moves*: 0.25 was best on tuning, where 0.1 was negative; on
-held-out 0.1 is the best config and 0.25 is less than half as good. The optimum is set by whichever
-single off-topic outlier a probe set happens to contain — marathon at 16.11 in tuning, nothing
-equivalent in held-out. A constant chosen that way cannot be trusted at a floor.
+| Config | Tuning AUC | Tuning margin | Held-out AUC | Held-out margin | Floor | Held-out FA / FR |
+|---|---|---|---|---|---|---|
+| Incumbent (ELSER raw) | 0.983 | −14.9% | **1.000** | **59.8%** | 8.00 published | **0 / 0** |
+| Candidate w=1.0 | 1.000 | 0.4% | 0.855 | −42.9% | 50.39 midpoint | 1 / 4 |
+| Candidate w=0.5 | 1.000 | 0.8% | 0.990 | −9.1% | 25.48 midpoint | 1 / 0 |
+| Candidate w=0.25 | 1.000 | 9.5% | **1.000** | 21.9% | 16.96 midpoint | **0 / 0** |
+| Candidate w=0.1 | 0.983 | −6.9% | **1.000** | 49.2% | none — sets overlap | n/a |
+
+**Only two rows classify the held-out set perfectly: the incumbent at 8.0, and the candidate at
+w=0.25.** An earlier draft of this section said "both classify the held-out set perfectly"
+without naming a weight, which is false for w=1.0 (one off-topic answered, four genuine refused)
+and for w=0.5 (one off-topic answered). The claim holds only for the deployed configuration, and
+is now stated that way wherever it appears.
+
+Two corrections the AUC column forced, both against the incumbent:
+
+- **The incumbent's tuning margin is −14.9%, not 57.1%.** 57.1% is the figure with the marathon
+  probe excluded. Quoting it in a column where every candidate row is computed on all ten
+  off-topic probes compared the incumbent on nine against the candidates on ten. Both numbers are
+  real; only one belongs in that column.
+- **8.0 is a fitted constant too.** It is not the midpoint of the tuning gap — no midpoint exists,
+  because marathon at 16.11 sits inside the genuine band. It was chosen from the other nine. The
+  candidate's weight is worse than the incumbent's floor, but not because one is fitted and the
+  other is not.
+
+What the AUC column then shows is that the incumbent's real advantage is narrower and more
+defensible than the margin alone suggested. On held-out probes the incumbent, w=0.25 and w=0.1
+all score **1.000** — they order the two classes identically well. They are not separated by
+whether they work, but by how much room the threshold has, and by whether the setting that
+produced that room survives being chosen. Three things kill it.
+
+**The incumbent generalizes and the candidate's weight does not.** ELSER raw goes from AUC 0.983
+on the set it was derived from to 1.000 on one it has never seen, and its headroom widens rather
+than collapsing. The candidate's *optimal weight moves*: 0.25 was best on tuning, where 0.1 was
+negative; on held-out 0.1 has the widest headroom and 0.25 less than half as much. The optimum is
+set by whichever single off-topic outlier a probe set happens to contain — marathon at 16.11 in
+tuning, nothing equivalent in held-out. A constant chosen that way cannot be trusted at a floor.
+
+This is the argument that does not depend on the fragile metric. It is the *direction* the optimum
+moves, not the size of any one margin, and the AUC column shows the same thing from the other
+side: w=1.0 is a perfect 1.000 on tuning and 0.855 on held-out, so it is not that the tuning set
+was read wrong — it is that the tuning set could not have told you.
 
 **Equal weights fail outright.** At w=1.0 the held-out margin is −42.9%: "How do I get a passport
-renewed?" scores 56.25, above every genuine query in the set. The tuning set's 0.4% margin was not
-a thin pass, it was an accident of having too few long off-topic queries. This is Elastic's
-documented warning about `none` showing up exactly as documented.
+renewed?" scores 56.25, above every genuine query in the set. Applying that row's own tuning floor
+of 50.39 to the held-out probes answers one off-topic question and refuses four genuine ones. The
+tuning set's 0.4% margin was not a thin pass, it was an accident of having too few long off-topic
+queries. This is Elastic's documented warning about `none` showing up exactly as documented.
 
 **There is no weight that is good at both jobs.** Separation improves monotonically as the weight
 falls — 42.9% → −9.1% → 21.9% → 49.2% — converging on the incumbent, because it converges on
@@ -282,8 +386,17 @@ RRF discards magnitude and cannot report confidence; a linear combination keeps 
 contaminates it with the arm that exists for a different reason.
 
 **Recommendation: keep the two-call design.** The cost is one extra round trip on semantic queries
-only, against a floor that is 2.7× better separated, ranking that is strictly better, a bounded
-and better-understood score, and no tunable constant that moves with the probe set.
+only. Against it: equal ordering on held-out probes (AUC 1.000 either way) with **2.7× the
+headroom** behind the threshold, ranking that is strictly better, a bounded and better-understood
+score, and no tunable constant that moves with the probe set.
+
+State the ordering claim and the headroom claim separately. "2.7× better separated" invites the
+reply that both are perfect classifiers on this data, and that reply is correct.
+
+**Which metric the write-up leads with:** AUC first, margin second, always both. AUC is what
+survives an outlier and is what an IR reader expects; the margin is what actually distinguishes
+the two designs once AUC saturates at 1.000, so dropping it would remove the case rather than
+strengthen it. Neither is quoted anywhere without the other.
 
 Phases 3–5 are cancelled. What survives is the held-out probe set, which is now permanent
 regression coverage for the floor, and this document as the record of why the obvious optimization

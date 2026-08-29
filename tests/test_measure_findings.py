@@ -202,3 +202,54 @@ def test_the_floor_generalizes_to_probes_it_was_not_derived_from(heldout) -> Non
     assert heldout["false_accepts"] == []
     assert heldout["false_rejects"] == []
     assert heldout["off_topic_max"] < heldout["floor"] < heldout["in_domain_min"]
+
+
+# --- the separability metrics ---------------------------------------------------------
+#
+# Every percentage and AUC published in findings.md §3, §4 and the single-call spec comes out
+# of these four functions. They are pure, so they get pinned against hand-computable cases
+# rather than against the index — an arithmetic slip here would rewrite the conclusions
+# silently and no ES-backed test would notice.
+
+
+def test_auc_is_one_when_the_classes_do_not_overlap() -> None:
+    assert measure_findings.auc([10.0, 20.0], [1.0, 2.0]) == 1.0
+
+
+def test_auc_is_zero_point_five_when_the_classes_are_identical() -> None:
+    """Every pair ties, and a tie counts half — the no-signal baseline."""
+    assert measure_findings.auc([5.0, 5.0], [5.0, 5.0]) == 0.5
+
+
+def test_auc_counts_pairs_not_extremes() -> None:
+    """One off-topic query above everything costs 3 of 9 pairs, not the whole score.
+
+    This is the property the metric was added for: the margin goes negative on this input
+    while the AUC records that six pairs out of nine are still ordered correctly.
+    """
+    genuine, off_topic = [10.0, 11.0, 12.0], [1.0, 2.0, 99.0]
+    assert measure_findings.auc(genuine, off_topic) == pytest.approx(6 / 9)
+    assert measure_findings.margin(genuine, off_topic) < 0
+
+
+def test_margin_is_the_gap_as_a_share_of_the_lowest_genuine_score() -> None:
+    assert measure_findings.margin([10.0, 20.0], [2.0, 5.0]) == pytest.approx(50.0)
+
+
+def test_margin_is_negative_when_the_classes_overlap() -> None:
+    assert measure_findings.margin([10.0], [12.0]) == pytest.approx(-20.0)
+
+
+def test_tuning_midpoint_sits_halfway_between_the_classes() -> None:
+    assert measure_findings.tuning_midpoint([18.0], [12.0]) == pytest.approx(15.0)
+
+
+def test_tuning_midpoint_is_none_when_no_threshold_separates() -> None:
+    """w=0.1 in the sweep: the tuning classes overlap, so there is no floor to carry forward."""
+    assert measure_findings.tuning_midpoint([12.0], [18.0]) is None
+
+
+def test_confusion_counts_a_floor_applied_to_scores_it_did_not_choose() -> None:
+    """At the floor exactly, an off-topic query is accepted — `>=` matches `is_relevant`."""
+    accepts, rejects = measure_findings.confusion([9.0, 4.0], [8.0, 1.0], floor=8.0)
+    assert (accepts, rejects) == (1, 1)
