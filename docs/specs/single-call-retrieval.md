@@ -113,14 +113,14 @@ of the thirty held-out probes.
 
 **A second rule does work.** With the sparse arm gated empty, every surviving document is ranked
 by BM25 alone, so the best score available is a single `1/(k+rank)` term at rank 1 —
-`1/(20+1) = 0.047619`. Read "top score is at that ceiling" as the refusal signal and it classifies
+<!--figures:on-->`1/(20+1)` = <!--fig:single_call.ceiling-->0.047619<!--/-->.<!--figures:off--> Read "top score is at that ceiling" as the refusal signal and it classifies
 **all 46 probes correctly**, including the marathon query the shipped floor gets wrong.
 
 So this one is not rejected for failing. It is rejected for three other things, and the first
 settles it on its own.
 
-**It destroys `floor_score`.** All thirty refused off-topic probes report the identical
-`0.0476191`, while their true sparse scores span 1.56 to 16.11. `observability.md` defines
+<!--figures:on-->**It destroys `floor_score`.** All thirty refused off-topic probes report the identical
+`<!--fig:single_call.nested_gate.off_topic.refused_score-->0.0476191<!--/-->`, while their true sparse scores span <!--fig:single_call.nested_gate.off_topic.elser_min-->1.54<!--/--> to <!--fig:single_call.nested_gate.off_topic.elser_max-->16.11<!--/-->.<!--figures:off--> `observability.md` defines
 `relevance_score` as precisely what separates a near miss at 7.9 from a query that was never in
 domain at 1.7, and `telemetry.py:192` reads it back grouped by verdict on *both* sides. That is
 the same objection that rejected `min_score` on the compound retriever, arrived at by a better
@@ -323,11 +323,13 @@ Two measures, because they disagree and the disagreement is the finding:
 
 | Config | Tuning AUC | Tuning margin | Held-out AUC | Held-out margin | Floor | Held-out FA / FR |
 |---|---|---|---|---|---|---|
-| Incumbent (ELSER raw) | 0.983 | −14.9% | **1.000** | **59.8%** | 8.00 published | **0 / 0** |
-| Candidate w=1.0 | 1.000 | 0.4% | 0.855 | −42.9% | 50.39 midpoint | 1 / 4 |
-| Candidate w=0.5 | 1.000 | 0.8% | 0.990 | −9.1% | 25.48 midpoint | 1 / 0 |
-| Candidate w=0.25 | 1.000 | 9.5% | **1.000** | 21.9% | 16.96 midpoint | **0 / 0** |
-| Candidate w=0.1 | 0.983 | −6.9% | **1.000** | 49.2% | none — sets overlap | n/a |
+<!--figures:on-->
+| Incumbent (ELSER raw) | <!--fig:single_call.sweep.elser_raw.tuning_auc-->0.983<!--/--> | <!--fig:single_call.sweep.elser_raw.tuning_margin_pct-->−14.9<!--/-->% | **<!--fig:single_call.sweep.elser_raw.heldout_auc-->1.000<!--/-->** | **<!--fig:single_call.sweep.elser_raw.heldout_margin_pct-->59.8<!--/-->%** | <!--fig:single_call.sweep.elser_raw.floor-->8.00<!--/--> published | **0 / 0** |
+| Candidate w=<!--lit-->1.0<!--/--> | <!--fig:single_call.sweep.w1_0.tuning_auc-->1.000<!--/--> | <!--fig:single_call.sweep.w1_0.tuning_margin_pct-->0.4<!--/-->% | <!--fig:single_call.sweep.w1_0.heldout_auc-->0.855<!--/--> | <!--fig:single_call.sweep.w1_0.heldout_margin_pct-->−42.9<!--/-->% | <!--fig:single_call.sweep.w1_0.floor-->50.39<!--/--> midpoint | 1 / 4 |
+| Candidate w=<!--lit-->0.5<!--/--> | <!--fig:single_call.sweep.w0_5.tuning_auc-->1.000<!--/--> | <!--fig:single_call.sweep.w0_5.tuning_margin_pct-->0.8<!--/-->% | <!--fig:single_call.sweep.w0_5.heldout_auc-->0.990<!--/--> | <!--fig:single_call.sweep.w0_5.heldout_margin_pct-->−9.1<!--/-->% | <!--fig:single_call.sweep.w0_5.floor-->25.48<!--/--> midpoint | 1 / 0 |
+| Candidate w=<!--lit-->0.25<!--/--> | <!--fig:single_call.sweep.w0_25.tuning_auc-->1.000<!--/--> | <!--fig:single_call.sweep.w0_25.tuning_margin_pct-->9.5<!--/-->% | **<!--fig:single_call.sweep.w0_25.heldout_auc-->1.000<!--/-->** | <!--fig:single_call.sweep.w0_25.heldout_margin_pct-->21.9<!--/-->% | <!--fig:single_call.sweep.w0_25.floor-->16.96<!--/--> midpoint | **0 / 0** |
+| Candidate w=<!--lit-->0.1<!--/--> | <!--fig:single_call.sweep.w0_1.tuning_auc-->0.983<!--/--> | <!--fig:single_call.sweep.w0_1.tuning_margin_pct-->−6.9<!--/-->% | **<!--fig:single_call.sweep.w0_1.heldout_auc-->1.000<!--/-->** | <!--fig:single_call.sweep.w0_1.heldout_margin_pct-->49.2<!--/-->% | none — sets overlap | n/a |
+<!--figures:off-->
 
 **Only two rows classify the held-out set perfectly: the incumbent at 8.0, and the candidate at
 w=0.25.** An earlier draft of this section said "both classify the held-out set perfectly"

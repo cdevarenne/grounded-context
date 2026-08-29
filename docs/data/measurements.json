@@ -1,0 +1,266 @@
+{
+  "invisible": {
+    "documented": {
+      "batch_id": true,
+      "claude-sonnet-4-6": true
+    },
+    "examples": [
+      "024-token",
+      "2019-05-01",
+      "2019-05-04",
+      "2019-05-04t00",
+      "2019-05-05"
+    ],
+    "invisible": 137,
+    "total": 568
+  },
+  "mechanism": {
+    "content_matches": 6,
+    "exact_matches": 1,
+    "rank_content_only": 3,
+    "rank_with_exact": 1,
+    "target": "elastic-rrf:chunk:1",
+    "term": "rank_constant"
+  },
+  "probes": {
+    "heldout": {
+      "auc": 1.0,
+      "false_accepts": 0,
+      "false_rejects": 0,
+      "in_domain": {
+        "n": 10,
+        "sparse_min": 13.28
+      },
+      "margin_pct": 59.8,
+      "off_topic": {
+        "n": 20,
+        "sparse_max": 5.34
+      }
+    },
+    "tuning": {
+      "fused": {
+        "auc": 0.758,
+        "margin_pct": -34.7
+      },
+      "in_domain": {
+        "fused": {
+          "max": 0.0931,
+          "min": 0.0707,
+          "n": 6
+        },
+        "n": 6,
+        "sparse": {
+          "max": 19.25,
+          "min": 14.02,
+          "n": 6
+        }
+      },
+      "marathon": {
+        "fused": 0.0682,
+        "sparse": 16.11
+      },
+      "off_topic": {
+        "fused": {
+          "max": 0.0952,
+          "min": 0.0476,
+          "n": 10
+        },
+        "n": 10,
+        "sparse": {
+          "max": 16.11,
+          "min": 1.56,
+          "n": 10
+        },
+        "sparse_max_excluding_marathon": 6.01
+      },
+      "sourdough": {
+        "fused": 0.0635,
+        "sparse": 2.05
+      },
+      "sparse": {
+        "auc": 0.983,
+        "margin_pct": -14.9,
+        "margin_pct_excluding_marathon": 57.1
+      },
+      "streaming": {
+        "fused": 0.0729,
+        "sparse": 16.86
+      },
+      "vitamin_d": {
+        "fused": 0.0952,
+        "sparse": 2.05
+      },
+      "wrong_entity": {
+        "fused": 0.0893,
+        "sparse": 18.84
+      }
+    }
+  },
+  "run": {
+    "chunks": 320,
+    "es_version": "9.6.0",
+    "git_sha": "dc93686",
+    "index": "grounded-context-corpus",
+    "inference_id": ".elser-2-elasticsearch",
+    "measured_at": "2026-08-29",
+    "rank_constant": 20,
+    "rank_window_size": 50,
+    "relevance_floor": 8.0
+  },
+  "single_call": {
+    "ceiling": 0.047619047619047616,
+    "nested_gate": {
+      "in_domain": {
+        "distinct_scores": 0,
+        "elser_max": 19.250267,
+        "elser_min": 13.2846575,
+        "n": 16,
+        "refused": 0,
+        "refused_score": null
+      },
+      "off_topic": {
+        "distinct_scores": 1,
+        "elser_max": 16.107424,
+        "elser_min": 1.5374651,
+        "n": 30,
+        "refused": 30,
+        "refused_score": 0.0476191
+      }
+    },
+    "normalizers": {
+      "l2_norm": {
+        "auc": 0.4,
+        "config": "linear / l2_norm",
+        "gap": -0.48540944,
+        "genuine_max": 0.77861315,
+        "genuine_min": 0.33181572,
+        "off_topic_max": 0.81722516,
+        "off_topic_min": 0.3421316
+      },
+      "minmax": {
+        "auc": 0.658,
+        "config": "linear / minmax",
+        "gap": -1.0,
+        "genuine_max": 1.8971499,
+        "genuine_min": 1.0,
+        "off_topic_max": 2.0,
+        "off_topic_min": 1.0
+      },
+      "none": {
+        "auc": 1.0,
+        "config": "linear / none",
+        "gap": 0.17797099999999944,
+        "genuine_max": 72.05123,
+        "genuine_min": 50.477097,
+        "off_topic_max": 50.299126,
+        "off_topic_min": 4.5190907
+      },
+      "rrf": {
+        "auc": 0.758,
+        "config": "rrf (shipped)",
+        "gap": -0.024518500000000013,
+        "genuine_max": 0.09307359,
+        "genuine_min": 0.0707196,
+        "off_topic_max": 0.0952381,
+        "off_topic_min": 0.04761905
+      }
+    },
+    "sweep": {
+      "elser_raw": {
+        "config": "ELSER raw (shipped)",
+        "false_accepts": 0,
+        "false_rejects": 0,
+        "floor": 8.0,
+        "floor_source": "published",
+        "heldout_auc": 1.0,
+        "heldout_margin_pct": 59.8,
+        "tuning_auc": 0.983,
+        "tuning_margin_pct": -14.9,
+        "worst_heldout_off_topic": {
+          "query": "How long should I marinate chicken before grilling?",
+          "score": 5.343283
+        }
+      },
+      "w0_1": {
+        "config": "linear/none w=0.1",
+        "false_accepts": null,
+        "false_rejects": null,
+        "floor": null,
+        "floor_source": null,
+        "heldout_auc": 1.0,
+        "heldout_margin_pct": 49.2,
+        "tuning_auc": 0.983,
+        "tuning_margin_pct": -6.9,
+        "worst_heldout_off_topic": {
+          "query": "How long should I marinate chicken before grilling?",
+          "score": 7.696827
+        }
+      },
+      "w0_25": {
+        "config": "linear/none w=0.25",
+        "false_accepts": 0,
+        "false_rejects": 0,
+        "floor": 16.957572,
+        "floor_source": "midpoint",
+        "heldout_auc": 1.0,
+        "heldout_margin_pct": 21.9,
+        "tuning_auc": 1.0,
+        "tuning_margin_pct": 9.5,
+        "worst_heldout_off_topic": {
+          "query": "How do I get a passport renewed?",
+          "score": 15.299541
+        }
+      },
+      "w0_5": {
+        "config": "linear/none w=0.5",
+        "false_accepts": 1,
+        "false_rejects": 0,
+        "floor": 25.484385,
+        "floor_source": "midpoint",
+        "heldout_auc": 0.99,
+        "heldout_margin_pct": -9.1,
+        "tuning_auc": 1.0,
+        "tuning_margin_pct": 0.8,
+        "worst_heldout_off_topic": {
+          "query": "How do I get a passport renewed?",
+          "score": 28.9488
+        }
+      },
+      "w1_0": {
+        "config": "linear/none w=1.0",
+        "false_accepts": 1,
+        "false_rejects": 4,
+        "floor": 50.3881115,
+        "floor_source": "midpoint",
+        "heldout_auc": 0.855,
+        "heldout_margin_pct": -42.9,
+        "tuning_auc": 1.0,
+        "tuning_margin_pct": 0.4,
+        "worst_heldout_off_topic": {
+          "query": "How do I get a passport renewed?",
+          "score": 56.24732
+        }
+      }
+    }
+  },
+  "subfield": {
+    "hyphenated": {
+      "examples": [
+        "adaptive-thinking",
+        "anthropic-defined",
+        "anthropic-priority-output-tokens-limit",
+        "anthropic-priority-output-tokens-remaining",
+        "anthropic-priority-output-tokens-reset"
+      ],
+      "improved": 44,
+      "regressed": 0,
+      "total": 149
+    },
+    "underscored": {
+      "examples": [],
+      "improved": 0,
+      "regressed": 0,
+      "total": 87
+    }
+  }
+}

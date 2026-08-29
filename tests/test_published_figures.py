@@ -28,9 +28,16 @@ CAPTURED = (DOCS / "eval-output.md").read_text(encoding="utf-8")
 #: a hyphen for both. Compare on a single spelling.
 DASHES = str.maketrans({"−": "-", "–": "-"})
 
+#: The figure markers `test_figures.py` reads, stripped before any comparison so a range written
+#: as `<!--fig:a-->1.56<!--/-->–<!--fig:b-->6.01<!--/-->` still reads as `1.56-6.01`. Both test
+#: files stay: this one checks the docs against the console captures, `test_figures.py` checks
+#: them against the measurement data, and together they pin the captures and the data to each
+#: other as well.
+FIGURE_MARKUP = re.compile(r"<!--(?:fig:[a-z0-9_.]+|/|lit|figures:on|figures:off)-->")
+
 
 def normalize(text: str) -> str:
-    return " ".join(text.translate(DASHES).split())
+    return " ".join(FIGURE_MARKUP.sub("", text).translate(DASHES).split())
 
 
 def compare_captures() -> dict[str, dict[str, int]]:
@@ -189,7 +196,8 @@ def test_the_weight_sweep_in_section_4_matches_the_captured_run(
 def readback_prose() -> str:
     """eval-output.md's reading of the corpus-wide capture, normalized for comparison."""
     start = CAPTURED.index("Read the two score columns against each other")
-    return normalize(CAPTURED[start:CAPTURED.index("## The fusion math", start)])
+    body = CAPTURED[start:CAPTURED.index("## The fusion math", start)]
+    return normalize(body)
 
 
 def captured_probe(kind: str, column: int) -> float:

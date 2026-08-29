@@ -8,6 +8,13 @@ an agent can call it.
 Every output below is captured from a real run, not typed by hand — only the checkout path is
 shortened.
 
+> **Captured 2026-08-13, against the first index — semantic scores here are superseded.** The
+> corpus was reindexed onto a new Elasticsearch deployment on 2026-08-28, which moved every ELSER
+> and fused figure. The citation blocks below say `indexed 2026-08-13` for that reason: they are a
+> faithful record of that run, not of the current index. The walkthrough itself is unchanged —
+> same commands, same shapes, same provenance — and the deterministic outputs are unaffected. For
+> figures that describe the index as it stands, see [`eval-output.md`](eval-output.md).
+
 The JVM port has its own quickstart with the same shape:
 [grounded-context-jvm/docs/quickstart.md](https://github.com/cdevarenne/grounded-context-jvm/blob/main/docs/quickstart.md).
 

@@ -46,6 +46,14 @@ grounded answer with a citation block.
 - **Canonical data is governed:** the compatibility matrix is date-stamped and sourced from
   live docs; treat it as versioned truth. A stale "authoritative" layer undercuts the thesis.
 - **Small + composable:** small scripts, clear interfaces, always demoable.
+- **Published numbers are generated, never typed.** Every figure quoted in `findings.md`,
+  `eval-output.md` and `docs/specs/single-call-retrieval.md` lives in `docs/data/measurements.json`,
+  written by `scripts/publish_figures.py`, and is referenced inline:
+  `<!--fig:probes.heldout.auc-->1.000<!--/-->`. Inside a `<!--figures:on-->` region **no unmarked
+  decimal is allowed** — `tests/test_figures.py` fails on one — so a new number cannot be added
+  without being checked. A decimal that is not a measurement is declared `<!--lit-->9.6.0<!--/-->`.
+  After any reindex: `uv run --extra es python scripts/publish_figures.py`, then run the suite and
+  fix whatever it reports. `--check` re-measures and tells you what moved without writing.
 
 ## Toolchain
 Python **3.14**, pinned in `.python-version`; managed with **uv**. `uv sync --extra dev`,

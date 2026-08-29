@@ -10,6 +10,11 @@ from `gctx eval --compare`; the corpus-wide figures come from
 `scripts/measure_findings.py`. Both are captured verbatim in [`eval-output.md`](eval-output.md),
 so none of this has to be taken on trust.
 
+No figure below was typed. Each one is read from
+[`docs/data/measurements.json`](data/measurements.json) — written by
+`scripts/publish_figures.py`, carrying the index, chunk count and date it was measured against —
+and a test fails if a quoted number stops matching, or if a new one appears unchecked.
+
 The figures were re-measured on 2026-08-28, after the corpus was reindexed onto a new
 Elasticsearch deployment. Section 2 came back identical to the digit — it is a finding about
 tokenization, which a new inference endpoint cannot move. Everything that shifted in sections 1
@@ -106,26 +111,28 @@ single call.
 The refusal guarantee — *no answer without a grounded source* — quietly assumes retrieval knows
 when it has found nothing. Fusion does not.
 
+<!--figures:on-->
 Asked "how do I bake sourdough bread?", this corpus returns five confident, cited chunks about
-Elasticsearch. The fused score of the top hit is **0.0635**. For a real question about streaming
-API responses it is **0.0729**. Two queries is a coincidence, though, so I ran sixteen — ten
+Elasticsearch. The fused score of the top hit is **<!--fig:probes.tuning.sourdough.fused-->0.0635<!--/-->**. For a real question about streaming
+API responses it is **<!--fig:probes.tuning.streaming.fused-->0.0729<!--/-->**. Two queries is a coincidence, though, so I ran sixteen — ten
 off-topic, six genuine — and the result is worse than "indistinguishable":
 
 | | fused (RRF) | pre-fusion (ELSER) |
 |---|---|---|
-| 10 off-topic questions | 0.0476 – 0.0952 | 1.56 – 16.11 |
-| 6 genuine questions | 0.0707 – 0.0931 | 14.02 – 19.25 |
-| AUC — P(genuine outscores off-topic) | **0.758** | **0.983** |
+| 10 off-topic questions | <!--fig:probes.tuning.off_topic.fused.min-->0.0476<!--/--> – <!--fig:probes.tuning.off_topic.fused.max-->0.0952<!--/--> | <!--fig:probes.tuning.off_topic.sparse.min-->1.56<!--/--> – <!--fig:probes.tuning.off_topic.sparse.max-->16.11<!--/--> |
+| 6 genuine questions | <!--fig:probes.tuning.in_domain.fused.min-->0.0707<!--/--> – <!--fig:probes.tuning.in_domain.fused.max-->0.0931<!--/--> | <!--fig:probes.tuning.in_domain.sparse.min-->14.02<!--/--> – <!--fig:probes.tuning.in_domain.sparse.max-->19.25<!--/--> |
+| AUC — P(genuine outscores off-topic) | **<!--fig:probes.tuning.fused.auc-->0.758<!--/-->** | **<!--fig:probes.tuning.sparse.auc-->0.983<!--/-->** |
+<!--figures:off-->
 
 The AUC row is there because ranges are two numbers and can be moved by one query. It reads every
 genuine/off-topic pair: 1.000 would mean the score orders the two classes perfectly, 0.500 that it
-carries nothing. The fused score at 0.758 is not noise — it gets the ordering right about three
+carries nothing. <!--figures:on-->The fused score at <!--fig:probes.tuning.fused.auc-->0.758<!--/--> is not noise<!--figures:off--> — it gets the ordering right about three
 times in four — but a refusal guarantee is not a three-in-four proposition, and the ranges show
 why no threshold recovers the rest.
 
-The fused ranges **overlap across almost their whole span**. The best-scoring off-topic
-question — "what are the symptoms of vitamin D deficiency?" at 0.0952 — outranks **all six
-genuine questions**, including "how do I stream responses from the API?" at 0.0729. A
+<!--figures:on-->The fused ranges **overlap across almost their whole span**. The best-scoring off-topic
+question — "what are the symptoms of vitamin D deficiency?" at <!--fig:probes.tuning.vitamin_d.fused-->0.0952<!--/--> — outranks **all six
+genuine questions**, including "how do I stream responses from the API?" at <!--fig:probes.tuning.streaming.fused-->0.0729<!--/-->.<!--figures:off--> A
 threshold on the fused score would not merely be unreliable; it would actively prefer a
 question the corpus cannot answer over one it can.
 
@@ -153,9 +160,9 @@ on a first place for a question this corpus cannot answer at all. The highest fu
 corpus can produce belongs to an off-topic query, which is the cleanest statement of the problem
 this section describes.
 
-The pre-fusion scores keep that magnitude, and there the separation is nearly clean — AUC 0.983,
-one pair in sixty out of order: **9 of the 10 off-topic land at 1.56–6.01** against
-**14.02–19.25** for all six genuine ones, a gap of eight points with nothing in it. So the semantic path probes that score first and returns nothing
+<!--figures:on-->The pre-fusion scores keep that magnitude, and there the separation is nearly clean — AUC <!--fig:probes.tuning.sparse.auc-->0.983<!--/-->,
+one pair in sixty out of order: **9 of the 10 off-topic land at <!--fig:probes.tuning.off_topic.sparse.min-->1.56<!--/-->–<!--fig:probes.tuning.off_topic.sparse_max_excluding_marathon-->6.01<!--/-->** against
+**<!--fig:probes.tuning.in_domain.sparse.min-->14.02<!--/-->–<!--fig:probes.tuning.in_domain.sparse.max-->19.25<!--/-->** for all six genuine ones, a gap of eight points with nothing in it.<!--figures:off--> So the semantic path probes that score first and returns nothing
 below a floor of 8. An empty result becomes the refusal. The tenth off-topic probe scored 16.11
 and is the second limit below — it is not an outlier to be waved away, and the floor lets it
 through.
@@ -166,12 +173,12 @@ Two limits, both worth stating plainly, because a floor that *looks* like a corr
 more dangerous than no floor at all.
 
 It does not catch a question that is in-domain but about the wrong entity. "The price per
-million tokens of GPT-5" scores 18.84, because the corpus genuinely discusses pricing — just
+million tokens of GPT-5" scores <!--figures:on--><!--fig:probes.tuning.wrong_entity.sparse-->18.84<!--/--><!--figures:off-->, because the corpus genuinely discusses pricing — just
 Anthropic's. Relevance and correct-entity are different problems, and the second belongs to the
 router and the canonical layer, not the retriever.
 
 And it measures the corpus as *text*, not as subject matter. "What is the best way to train for
-a marathon?" clears the floor at 16.11, which looked like a bug until I read the passage it
+a marathon?" clears the floor at <!--figures:on--><!--fig:probes.tuning.marathon.sparse-->16.11<!--/--><!--figures:off-->, which looked like a bug until I read the passage it
 matched: Elastic's `semantic_text` documentation teaches the feature using running and exercise
 sample documents. The retrieval is correct. A doc page's illustrative data is part of the
 retrievable surface, whether or not it is part of the subject.
@@ -203,8 +210,8 @@ probes:
 | `linear` / `l2_norm` | 0.3421 – 0.8172 | 0.3318 – 0.7786 | −0.4854 | 0.400 |
 | `linear` / `none` | 4.5191 – 50.2991 | 50.4771 – 72.0512 | +0.1780 | 1.000 |
 
-MinMax overlaps *worse than the RRF it was supposed to fix* — 0.658 against 0.758, and `l2_norm`
-at 0.400 is worse than a coin flip — and the exact values say why. Scores
+<!--figures:on-->MinMax overlaps *worse than the RRF it was supposed to fix* — <!--fig:single_call.normalizers.minmax.auc-->0.658<!--/--> against <!--fig:single_call.normalizers.rrf.auc-->0.758<!--/-->, and `l2_norm`
+at <!--fig:single_call.normalizers.l2_norm.auc-->0.400<!--/--> is worse than a coin flip<!--figures:off--> — and the exact values say why. Scores
 land on precisely 1.0000 and precisely 2.0000 because minmax is `(score − min) / (max − min)`
 computed over each sub-retriever's own result set — so the top document of each arm always
 normalizes to exactly 1.0, whatever it scored. The sum is pinned to [1.0, 2.0] and measures how
@@ -267,8 +274,8 @@ from the other nine probes. The argument is not that one number was fitted and t
 It is that one of them moved when the probe set changed and the other did not.
 
 **Equal weights fail outright on held-out data.** At w=1.0 the margin is −42.9%, and "How do I get
-a passport renewed?" scores 56.25 — above every genuine question in the set. Applying that row's
-own tuning floor of 50.39 answers it and refuses four genuine questions. The 0.4% margin on the
+a passport renewed?" scores <!--figures:on--><!--fig:single_call.sweep.w1_0.worst_heldout_off_topic.score-->56.25<!--/--><!--figures:off--> — above every genuine question in the set. Applying that row's
+own tuning floor of <!--figures:on--><!--fig:single_call.sweep.w1_0.floor-->50.39<!--/--><!--figures:off--> answers it and refuses four genuine questions. The 0.4% margin on the
 tuning probes was not a narrow pass. It was too few long off-topic queries.
 
 **No weight is good at both jobs.** Separation improves monotonically as the weight falls,
@@ -292,15 +299,17 @@ It does not refuse the way you would expect. Gating one arm does not gate the qu
 still holds BM25, which always returns something, so "zero hits" fired on none of the thirty
 held-out off-topic probes. But with the sparse arm emptied, every surviving document is ranked by
 one arm alone, so the best score available is a single `1/(k+rank)` term at rank 1: `1/21`,
-exactly 0.047619. Treat that value as the refusal signal and it classifies **all forty-six probes
+<!--figures:on-->exactly <!--fig:single_call.ceiling-->0.047619<!--/-->.<!--figures:off--> Treat that value as the refusal signal and it classifies **all forty-six probes
 correctly**, marathon included — better than the floor that shipped.
 
 I still would not ship it, and the reason is the one this whole section is about.
 
+<!--figures:on-->
 | | refused | distinct scores among refusals | true ELSER behind them |
 |---|---|---|---|
-| 30 off-topic (both sets) | 30 | **1** | 1.56 – 16.11 |
-| 16 genuine (both sets) | 0 | — | 13.28 – 19.25 |
+| 30 off-topic (both sets) | 30 | **<!--fig:single_call.nested_gate.off_topic.distinct_scores-->1<!--/-->** | <!--fig:single_call.nested_gate.off_topic.elser_min-->1.54<!--/--> – <!--fig:single_call.nested_gate.off_topic.elser_max-->16.11<!--/--> |
+| 16 genuine (both sets) | 0 | — | <!--fig:single_call.nested_gate.in_domain.elser_min-->13.28<!--/--> – <!--fig:single_call.nested_gate.in_domain.elser_max-->19.25<!--/--> |
+<!--figures:off-->
 
 Every refusal reports the same number. A query that missed by a hair and a query that was never
 in domain arrive identically, and the distinction between them is the one the telemetry exists to
@@ -334,8 +343,8 @@ rather than a defect. What came out of the attempt is worth more than the round 
 probes the floor was never fitted to, which now run as regression coverage
 (`heldout_floor_check`); a measured reason to distrust the configuration the documentation
 demonstrates first; and a second metric, because the margin these tables are built on is two
-order statistics and one query moves it — the shipped floor's own tuning margin is −14.9% or
-+57.1% depending on whether marathon is in the set, while its AUC barely notices.
+order statistics and one query moves it — <!--figures:on-->the shipped floor's own tuning margin is <!--fig:probes.tuning.sparse.margin_pct-->−14.9<!--/-->% or
+<!--fig:probes.tuning.sparse.margin_pct_excluding_marathon-->+57.1<!--/-->%<!--figures:off--> depending on whether marathon is in the set, while its AUC barely notices.
 
 <!-- Framing note, not for publication: keep finding 4 scoped to this corpus and this index. The
      defensible claim is "measured here, and the mechanism explains why" — minmax pinning the top

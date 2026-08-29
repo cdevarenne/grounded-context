@@ -18,6 +18,13 @@ trimmed only where marked. The screenshots are the sessions as they rendered; th
 payloads and the "no tool ran" claims come from Codex's own session logs under
 `~/.codex/sessions/2026/08/21/`.
 
+> **Semantic scores in this transcript are superseded.** The corpus was reindexed onto a new
+> Elasticsearch deployment on 2026-08-28, which moved every ELSER and fused figure; the citation
+> blocks below say `indexed 2026-08-13` because that is the index this session ran against. What
+> the transcript is evidence *for* — that a third runtime drives the same MCP server, and how it
+> behaves when asked cold — does not depend on the scores. For current figures see
+> [`eval-output.md`](eval-output.md).
+
 ---
 
 ## Wiring

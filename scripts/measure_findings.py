@@ -333,6 +333,27 @@ def probe_separation(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
     }
 
 
+def build_report(es: Any) -> dict[str, Any]:
+    """Every corpus-wide figure findings.md quotes, as data.
+
+    Separated from `main` so `publish_figures.py` can write these into
+    `docs/data/measurements.json` without re-running the measurement or re-parsing the
+    printed table. One computation, two renderings.
+    """
+    chunks = _all_chunks(es)
+    probes = probe_scores(es)
+    return {
+        "chunks": len(chunks),
+        "mechanism": mechanism_counts(es),
+        "subfield_effect": sweep_subfield_effect(es, chunks),
+        "invisible_to_exact": sweep_invisible_to_exact(es, chunks),
+        "floor": RELEVANCE_FLOOR,
+        "probes": probes,
+        "separation": probe_separation(probes),
+        "heldout": heldout_floor_check(es),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="emit raw numbers")
@@ -343,18 +364,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: index {INDEX} is missing — run scripts/index_corpus.py", file=sys.stderr)
         return 1
 
-    chunks = _all_chunks(es)
-    probes = probe_scores(es)
-    report = {
-        "chunks": len(chunks),
-        "mechanism": mechanism_counts(es),
-        "subfield_effect": sweep_subfield_effect(es, chunks),
-        "invisible_to_exact": sweep_invisible_to_exact(es, chunks),
-        "floor": RELEVANCE_FLOOR,
-        "probes": probes,
-        "separation": probe_separation(probes),
-        "heldout": heldout_floor_check(es),
-    }
+    report = build_report(es)
 
     if args.json:
         print(json.dumps(report, indent=2))
