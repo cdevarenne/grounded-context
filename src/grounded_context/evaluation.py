@@ -1,6 +1,6 @@
 """The evaluation set from docs/specs/eval.md, runnable.
 
-Small and illustrative — **not a benchmark**. Twelve questions, each with the engine that
+Small and illustrative — **not a benchmark**. Twenty questions, each with the engine that
 should answer it. What it checks is that the router sends questions to the right place, that
 every answer carries provenance, and that the one question with no grounded answer refuses.
 
@@ -83,7 +83,11 @@ CASES: tuple[EvalCase, ...] = (
     EvalCase("Q10", "Compare claude-opus-5 and claude-sonnet-5 on max output tokens.", MIXED,
              "cross-entity: exact hit leads, semantic context follows"),
     EvalCase("Q11", "What is the price per million tokens of GPT-5?", REFUSAL,
-             "guardrail: absent from both the bundle and the corpus"),
+             "guardrail: absent from the bundle. The corpus is a different matter — this "
+             "query scores 18.84 against a floor of 8, because the corpus really does "
+             "discuss pricing, just not this vendor's. It refuses because the router sends "
+             "a precision question to the deterministic path alone, so the semantic arm "
+             "never runs. Q19 is what tests the floor."),
     EvalCase("Q12", "What is the exact context window of claude-haiku-4-5?", DETERMINISTIC,
              "shows OKF verified / stale_after on a governed fact"),
     # --- paraphrases: the same canonical facts, asked the way a person types them -------
@@ -103,6 +107,22 @@ CASES: tuple[EvalCase, ...] = (
     EvalCase("Q18", "Is Sonnet 5 cheaper than Opus 5?", REFUSAL,
              "precision exception: a comparison the bundle cannot answer refuses "
              "rather than falling back to passages (router.md)"),
+    # --- the relevance floor, exercised end to end ------------------------------------------
+    # Every other semantic case returns passages, so nothing here walked the path that ends in
+    # a floor refusal: router -> semantic -> below the floor -> NOT_FOUND -> a cited-nothing
+    # answer. The floor is measured in isolation by 30 held-out probes
+    # (scripts/measure_findings.py); these two are what check it end to end, including the one
+    # question it is known to get wrong.
+    EvalCase("Q19", "How do I bake sourdough bread?", REFUSAL,
+             "the floor doing its job: routed SEMANTIC, scores 2.05 against a floor of 8, "
+             "and the empty result becomes the refusal"),
+    EvalCase("Q20", "What is the best way to train for a marathon?", REFUSAL,
+             "the floor's documented false positive",
+             known_deviation="findings.md finding 3: this clears the floor at 16.11 because "
+                             "Elastic's semantic_text page teaches the feature with running "
+                             "and exercise sample documents. The retrieval is correct and the "
+                             "passages are real; only the subject is a surprise. The floor "
+                             "measures the corpus as text, not as subject matter."),
 )
 
 

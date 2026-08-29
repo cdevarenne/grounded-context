@@ -174,7 +174,7 @@ strengthen it.
 | Semantic corpus fetch script (`corpus/`, never committed) | ✅ 25 curated pages, manifest committed |
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude, Gemini/Antigravity and OpenAI/Codex, unchanged |
-| Eval harness (`gctx eval`) | ✅ 18 questions, 17 pass + 1 declared deviation |
+| Eval harness (`gctx eval`) | ✅ 20 questions, 18 pass + 2 declared deviations |
 | Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, schema v2, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
 | Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |

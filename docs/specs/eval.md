@@ -1,4 +1,4 @@
-# Spec: Evaluation Set (18 questions)
+# Spec: Evaluation Set (20 questions)
 
 Small and illustrative — **NOT a benchmark**. Purpose: show which engine answers, that
 provenance is always present, and where each path wins. Doubles as the first-person "what
@@ -18,7 +18,7 @@ Columns: id · question · expected_path · correct answer shape · notes
 | Q8 | What's the difference between BM25 and vector search? | semantic | grounded prose + cited doc(s) | |
 | Q9 | What does the `rank_constant` parameter do? | semantic (hybrid) | grounded prose + cited doc | **THE planted proof.** Pure-vector grabs a semantically-adjacent wrong doc; BM25/hybrid nails the exact token. Design the corpus so this reliably reproduces. Rehearse it. |
 | Q10 | Compare \<provider A\> and \<provider B\> on \<exact field\>. | both | merged answer, both cited | cross-entity |
-| Q11 | \<a question whose answer is NOT in the corpus\> | either | "Not found in the grounded sources" | guardrail: tests no-hallucination |
+| Q11 | \<a precision question about an entity the bundle does not hold\> | refusal | "Not found in the grounded sources" | guardrail: no-hallucination. Refuses on the *routing* decision, not the floor — see below |
 | Q12 | What is \<an exact fact that changed recently\>? | deterministic | exact value + OKF `verified` / `stale_after` shown | shows governed, trust-tiered canonical data |
 | Q13 | Abbreviated field, bare alias, no punctuation | deterministic | exact number + provenance | paraphrase |
 | Q14 | Natural interrogative, spaced alias | deterministic | exact number + provenance | paraphrase |
@@ -26,6 +26,8 @@ Columns: id · question · expected_path · correct answer shape · notes
 | Q16 | Dotted version alias, no question form | deterministic | exact number + provenance | paraphrase |
 | Q17 | Alias plus a one-hop traversal | deterministic | endpoint path + provenance + `traversed:` | paraphrase |
 | Q18 | A comparison the bundle cannot answer | refusal | "Not found in the grounded sources" | precision exception, router.md |
+| Q19 | An off-topic question phrased exploratorily | refusal | "Not found in the grounded sources" | the relevance floor, end to end |
+| Q20 | An off-topic question the floor does not catch | refusal | *declared deviation* — returns passages | the floor's documented false positive |
 
 ## Q13–Q18: why paraphrases are in the set
 
@@ -61,3 +63,26 @@ retrieval method while proving why lexical matching still earns its place in it.
 - **Q11 refuses** rather than inventing.
 - **Q9 demonstrably differs** between pure-vector and hybrid — this is the moment that proves
   platform depth, so verify it reproduces before the interview.
+
+## Q19–Q20: why the floor needs its own cases
+
+Q11 and Q18 both refuse, and neither one tests the relevance floor. Q11 refuses because the router
+sends a precision question to the deterministic path alone, and Q18 because of the precision
+exception in `router.md`. In both, the semantic arm never runs. Every case that *does* reach the
+semantic arm returns passages, so until Q19 nothing in the set walked the path that ends in a floor
+refusal: routed SEMANTIC, scored below the floor, empty result, refusal.
+
+That mattered because Q11's note used to claim its answer was "absent from both the bundle and the
+corpus." The bundle half is true. The corpus half is not: the query scores **18.84** against a floor
+of 8, because the corpus genuinely discusses pricing — Anthropic's. Had the router ever classified
+it SEMANTIC, Q11 would have returned cited Anthropic pricing for a question about a different
+vendor's model. The case passed for a reason other than the one written beside it, which is the
+failure `findings.md` finding 2 is about.
+
+**Q19** is the floor working: routed SEMANTIC on exploratory phrasing, scored 2.05, refused.
+
+**Q20** is the floor failing, declared rather than hidden. It clears the floor at 16.11 because
+Elastic's `semantic_text` page teaches the feature with running and exercise sample documents, so
+the retrieval is correct and the passages are real — only the subject is a surprise. It is reported
+`KNOWN`, which keeps a documented limitation visible in the suite instead of only in prose. If a
+future change makes the floor catch it, the case turns green and the deviation is retired.

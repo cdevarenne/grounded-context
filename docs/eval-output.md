@@ -40,21 +40,33 @@ Q15  deterministic  deterministic  DETERMINISTIC 1      PASS
 Q16  deterministic  deterministic  DETERMINISTIC 1      PASS
 Q17  deterministic  deterministic  DETERMINISTIC 1      PASS
 Q18  refusal        refusal        BOTH          0      PASS
+Q19  refusal        refusal        SEMANTIC      0      PASS
+Q20  refusal        semantic       SEMANTIC      5      KNOWN
 
 Q3 KNOWN — eval.md expects a deterministic list. Lookup answers one entity at a time, so a cross-model rollup has no engine and falls through to semantic passages that do not really answer it. docs/compatibility-matrix.md is what answers this today.
 
-17 pass · 1 known deviation · 0 fail
+Q20 KNOWN — findings.md finding 3: this clears the floor at 16.11 because Elastic's semantic_text page teaches the feature with running and exercise sample documents. The retrieval is correct and the passages are real; only the subject is a surprise. The floor measures the corpus as text, not as subject matter.
+
+18 pass · 2 known deviation · 0 fail
 ```
 
-Q3 is a declared deviation, not a pass: a multi-entity rollup ("which models support vision?")
-has no engine on the deterministic path, which answers one entity at a time. The harness reports
-it as `KNOWN` rather than letting it read as green.
+Two cases are declared deviations rather than passes, and the harness reports both as `KNOWN`
+rather than letting them read as green. Q3 is a multi-entity rollup ("which models support
+vision?"), which has no engine on the deterministic path — that answers one entity at a time. Q20
+is the relevance floor's documented false positive: it clears the floor at 16.11 because Elastic's
+`semantic_text` page teaches the feature with running and exercise sample documents.
 
 Q13–Q18 are paraphrases: the same canonical facts, asked without using the bundle's vocabulary.
 They were added after a defect that broke every natural phrasing survived a green suite for six
 days — the model files carried no aliases, so `Opus 5` resolved to nothing and the query fell
 through to ranked passages. Q18 is the precision exception: a comparison the bundle cannot answer
 refuses rather than falling back.
+
+Q19 and Q20 are the relevance floor, end to end. Q11 and Q18 both refuse without the floor ever
+running — the router sends them to the deterministic path — and every case that does reach the
+semantic arm returns passages, so nothing in the set walked the path that ends in a floor refusal
+until Q19. Q19 is the floor working, at 2.05 against a floor of 8. Q20 is the floor failing, at
+16.11, declared rather than hidden.
 
 ## Neither arm wins both phrasings
 
