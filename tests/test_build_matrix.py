@@ -7,8 +7,9 @@ to a model file and silently missing from the table. Both are checked here.
 
 from __future__ import annotations
 
-from grounded_context.service import load_bundle
 from scripts.build_matrix import FIELDS, MISSING, OUTPUT, models, render
+
+from grounded_context.service import load_bundle
 
 
 def test_committed_matrix_is_up_to_date() -> None:

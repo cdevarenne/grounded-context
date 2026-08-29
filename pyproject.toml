@@ -14,6 +14,10 @@ dev = ["pytest>=7"]
 # A test report is a build artifact, so the tool that writes it is opt-in: `--extra dev` stays
 # a two-package install for a reviewer who only wants to run the suite.
 report = ["pytest-html>=4"]
+# Same reasoning as `report`: the linter is not needed to run the suite, so it stays out of
+# `dev`. The gate is `uv run --extra lint ruff check .` — additive, so it does not evict the
+# extras already synced. `uv sync --extra lint` would, which is why it is not the documented form.
+lint = ["ruff>=0.16.5"]
 mcp = [
     "mcp>=2.0.0",
 ]
@@ -30,6 +34,18 @@ gctx-mcp = "grounded_context.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+# No explicit `select`. Ruff's defaults are broad — 413 rules as of 0.16 — and what makes them
+# reproducible is pinning the tool, which `uv.lock` does. A hand-written list would freeze
+# today's opinion and silently skip whatever ruff learns next, which is the opposite of the
+# point. `E501` is deliberately not added: line length is a wrapping convention here, not a
+# defect class.
+line-length = 100
+# Without this, ruff sorts `measure_findings` — a sibling module in `scripts/` — into the
+# third-party block, next to `elasticsearch`. Naming the roots makes first-party detection
+# match how the code is actually laid out.
+src = ["src", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

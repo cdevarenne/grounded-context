@@ -9,9 +9,9 @@ against the live index.
 from __future__ import annotations
 
 import pytest
+from scripts import measure_findings
 
 from grounded_context.es_client import INDEX, is_configured
-from scripts import measure_findings
 
 
 def _index_ready() -> bool:

@@ -76,6 +76,13 @@ uv run pytest --junitxml=var/test-results.xml                  # machine-readabl
 uv run --extra report pytest --html=var/test-report.html --self-contained-html
 ```
 
+Linting is opt-in for the same reason, and runs ruff's default rules on the version `uv.lock`
+pins — the tool is what makes them reproducible, so there is no hand-written rule list to drift:
+
+```bash
+uv run --extra lint ruff check .
+```
+
 `var/` is gitignored: a test report describes one run on one machine, so it is a build artifact
 rather than a committed fact.
 

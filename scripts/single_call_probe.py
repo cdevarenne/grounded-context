@@ -17,6 +17,16 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from grounded_context.es_client import INDEX, client
+from grounded_context.semantic import (
+    RANK_CONSTANT,
+    RANK_WINDOW_SIZE,
+    RELEVANCE_FLOOR,
+    _lexical,
+    _sparse,
+    hybrid_retriever,
+    search_semantic_only,
+)
 from measure_findings import (
     IN_DOMAIN,
     IN_DOMAIN_HELDOUT,
@@ -27,17 +37,6 @@ from measure_findings import (
     confusion,
     margin,
     tuning_midpoint,
-)
-
-from grounded_context.es_client import INDEX, client
-from grounded_context.semantic import (
-    RANK_CONSTANT,
-    RANK_WINDOW_SIZE,
-    RELEVANCE_FLOOR,
-    _lexical,
-    _sparse,
-    hybrid_retriever,
-    search_semantic_only,
 )
 
 es = client()
