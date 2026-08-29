@@ -54,6 +54,10 @@ grounded answer with a citation block.
   without being checked. A decimal that is not a measurement is declared `<!--lit-->9.6.0<!--/-->`.
   After any reindex: `uv run --extra es python scripts/publish_figures.py`, then run the suite and
   fix whatever it reports. `--check` re-measures and tells you what moved without writing.
+- **Console output is captured, never pasted.** `scripts/capture.py` runs every command
+  `eval-output.md` shows, writes each block to `docs/captures/<name>.txt` and splices the same
+  text into the document; `tests/test_captures.py` asserts the two copies agree and that no
+  console block exists which the script does not own.
 - **The eval result is published the same way.** `scripts/publish_eval.py` writes
   `docs/data/eval.json`; the table in `eval-output.md` is asserted against it without credentials,
   and re-derived against the cluster separately. Each case declares `expected` **and**

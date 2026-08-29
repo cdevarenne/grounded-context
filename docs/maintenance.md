@@ -85,8 +85,12 @@ Regenerating is two commands, and the suite tells you if you forgot:
 ```bash
 uv run --extra es python scripts/publish_figures.py   # docs/data/measurements.json
 uv run --extra es python scripts/publish_eval.py      # docs/data/eval.json
-uv run --extra es gctx eval                           # recapture into eval-output.md by hand
+uv run --extra es python scripts/capture.py           # docs/captures/*.txt + eval-output.md
 ```
+
+`capture.py` re-runs every command `eval-output.md` publishes and splices the output back into
+the fence it belongs in, so no console block is ever pasted by hand. `--only NAME` regenerates one
+block; `--check` re-runs everything and reports what moved without writing.
 
 ## Rebuilding the index, rehearsed
 

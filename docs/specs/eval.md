@@ -108,8 +108,8 @@ Two tests read it, and the split is what makes the guarantee complete:
   being true.
 
 After a reindex or a bundle change: `uv run --extra es python scripts/publish_eval.py`, then
-recapture `gctx eval` into `eval-output.md`. `--check` re-runs and reports what moved without
-writing.
+`uv run --extra es python scripts/capture.py --only eval` to refresh the published table.
+Both take `--check`, which re-runs and reports what moved without writing.
 
 ## Q19–Q20: why the floor needs its own cases
 
