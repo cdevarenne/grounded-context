@@ -13,9 +13,9 @@ from typing import Any
 
 from mcp.server import MCPServer
 
-from .bundle import Bundle
 from .provenance import AnswerEnvelope, render
 from .service import as_of_date, ask, load_bundle, lookup_field
+from .store import KnowledgeStore
 
 INSTRUCTIONS = """Grounded context layer over a curated, provenance-carrying knowledge bundle.
 
@@ -30,7 +30,7 @@ server = MCPServer(name="grounded-context", instructions=INSTRUCTIONS)
 
 
 @lru_cache(maxsize=1)
-def _bundle() -> Bundle:
+def _bundle() -> KnowledgeStore:
     """Load the bundle once per process. Markdown on disk stays the source of truth."""
     return load_bundle()
 

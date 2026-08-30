@@ -17,7 +17,7 @@ from typing import Any
 
 from . import telemetry
 from .bundle import Bundle
-from .lookup import find_entity, find_field, resolve
+from .lookup import find_entity, find_field, is_rollup, query_entities, resolve
 from .provenance import (
     DETERMINISTIC,
     MIXED,
@@ -29,7 +29,8 @@ from .provenance import (
 )
 from .router import BOTH as ROUTE_BOTH
 from .router import SEMANTIC as ROUTE_SEMANTIC
-from .router import Route, route
+from .router import QueryRouter, Route, route
+from .store import KnowledgeStore
 
 SEMANTIC_RESULTS = 5
 
@@ -68,7 +69,7 @@ def _elapsed_ms(started: float) -> float:
 
 
 def _lookup_envelope(
-    bundle: Bundle,
+    bundle: KnowledgeStore,
     entity_id: str,
     field: str,
     as_of: date,
@@ -84,8 +85,27 @@ def _lookup_envelope(
     )
 
 
+def _rollup_envelope(
+    bundle: KnowledgeStore, field: str, as_of: date, decision: Route
+) -> AnswerEnvelope:
+    """Answer one field across every concept that holds it, with a citation for each.
+
+    The answer names each entity and its value. It is built from the results, not written, so it
+    cannot say something the citations below it do not support.
+    """
+    results = query_entities(bundle, field)
+    if not results:
+        return grounded_answer("", [], DETERMINISTIC, decision.as_dict())
+    answer = "; ".join(
+        f"{result.concept.title}: {format_value(result.value)}" for result in results
+    )
+    return grounded_answer(
+        answer, [citation(result, as_of) for result in results], DETERMINISTIC, decision.as_dict()
+    )
+
+
 def lookup_field(
-    bundle: Bundle,
+    bundle: KnowledgeStore,
     entity_id: str,
     field: str,
     as_of: date,
@@ -196,14 +216,24 @@ def _merge(exact: AnswerEnvelope, extra: list[Citation], decision: Route) -> Ans
     )
 
 
-def ask(bundle: Bundle, query: str, as_of: date) -> AnswerEnvelope:
+def ask(
+    bundle: KnowledgeStore,
+    query: str,
+    as_of: date,
+    router: QueryRouter = route,
+) -> AnswerEnvelope:
     """Route a natural-language question, then answer it on the path chosen.
 
-    Records one event per answered question, built from the finished envelope and emitted after
-    it — so the same query returns the same answer whether the sink works, fails, or is off.
+    Records one event per answered question. The event is built from the finished envelope and
+    emitted after it. The same query therefore returns the same answer whether the sink works,
+    fails or is off.
+
+    `router` names the classifier. The default is the heuristic in `router.py`. A caller that
+    supplies another one changes which engine runs and changes nothing else: the envelope, the
+    citations and the telemetry all read the decision, not the classifier that made it.
     """
     started = perf_counter()
-    decision = route(query)
+    decision = router(query)
 
     if decision.route == ROUTE_SEMANTIC:
         semantic_started = perf_counter()
@@ -224,11 +254,14 @@ def ask(bundle: Bundle, query: str, as_of: date) -> AnswerEnvelope:
     deterministic_started = perf_counter()
     entity = find_entity(bundle, query)
     field = find_field(bundle, query, entity)
-    exact = (
-        _lookup_envelope(bundle, entity, field, as_of, decision)
-        if entity and field
-        else grounded_answer("", [], DETERMINISTIC, decision.as_dict())
-    )
+    if entity and field:
+        exact = _lookup_envelope(bundle, entity, field, as_of, decision)
+    elif field and is_rollup(query):
+        # No single entity, a known field, and a phrasing that asks about a set. That is a
+        # rollup, and the canonical layer can answer it exactly for every entity at once.
+        exact = _rollup_envelope(bundle, field, as_of, decision)
+    else:
+        exact = grounded_answer("", [], DETERMINISTIC, decision.as_dict())
     deterministic_ms = _elapsed_ms(deterministic_started)
 
     if decision.route != ROUTE_BOTH:

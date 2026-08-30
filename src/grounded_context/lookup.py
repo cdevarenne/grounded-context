@@ -1,6 +1,10 @@
 """The deterministic path: exact lookup of canonical fields, plus link traversal.
 
 No embeddings, no ranking, no network. A field either exists or it does not.
+
+Every function here takes a `KnowledgeStore`. It does not take a `Bundle`. The engine reads four
+methods and does not know whether the concepts came from Markdown files, from a database or from
+a dict in a test. See `store.py`.
 """
 
 from __future__ import annotations
@@ -10,7 +14,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from .bundle import Bundle, Concept
+from .bundle import Concept
+from .store import KnowledgeStore
 
 
 @dataclass(frozen=True)
@@ -25,7 +30,7 @@ class LookupResult:
         return f"canonical.{self.field}"
 
 
-def lookup(bundle: Bundle, entity_id: str, field: str) -> LookupResult | None:
+def lookup(bundle: KnowledgeStore, entity_id: str, field: str) -> LookupResult | None:
     """Exact match on one canonical field of one concept."""
     concept = bundle.get(entity_id)
     if concept is None or field not in concept.canonical:
@@ -39,7 +44,7 @@ def lookup(bundle: Bundle, entity_id: str, field: str) -> LookupResult | None:
 
 
 def resolve(
-    bundle: Bundle, entity_id: str, field: str, max_hops: int = 1
+    bundle: KnowledgeStore, entity_id: str, field: str, max_hops: int = 1
 ) -> LookupResult | None:
     """Exact lookup, falling back to the concept's Markdown links.
 
@@ -90,7 +95,64 @@ def contains(text: str, needle: str) -> bool:
     return _whole(needle.lower()).search(text.lower()) is not None
 
 
-def find_entity(bundle: Bundle, text: str) -> str | None:
+def query_entities(bundle: KnowledgeStore, field: str) -> list[LookupResult]:
+    """Every concept that holds `field`, with the value each one holds.
+
+    `lookup` answers one entity at a time. A rollup question asks the same field of every entity:
+    "which of these models support vision?". The engine had no answer for that shape, so the
+    question fell through to ranked passages. Passages do not answer it. They discuss the topic.
+
+    This keeps the guarantee the single-entity path gives. Each result carries its own concept, so
+    each carries its own OKF provenance: source, trust tier, verification date and staleness. A
+    rollup is therefore a list of exact facts, not a summary of them.
+
+    Results come back in concept-id order. The order is stable, so a rendered list does not change
+    between runs for a reason the data did not cause.
+    """
+    return sorted(
+        (
+            LookupResult(
+                value=concept.canonical[field],
+                concept=concept,
+                field=field,
+                hops=(concept.id,),
+            )
+            for concept in bundle
+            if field in concept.canonical
+        ),
+        key=lambda result: result.concept.id,
+    )
+
+
+def is_rollup(text: str) -> bool:
+    """Does this question ask one field of several entities, rather than of one?
+
+    Two signals, and both must hold. The question names no single entity, and it uses a plural
+    or a set word. "Which of these models support vision?" qualifies. "Does Opus 5 support
+    vision?" does not, because it names an entity.
+
+    The check is deliberately narrow. A rollup that answers the wrong question is worse than a
+    rollup that does not fire, because the single-entity path and the refusal are both correct
+    fallbacks.
+    """
+    lowered = text.lower()
+    return any(signal in lowered for signal in ROLLUP_SIGNALS)
+
+
+#: Phrasings that ask about a set of entities. Matched as whole terms, like every other match
+#: in this module.
+ROLLUP_SIGNALS = (
+    "which of these",
+    "which models",
+    "which ones",
+    "list the models",
+    "all models",
+    "each model",
+    "every model",
+)
+
+
+def find_entity(bundle: KnowledgeStore, text: str) -> str | None:
     """Match a query against concept ids and their canonical id-ish strings.
 
     Longest match wins so that `claude-haiku-4-5-20251001` is not shadowed by
@@ -110,8 +172,22 @@ def find_entity(bundle: Bundle, text: str) -> str | None:
     return max(candidates)[1]
 
 
-def find_field(bundle: Bundle, text: str, entity_id: str | None = None) -> str | None:
-    """Match a query against canonical field names, directly or by synonym."""
+def find_field(
+    bundle: KnowledgeStore,
+    text: str,
+    entity_id: str | None = None,
+    synonyms: dict[str, str] | None = None,
+) -> str | None:
+    """Match a query against canonical field names, directly or by synonym.
+
+    `synonyms` maps a phrase to a canonical field name. It defaults to `SYNONYMS` below.
+
+    It is a parameter because it is matching vocabulary, not canonical truth. An adopter whose
+    users say "token limit" needs to add that phrase. They must not have to edit this package, and
+    they must not put it in the bundle: an OKF file is governed by verification dates and trust
+    tiers, and a query synonym has neither. The two belong to different lifecycles.
+    """
+    table = SYNONYMS if synonyms is None else synonyms
     scope = [bundle.get(entity_id)] if entity_id else list(bundle)
     fields = {f for c in scope if c for f in c.canonical}
     if entity_id:
@@ -126,9 +202,9 @@ def find_field(bundle: Bundle, text: str, entity_id: str | None = None) -> str |
     if best is not None:
         return best[1]
 
-    for phrase in sorted(SYNONYMS, key=len, reverse=True):
-        if contains(text, phrase) and SYNONYMS[phrase] in fields:
-            return SYNONYMS[phrase]
+    for phrase in sorted(table, key=len, reverse=True):
+        if contains(text, phrase) and table[phrase] in fields:
+            return table[phrase]
     return None
 
 

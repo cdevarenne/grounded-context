@@ -16,12 +16,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
-from .bundle import Bundle
 from .provenance import DETERMINISTIC, MIXED, NOT_FOUND, SEMANTIC
 from .router import BOTH as ROUTE_BOTH
 from .router import DETERMINISTIC as ROUTE_DETERMINISTIC
 from .router import SEMANTIC as ROUTE_SEMANTIC
 from .service import ask
+from .store import KnowledgeStore
 
 REFUSAL = "refusal"
 
@@ -84,12 +84,9 @@ CASES: tuple[EvalCase, ...] = (
              ROUTE_DETERMINISTIC, "canonical field lookup"),
     EvalCase("Q2", "What is the endpoint path for Anthropic's Messages API?", DETERMINISTIC,
              ROUTE_DETERMINISTIC, "resolves through an alias, not the literal id"),
-    EvalCase("Q3", "Which of these models support vision?", SEMANTIC,
-             ROUTE_BOTH, "multi-entity rollup",
-             known_deviation="eval.md expects a deterministic list. Lookup answers one "
-                             "entity at a time, so a cross-model rollup has no engine and "
-                             "falls through to semantic passages that do not really answer "
-                             "it. docs/compatibility-matrix.md is what answers this today."),
+    EvalCase("Q3", "Which of these models support vision?", MIXED,
+             ROUTE_BOTH, "multi-entity rollup: `query_entities` answers it exactly, with one "
+             "citation per model, and the router still queries both so passages follow"),
     EvalCase("Q4", "What is the max output tokens for claude-haiku-4-5?", DETERMINISTIC,
              ROUTE_DETERMINISTIC),
     EvalCase("Q5", "How do I stream responses from the API?", SEMANTIC, ROUTE_SEMANTIC),
@@ -146,7 +143,7 @@ CASES: tuple[EvalCase, ...] = (
 )
 
 
-def run_case(bundle: Bundle, case: EvalCase, as_of: date) -> EvalResult:
+def run_case(bundle: KnowledgeStore, case: EvalCase, as_of: date) -> EvalResult:
     """Ask one question and judge the outcome against the spec."""
     envelope = ask(bundle, case.question, as_of)
     router = envelope.get("router") or {"route": "-", "rationale": "-"}
@@ -169,7 +166,7 @@ def run_case(bundle: Bundle, case: EvalCase, as_of: date) -> EvalResult:
     return EvalResult(**{**result.__dict__, "verdict": verdict})
 
 
-def run_all(bundle: Bundle, as_of: date) -> list[EvalResult]:
+def run_all(bundle: KnowledgeStore, as_of: date) -> list[EvalResult]:
     """Run the whole set, in spec order."""
     return [run_case(bundle, case, as_of) for case in CASES]
 
