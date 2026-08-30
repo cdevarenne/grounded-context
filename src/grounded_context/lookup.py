@@ -5,7 +5,9 @@ No embeddings, no ranking, no network. A field either exists or it does not.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any
 
 from .bundle import Bundle, Concept
@@ -63,13 +65,37 @@ def resolve(
     return None
 
 
+@lru_cache(maxsize=512)
+def _whole(needle: str) -> re.Pattern[str]:
+    r"""`needle` as a whole term: no word character may touch either end of it.
+
+    Plain containment was the bug. `vision` sits inside `revision`, so "what is the exact
+    revision number for opus 5?" resolved to the `vision` field and answered `yes`, cited to
+    `canonical.vision = True` — a confident, wrong, fully sourced answer, which is the one
+    outcome the deterministic path exists to prevent.
+
+    Lookarounds rather than `\b`, because `\b` is defined against the character next to it: a
+    needle that begins or ends on punctuation would assert the opposite of what is meant here.
+    `(?<!\w)` and `(?!\w)` say the same thing whatever the needle's own edges look like.
+
+    Word characters, not whitespace, so identifiers keep matching inside longer ones the way
+    they always have: `claude-haiku-4-5` is still found in `claude-haiku-4-5-20251001`, because
+    a hyphen is not a word character — and longest-match-wins still prefers the longer id.
+    """
+    return re.compile(rf"(?<!\w){re.escape(needle)}(?!\w)")
+
+
+def contains(text: str, needle: str) -> bool:
+    """True when `needle` appears in `text` as a whole term. Both are compared lowercased."""
+    return _whole(needle.lower()).search(text.lower()) is not None
+
+
 def find_entity(bundle: Bundle, text: str) -> str | None:
     """Match a query against concept ids and their canonical id-ish strings.
 
     Longest match wins so that `claude-haiku-4-5-20251001` is not shadowed by
     `claude-haiku-4-5`.
     """
-    lowered = text.lower()
     candidates: list[tuple[int, str]] = []
     for concept in bundle:
         needles = {concept.id, *concept.aliases}
@@ -77,7 +103,7 @@ def find_entity(bundle: Bundle, text: str) -> str | None:
             if key in concept.canonical:
                 needles.add(str(concept.canonical[key]))
         for needle in needles:
-            if needle.lower() in lowered:
+            if contains(text, needle):
                 candidates.append((len(needle), concept.id))
     if not candidates:
         return None
@@ -86,7 +112,6 @@ def find_entity(bundle: Bundle, text: str) -> str | None:
 
 def find_field(bundle: Bundle, text: str, entity_id: str | None = None) -> str | None:
     """Match a query against canonical field names, directly or by synonym."""
-    lowered = text.lower()
     scope = [bundle.get(entity_id)] if entity_id else list(bundle)
     fields = {f for c in scope if c for f in c.canonical}
     if entity_id:
@@ -96,13 +121,13 @@ def find_field(bundle: Bundle, text: str, entity_id: str | None = None) -> str |
     best: tuple[int, str] | None = None
     for name in fields:
         for phrase in (name, name.replace("_", " ")):
-            if phrase.lower() in lowered and (best is None or len(phrase) > best[0]):
+            if contains(text, phrase) and (best is None or len(phrase) > best[0]):
                 best = (len(phrase), name)
     if best is not None:
         return best[1]
 
     for phrase in sorted(SYNONYMS, key=len, reverse=True):
-        if phrase in lowered and SYNONYMS[phrase] in fields:
+        if contains(text, phrase) and SYNONYMS[phrase] in fields:
             return SYNONYMS[phrase]
     return None
 

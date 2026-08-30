@@ -119,3 +119,52 @@ def test_an_abbreviated_field_still_resolves(bundle):
     """`ctx window` is what people type; `context_window_tokens` is what the bundle calls it."""
     assert find_field(bundle, "whats the ctx window for opus") == "context_window_tokens"
     assert find_field(bundle, "context length of sonnet 5") == "context_window_tokens"
+
+
+# --- whole-term matching (ELX-44) ---------------------------------------------------------
+#
+# Plain substring containment answered questions it had no business answering. These are the
+# cases that were wrong, and the ones that must keep working after the fix.
+
+
+def test_a_field_name_buried_inside_another_word_is_not_a_match(bundle):
+    """The defect: `vision` sits inside `revision`, and the answer looked authoritative.
+
+    "What is the exact revision number for opus 5?" resolved to `canonical.vision`, answered
+    `yes`, and cited it. Not the refusal — a wrong fact with provenance attached, which is the
+    one outcome the deterministic path exists to rule out. A miss here has to reach the refusal.
+    """
+    query = "What is the exact revision number for opus 5?"
+    assert find_entity(bundle, query) == "anthropic.claude-opus-5"
+    assert find_field(bundle, query, "anthropic.claude-opus-5") is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What revision of claude-opus-5 is current?",
+        "Does the provisioning API need claude-opus-5?",
+        "list the aliases for claude-opus-5",
+    ],
+)
+def test_no_field_is_matched_from_inside_a_longer_word(bundle, query):
+    assert find_field(bundle, query, "anthropic.claude-opus-5") is None
+
+
+def test_an_identifier_still_matches_inside_a_longer_identifier(bundle):
+    """Hyphens are not word characters, so pinned ids keep resolving — and longest still wins.
+
+    This is why the rule is "no *word* character either side" rather than "surrounded by
+    whitespace": the latter would break every hyphenated model id the bundle is addressed by.
+    """
+    assert find_entity(bundle, "claude-haiku-4-5-20251001") == "anthropic.claude-haiku-4-5"
+
+
+def test_contains_matches_a_whole_term_only():
+    from grounded_context.lookup import contains
+
+    assert contains("does it do vision", "vision")
+    assert contains("VISION?", "vision"), "comparison is case-insensitive"
+    assert not contains("a revision number", "vision")
+    assert not contains("provisioning", "vision")
+    assert contains("claude-haiku-4-5-20251001", "claude-haiku-4-5"), "hyphen is not a word char"
