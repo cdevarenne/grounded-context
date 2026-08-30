@@ -235,7 +235,7 @@ lexical-arm argument is built on — would.
 | ~~**1. Re-derive the control**~~ | **Done 2026-08-28** — see below | — |
 | ~~**2. Held-out validation**~~ | **Done 2026-08-28 — NO-GO.** See below | — |
 | **3. Implementation** | `linear_retriever()` in `semantic.py`; collapse the two calls in `semantic_citations()`; new floor constant; update `test_semantic.py` (16 tests) and `test_service.py` mocks, which assume two calls | 2–3 h |
-| **4. Re-measure** | New arms in `measure_findings.py`; regenerate `eval-output.md` | 2 h |
+| **4. Re-measure** | New arms in `measure_findings.py`; regenerate the records under `docs/data/` | 2 h |
 | **5. Write-up** | `findings.md` §4; amend §3's closing cost paragraph | 2–3 h |
 
 **10–13 hours, ~2 focused days.** Phases 1 and 2 are ~5 h of that and are worth doing even if the

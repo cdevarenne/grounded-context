@@ -23,7 +23,7 @@ payloads and the "no tool ran" claims come from Codex's own session logs under
 > blocks below say `indexed 2026-08-13` because that is the index this session ran against. What
 > the transcript is evidence *for* — that a third runtime drives the same MCP server, and how it
 > behaves when asked cold — does not depend on the scores. For current figures see
-> [`eval-output.md`](eval-output.md).
+> [`eval-how-to.md`](eval-how-to.md).
 
 ---
 

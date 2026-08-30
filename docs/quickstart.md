@@ -13,7 +13,7 @@ shortened.
 > and fused figure. The citation blocks below say `indexed 2026-08-13` for that reason: they are a
 > faithful record of that run, not of the current index. The walkthrough itself is unchanged —
 > same commands, same shapes, same provenance — and the deterministic outputs are unaffected. For
-> figures that describe the index as it stands, see [`eval-output.md`](eval-output.md).
+> figures that describe the index as it stands, see [`findings.md`](findings.md).
 
 The JVM port has its own quickstart with the same shape:
 [grounded-context-jvm/docs/quickstart.md](https://github.com/cdevarenne/grounded-context-jvm/blob/main/docs/quickstart.md).
@@ -325,7 +325,7 @@ uv run --extra es gctx eval --compare rank_constant   # ELSER vs BM25 vs hybrid
 ```
 
 What those comparisons showed — including a hypothesis the cluster contradicted — is
-[`docs/findings.md`](findings.md), with the raw runs in [`docs/eval-output.md`](eval-output.md).
+[`docs/findings.md`](findings.md), and how to re-run them in [`docs/eval-how-to.md`](eval-how-to.md).
 
 ### Project the telemetry log into Elasticsearch
 

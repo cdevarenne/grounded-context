@@ -1,0 +1,91 @@
+{
+  "run": {
+    "measured_at": "2026-08-30",
+    "index": "grounded-context-corpus",
+    "chunks": 320,
+    "es_version": "9.6.0",
+    "git_sha": "51323b4",
+    "rank_constant": 20,
+    "rank_window_size": 50
+  },
+  "queries": [
+    {
+      "query": "What is reciprocal rank fusion?",
+      "documents": [
+        {
+          "doc": "elastic-rrf:0",
+          "bm25": 2,
+          "elser": 1,
+          "predicted": 0.09307359307359307,
+          "observed": 0.09307359
+        },
+        {
+          "doc": "elastic-rrf:4",
+          "bm25": 1,
+          "elser": 3,
+          "predicted": 0.09109730848861283,
+          "observed": 0.09109731
+        },
+        {
+          "doc": "elastic-rrf:3",
+          "bm25": 3,
+          "elser": 2,
+          "predicted": 0.08893280632411067,
+          "observed": 0.08893281
+        }
+      ]
+    },
+    {
+      "query": "rank_constant",
+      "documents": [
+        {
+          "doc": "elastic-rrf:1",
+          "bm25": 1,
+          "elser": 5,
+          "predicted": 0.08761904761904762,
+          "observed": 0.08761905
+        },
+        {
+          "doc": "elastic-rrf:10",
+          "bm25": 2,
+          "elser": 6,
+          "predicted": 0.08391608391608392,
+          "observed": 0.08391608
+        },
+        {
+          "doc": "elastic-rrf:12",
+          "bm25": 6,
+          "elser": 2,
+          "predicted": 0.08391608391608392,
+          "observed": 0.08391608
+        }
+      ]
+    },
+    {
+      "query": "How do I bake sourdough bread?",
+      "documents": [
+        {
+          "doc": "anthropic-batch-processing:19",
+          "bm25": 3,
+          "elser": 30,
+          "predicted": 0.06347826086956522,
+          "observed": 0.06347826
+        },
+        {
+          "doc": "anthropic-batch-processing:11",
+          "bm25": 9,
+          "elser": 16,
+          "predicted": 0.06226053639846743,
+          "observed": 0.06226054
+        },
+        {
+          "doc": "anthropic-batch-processing:2",
+          "bm25": 13,
+          "elser": 31,
+          "predicted": 0.049910873440285206,
+          "observed": 0.049910873
+        }
+      ]
+    }
+  ]
+}

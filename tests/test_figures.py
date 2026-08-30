@@ -1,9 +1,9 @@
 """Every figure quoted in prose must resolve to `docs/data/measurements.json`.
 
-`test_published_figures.py` compares findings.md's **tables** against the console captures in
-eval-output.md. That leaves the prose, which is where every drift defect in this repo has
-actually happened: a regen script that asked "parameter" where the doc asked "header", and seven
-pre-reindex numbers sitting in paragraphs directly beneath the capture that refuted them.
+`test_published_figures.py` compares findings.md's **range tables** against the same records.
+That leaves the prose, which is where every drift defect in this repo has actually happened: a
+regen script that asked "parameter" where the doc asked "header", and seven pre-reindex numbers
+sitting in paragraphs directly beneath the run that refuted them.
 
 So prose figures are marked, and the markup is what makes coverage total:
 
@@ -31,12 +31,36 @@ from typing import Any
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_FILE = ROOT / "docs" / "data" / "measurements.json"
-GUARDED_DOCS = ("docs/findings.md", "docs/eval-output.md", "docs/specs/single-call-retrieval.md")
+DATA_DIR = ROOT / "docs" / "data"
+DATA_FILE = DATA_DIR / "measurements.json"
+GUARDED_DOCS = ("docs/findings.md", "docs/specs/single-call-retrieval.md")
 
-MEASUREMENTS: dict[str, Any] = json.loads(DATA_FILE.read_text(encoding="utf-8"))
 
-MARKER = re.compile(r"<!--fig:([a-z0-9_.]+)-->(.*?)<!--/-->", re.DOTALL)
+def _load() -> dict[str, Any]:
+    """Every measurement record, in one namespace a marker can address.
+
+    `measurements.json` sits at the root because its keys are already what 138 committed markers
+    say. The records added later — one per producing script, so a reindex of one does not
+    invalidate the others — hang under their own file name: `arms.rank_constant.token.hybrid`.
+    Neither name collides with a key `measurements.json` already holds, and each record keeps its
+    own `run` block, which is why they are namespaced rather than merged.
+    """
+    figures: dict[str, Any] = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    for path in sorted(DATA_DIR.glob("*.json")):
+        if path == DATA_FILE:
+            continue
+        assert path.stem not in figures, (
+            f"{path.name} would shadow a key measurements.json already publishes"
+        )
+        figures[path.stem] = json.loads(path.read_text(encoding="utf-8"))
+    return figures
+
+
+MEASUREMENTS: dict[str, Any] = _load()
+
+#: Hyphens are admitted because an identifier is part of the address: a marker addressing the
+#: `anthropic-ratelimit-tokens-reset` row names it.
+MARKER = re.compile(r"<!--fig:([a-z0-9_.-]+)-->(.*?)<!--/-->", re.DOTALL)
 LITERAL = re.compile(r"<!--lit-->.*?<!--/-->", re.DOTALL)
 REGION = re.compile(r"<!--figures:on-->(.*?)<!--figures:off-->", re.DOTALL)
 #: A decimal, or an integer percentage. Bare integers are not guarded: they are overwhelmingly

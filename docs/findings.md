@@ -7,7 +7,7 @@ the optimization the third one invites.
 Every number below was measured against the live index described in the README — 320 chunks of
 curated Elastic and Anthropic documentation — and every one is regenerable. Per-query ranks come
 from `gctx eval --compare`; the corpus-wide figures come from
-`scripts/measure_findings.py`. Both are captured verbatim in [`eval-output.md`](eval-output.md),
+`scripts/measure_findings.py`. Both are recorded in [`data/measurements.json`](data/measurements.json),
 so none of this has to be taken on trust.
 
 No figure below was typed. Each one is read from
@@ -28,16 +28,18 @@ The test case is an identifier and the one chunk that defines it. Ask for it two
 bare token and as a sentence — and rank that chunk under each arm. Four identifiers, across
 three different source documents and two vendors:
 
+<!--figures:on-->
 | Identifier | Phrasing | ELSER only | BM25 only | Hybrid (RRF) |
 |---|---|---|---|---|
-| `rank_constant` | token | 5 | 1 | **1** |
-| `rank_constant` | sentence | 2 | 3 | **1** |
-| `num_candidates` | token | 1 | 1 | **1** |
-| `num_candidates` | sentence | 1 | 5 | **1** |
-| `anthropic-ratelimit-tokens-reset` | token | 2 | 1 | **1** |
-| `anthropic-ratelimit-tokens-reset` | sentence | 1 | 1 | **1** |
-| `rank_window_size` | token | 6 | 2 | 5 |
-| `rank_window_size` | sentence | 7 | 2 | 3 |
+| `rank_constant` | token | <!--fig:arms.rows.rank_constant.token.elser-->5<!--/--> | <!--fig:arms.rows.rank_constant.token.bm25-->1<!--/--> | **<!--fig:arms.rows.rank_constant.token.hybrid-->1<!--/-->** |
+| `rank_constant` | sentence | <!--fig:arms.rows.rank_constant.sentence.elser-->2<!--/--> | <!--fig:arms.rows.rank_constant.sentence.bm25-->3<!--/--> | **<!--fig:arms.rows.rank_constant.sentence.hybrid-->1<!--/-->** |
+| `num_candidates` | token | <!--fig:arms.rows.num_candidates.token.elser-->1<!--/--> | <!--fig:arms.rows.num_candidates.token.bm25-->1<!--/--> | **<!--fig:arms.rows.num_candidates.token.hybrid-->1<!--/-->** |
+| `num_candidates` | sentence | <!--fig:arms.rows.num_candidates.sentence.elser-->1<!--/--> | <!--fig:arms.rows.num_candidates.sentence.bm25-->5<!--/--> | **<!--fig:arms.rows.num_candidates.sentence.hybrid-->1<!--/-->** |
+| `anthropic-ratelimit-tokens-reset` | token | <!--fig:arms.rows.anthropic-ratelimit-tokens-reset.token.elser-->2<!--/--> | <!--fig:arms.rows.anthropic-ratelimit-tokens-reset.token.bm25-->1<!--/--> | **<!--fig:arms.rows.anthropic-ratelimit-tokens-reset.token.hybrid-->1<!--/-->** |
+| `anthropic-ratelimit-tokens-reset` | sentence | <!--fig:arms.rows.anthropic-ratelimit-tokens-reset.sentence.elser-->1<!--/--> | <!--fig:arms.rows.anthropic-ratelimit-tokens-reset.sentence.bm25-->1<!--/--> | **<!--fig:arms.rows.anthropic-ratelimit-tokens-reset.sentence.hybrid-->1<!--/-->** |
+| `rank_window_size` | token | <!--fig:arms.rows.rank_window_size.token.elser-->6<!--/--> | <!--fig:arms.rows.rank_window_size.token.bm25-->2<!--/--> | <!--fig:arms.rows.rank_window_size.token.hybrid-->5<!--/--> |
+| `rank_window_size` | sentence | <!--fig:arms.rows.rank_window_size.sentence.elser-->7<!--/--> | <!--fig:arms.rows.rank_window_size.sentence.bm25-->2<!--/--> | <!--fig:arms.rows.rank_window_size.sentence.hybrid-->3<!--/--> |
+<!--figures:off-->
 
 The headline is not that fusion wins. It is *which arm loses, and when.* ELSER degrades on the
 bare identifier — it has no notion of a literal string, so it returns the semantic neighborhood
@@ -145,7 +147,7 @@ means the fused score is unusable as a confidence signal.
 That is an argument from the definition, so it is checked against the definition rather than
 inferred from output. Taking each returned document's rank in the two arms separately and
 computing the sum reproduces the score Elasticsearch reported to about 1e-9, every time —
-`scripts/rrf_audit.py`, captured in [`eval-output.md`](eval-output.md).
+`scripts/rrf_audit.py`, recorded in [`data/rrf_audit.json`](data/rrf_audit.json).
 
 The audit also corrected a claim. On the first index, sixteen probes topped out at 0.0931, which
 suggested the ceiling `2/(k+1)` = 0.0952 is unreachable because the arms rarely agree on first
@@ -284,8 +286,8 @@ the other way: at w=1.0 and w=0.5 the candidate reproduces RRF's rank for the de
 all eight identifier lookups from finding 1; at w=0.25 it loses two, at w=0.1 it loses four. Every
 unit of BM25 that helps the ranking degrades the answerability signal.
 
-Both tables are regenerable: `uv run --extra es python scripts/single_call_probe.py`, captured in
-[`eval-output.md`](eval-output.md). The held-out probes live in `scripts/measure_findings.py`, and
+Both tables are regenerable: `uv run --extra es python scripts/single_call_probe.py`, recorded in
+[`data/measurements.json`](data/measurements.json). The held-out probes live in `scripts/measure_findings.py`, and
 a test asserts they stay disjoint from the sixteen the floor was derived from — a held-out set
 that quietly acquires a tuning query stops being evidence and nothing else would catch it.
 

@@ -100,7 +100,7 @@ reachable cluster, because every semantic case would record a false refusal.
 Two tests read it, and the split is what makes the guarantee complete:
 
 - **Without credentials** — the verdict table published in
-  [`eval-output.md`](../eval-output.md) is compared row by row to `eval.json`: expected, actual,
+  `eval.json` is the published result and is not restated as prose: expected, actual,
   route, citation count and verdict, plus the totals line. A bare clone catches a document that
   drifted from the run it claims to show.
 - **Against the cluster** — the eval is re-run and asserted to still reproduce `eval.json`. This
@@ -108,7 +108,7 @@ Two tests read it, and the split is what makes the guarantee complete:
   being true.
 
 After a reindex or a bundle change: `uv run --extra es python scripts/publish_eval.py`, then
-`uv run --extra es python scripts/capture.py --only eval` to refresh the published table.
+`uv run --extra es python scripts/publish_eval.py` to refresh the record.
 Both take `--check`, which re-runs and reports what moved without writing.
 
 ## Q19–Q20: why the floor needs its own cases

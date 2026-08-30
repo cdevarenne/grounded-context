@@ -46,26 +46,39 @@ grounded answer with a citation block.
 - **Canonical data is governed:** the compatibility matrix is date-stamped and sourced from
   live docs; treat it as versioned truth. A stale "authoritative" layer undercuts the thesis.
 - **Small + composable:** small scripts, clear interfaces, always demoable.
-- **Published numbers are generated, never typed.** Every figure quoted in `findings.md`,
-  `eval-output.md` and `docs/specs/single-call-retrieval.md` lives in `docs/data/measurements.json`,
-  written by `scripts/publish_figures.py`, and is referenced inline:
-  `<!--fig:probes.heldout.auc-->1.000<!--/-->`. Inside a `<!--figures:on-->` region **no unmarked
-  decimal is allowed** — `tests/test_figures.py` fails on one — so a new number cannot be added
-  without being checked. A decimal that is not a measurement is declared `<!--lit-->9.6.0<!--/-->`.
-  After any reindex: `uv run --extra es python scripts/publish_figures.py`, then run the suite and
-  fix whatever it reports. `--check` re-measures and tells you what moved without writing.
+- **Reproduction and results are different documents.** A page that teaches someone to re-run a
+  measurement wants example output; a published figure wants a machine-readable record. One file
+  being both is what made a documented rank recoverable only by regular expression from console
+  text. `docs/eval-how-to.md` is the instructions, with illustrative output nothing asserts.
+  `docs/data/*.json` is the result. No script writes a `.txt` artifact, and no test parses a
+  console line.
+- **Published numbers are generated, never typed.** Every figure quoted in `findings.md` and
+  `docs/specs/single-call-retrieval.md` lives in a record under `docs/data/`, and is referenced
+  inline: `<!--fig:probes.heldout.auc-->1.000<!--/-->`. `measurements.json` resolves at the root
+  because that is what the committed markers say; every other record hangs under its file name —
+  `<!--fig:arms.rows.rank_constant.token.hybrid-->`. Inside a `<!--figures:on-->` region **no
+  unmarked decimal is allowed** — `tests/test_figures.py` fails on one — so a new number cannot be
+  added without being checked. A decimal that is not a measurement is declared
+  `<!--lit-->9.6.0<!--/-->`.
+- **One record per producing script.** `measurements.json`, `eval.json`, `arms.json`,
+  `rrf_audit.json`. Split so a change invalidates only what it actually touches: the eval depends
+  on the bundle as well as the cluster, so a bundle edit must not appear to move a corpus figure.
+  Each carries its own `run` block — index, chunk count, ES version, commit — because a figure
+  that does not say which index produced it is not citable.
+- **A claim counted by hand is a claim nobody checks.** `findings.md` §1 argued from *never worse
+  than the weaker arm* and *six of eight*; both were true, and both were arithmetic a person did
+  once. Derive a claim like that from the record — `ArmReport.matches_or_beats_the_stronger_arm` —
+  and assert the sentence against it, so a reindex that moves a rank moves the prose too.
 - **One command verifies all of it:** `uv run --extra es --extra mcp python scripts/verify.py`
-  — matrix, suite, figures, eval and captures, read-only, ~7 min. `--update` regenerates instead.
-  Run it before publishing anything and after any reindex. See `docs/maintenance.md`.
-- **Console output is captured, never pasted.** `scripts/capture.py` runs every command
-  `eval-output.md` shows, writes each block to `docs/captures/<name>.txt` and splices the same
-  text into the document; `tests/test_captures.py` asserts the two copies agree and that no
-  console block exists which the script does not own.
-- **The eval result is published the same way.** `scripts/publish_eval.py` writes
-  `docs/data/eval.json`; the table in `eval-output.md` is asserted against it without credentials,
-  and re-derived against the cluster separately. Each case declares `expected` **and**
-  `expected_route` — both are asserted, because a question can reach the right answer by the wrong
-  path. See `docs/specs/eval.md` for the criteria and the cap on declared deviations.
+  — matrix, suite, and one stage per record, read-only, ~7 min. `--update` regenerates instead.
+  Run it before publishing anything and after any reindex. `tests/test_verify.py` derives the
+  stage list from every script declaring `--check`, so a new publisher that is not wired in fails.
+  See `docs/maintenance.md`.
+- **The eval result is a record, not a table.** `scripts/publish_eval.py` writes
+  `docs/data/eval.json`. The verdicts are not restated as prose anywhere — the same rule the
+  README follows for the test count. Each case declares `expected` **and** `expected_route` —
+  both are asserted, because a question can reach the right answer by the wrong path. See
+  `docs/specs/eval.md` for the criteria and the cap on declared deviations.
 
 ## Toolchain
 Python **3.14**, pinned in `.python-version`; managed with **uv**. `uv sync --extra dev`,

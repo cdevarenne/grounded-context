@@ -1,6 +1,6 @@
 """One command that answers: is everything this repo publishes true, against the index, today?
 
-The pieces already exist — each publisher and the capture script has a `--check` mode, and the
+The pieces already exist — every publisher has a `--check` mode, and the
 suite guards the documents against the data. What was missing is a single thing to run, so that
 knowing the repo is honest does not depend on remembering five commands and what each covers.
 
@@ -10,9 +10,9 @@ before a demo the last thing wanted is a command that quietly edits published do
 
     uv run --extra es --extra mcp python scripts/verify.py [--update]
 
-Expect roughly ten minutes. Most of it is Elasticsearch: the figures and the captures re-run the
-same measurement scripts, because one checks the recorded numbers and the other checks the
-published console text, and they can disagree.
+Expect roughly ten minutes, nearly all of it Elasticsearch. Each stage re-runs the measurement
+behind one record and reports whether the committed copy still reproduces, so a stage that passes
+means the documents quoting that record are true of the index as it stands today.
 """
 from __future__ import annotations
 
@@ -50,9 +50,12 @@ STAGES: tuple[Stage, ...] = (
     Stage("eval result",
           "uv run --extra es python scripts/publish_eval.py --check",
           "uv run --extra es python scripts/publish_eval.py"),
-    Stage("console captures",
-          "uv run --extra es python scripts/capture.py --check",
-          "uv run --extra es python scripts/capture.py"),
+    Stage("retrieval arms",
+          "uv run --extra es python scripts/publish_arms.py --check",
+          "uv run --extra es python scripts/publish_arms.py"),
+    Stage("fusion audit",
+          "uv run --extra es python scripts/rrf_audit.py --check",
+          "uv run --extra es python scripts/rrf_audit.py"),
 )
 
 

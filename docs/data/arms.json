@@ -1,0 +1,101 @@
+{
+  "run": {
+    "measured_at": "2026-08-30",
+    "index": "grounded-context-corpus",
+    "chunks": 320,
+    "es_version": "9.6.0",
+    "git_sha": "51323b4",
+    "rank_constant": 20,
+    "rank_window_size": 50
+  },
+  "rows": {
+    "rank_constant": {
+      "token": {
+        "identifier": "rank_constant",
+        "phrasing": "token",
+        "query": "rank_constant",
+        "target_source": "elastic-rrf",
+        "target_chunk": 1,
+        "elser": 5,
+        "bm25": 1,
+        "hybrid": 1
+      },
+      "sentence": {
+        "identifier": "rank_constant",
+        "phrasing": "sentence",
+        "query": "What does the rank_constant parameter do?",
+        "target_source": "elastic-rrf",
+        "target_chunk": 1,
+        "elser": 2,
+        "bm25": 3,
+        "hybrid": 1
+      }
+    },
+    "num_candidates": {
+      "token": {
+        "identifier": "num_candidates",
+        "phrasing": "token",
+        "query": "num_candidates",
+        "target_source": "elastic-knn",
+        "target_chunk": 7,
+        "elser": 1,
+        "bm25": 1,
+        "hybrid": 1
+      },
+      "sentence": {
+        "identifier": "num_candidates",
+        "phrasing": "sentence",
+        "query": "What does the num_candidates parameter do?",
+        "target_source": "elastic-knn",
+        "target_chunk": 7,
+        "elser": 1,
+        "bm25": 5,
+        "hybrid": 1
+      }
+    },
+    "anthropic-ratelimit-tokens-reset": {
+      "token": {
+        "identifier": "anthropic-ratelimit-tokens-reset",
+        "phrasing": "token",
+        "query": "anthropic-ratelimit-tokens-reset",
+        "target_source": "anthropic-rate-limits",
+        "target_chunk": 12,
+        "elser": 2,
+        "bm25": 1,
+        "hybrid": 1
+      },
+      "sentence": {
+        "identifier": "anthropic-ratelimit-tokens-reset",
+        "phrasing": "sentence",
+        "query": "What does the anthropic-ratelimit-tokens-reset header do?",
+        "target_source": "anthropic-rate-limits",
+        "target_chunk": 12,
+        "elser": 1,
+        "bm25": 1,
+        "hybrid": 1
+      }
+    },
+    "rank_window_size": {
+      "token": {
+        "identifier": "rank_window_size",
+        "phrasing": "token",
+        "query": "rank_window_size",
+        "target_source": "elastic-rrf",
+        "target_chunk": 1,
+        "elser": 6,
+        "bm25": 2,
+        "hybrid": 5
+      },
+      "sentence": {
+        "identifier": "rank_window_size",
+        "phrasing": "sentence",
+        "query": "What does the rank_window_size parameter do?",
+        "target_source": "elastic-rrf",
+        "target_chunk": 1,
+        "elser": 7,
+        "bm25": 2,
+        "hybrid": 3
+      }
+    }
+  }
+}

@@ -44,7 +44,7 @@ MECHANISM_TARGET = ("elastic-rrf", 1)
 DOCUMENTED_EXAMPLES = ("batch_id", "claude-sonnet-4-6")
 
 # Printed wherever a separability figure is, so no percentage in the docs is unfalsifiable.
-# Both scripts import this: one definition, quoted identically in every capture.
+# Both scripts import this: one definition, quoted identically wherever the metrics are printed.
 METRIC_LEGEND = (
     "  AUC     P(a genuine probe outscores an off-topic one), ties counting half. 1.000 is full\n"
     "          separation, 0.500 no signal. Every pair counts, so one outlier moves it by at\n"

@@ -1,20 +1,25 @@
-# Captured output
+# Reproducing the measurements
 
-The numbers in [`findings.md`](findings.md) come from a live index, which a reader cannot
-reach: the corpus is fetched rather than committed, and the cluster is mine. This file is the
-run, captured verbatim, so the claims are checkable without either.
+Everything this repo publishes comes from a live index. This page is how you get one and run the
+commands that produce the numbers; it is **not** where the numbers live. Those are in
+[`docs/data/`](data/), written by the publishing scripts, and every figure quoted in
+[`findings.md`](findings.md) resolves to a record there and is asserted against it by the suite.
 
-Captured against Elastic Cloud Serverless 9.6.0, index `grounded-context-corpus`, 320 chunks,
-ELSER via the preconfigured `.elser-2-elasticsearch` endpoint. The eval and comparison runs are
-from 2026-08-28, when the corpus was reindexed onto a new deployment; the corpus-wide and
-single-call captures were re-run on 2026-08-29 to add the separability metrics. These supersede
-an earlier capture: the ELSER figures moved slightly, the BM25 and analyzer ones did not.
+The split matters. A page that teaches reproduction wants example output — it is most of what
+makes the instructions legible. A published figure wants a machine-readable record. Keeping both
+in one file meant a documented number was recovered from console text with a regular expression,
+so the figure depended on a terminal's column widths.
 
-Every percentage below is defined in the capture that prints it — the `AUC` and `margin` legend
-appears in the run itself, not only in the prose, so no figure quoted anywhere in this repo is
-unfalsifiable against this file.
+**The output below is illustrative.** It is real, and it was produced by the commands shown, on
+the date given — but nothing asserts it, and it will age. Quote a figure from
+[`findings.md`](findings.md), never from this page.
 
-To reproduce, with `ES_URL` and `ES_API_KEY` in `.env`:
+Captured 29 August 2026 against Elastic Cloud Serverless 9.6.0, index `grounded-context-corpus`,
+320 chunks, ELSER via the preconfigured `.elser-2-elasticsearch` endpoint.
+
+## 1. Build the index
+
+With `ES_URL` and `ES_API_KEY` in a gitignored `.env`:
 
 ```bash
 uv sync --extra dev --extra es
@@ -22,7 +27,13 @@ uv run python scripts/fetch_corpus.py
 uv run --extra es python scripts/index_corpus.py --recreate
 ```
 
-## The eval set
+`index_corpus.py` re-derives the relevance floor after indexing and exits non-zero if it stops
+separating the probes, so a rebuild that broke the floor cannot pass quietly.
+
+## 2. Run the eval set
+
+The twenty questions from [`specs/eval.md`](specs/eval.md), each with the engine that should
+answer it and the route that should get there.
 
 ```console
 $ uv run --extra es gctx eval
@@ -55,29 +66,12 @@ Q20 KNOWN — findings.md finding 3: this clears the floor at 16.11 because Elas
 18 pass · 2 known deviation · 0 fail
 ```
 
-Two cases are declared deviations rather than passes, and the harness reports both as `KNOWN`
-rather than letting them read as green. Q3 is a multi-entity rollup ("which models support
-vision?"), which has no engine on the deterministic path — that answers one entity at a time. Q20
-is the relevance floor's documented false positive: it clears the floor at 16.11 because Elastic's
-`semantic_text` page teaches the feature with running and exercise sample documents.
+The verdicts are recorded in [`data/eval.json`](data/eval.json) by `scripts/publish_eval.py`.
 
-Q13–Q18 are paraphrases: the same canonical facts, asked without using the bundle's vocabulary.
-They were added after a defect that broke every natural phrasing survived a green suite for six
-days — the model files carried no aliases, so `Opus 5` resolved to nothing and the query fell
-through to ranked passages. Q18 is the precision exception: a comparison the bundle cannot answer
-refuses rather than falling back.
+## 3. Compare the retrieval arms
 
-Q19 and Q20 are the relevance floor, end to end. Q11 and Q18 both refuse without the floor ever
-running — the router sends them to the deterministic path — and every case that does reach the
-semantic arm returns passages, so nothing in the set walked the path that ends in a floor refusal
-until Q19. Q19 is the floor working, at 2.05 against a floor of 8. Q20 is the floor failing, at
-16.11, declared rather than hidden.
-
-## Neither arm wins both phrasings
-
-Finding 1 in [`findings.md`](findings.md). Each run ranks the chunk that *defines* the queried
-identifier — chosen by reading the passage, not by trusting the top hit — under each arm.
-`gctx eval --compare` prints the target it is ranking so the claim is checkable.
+The same identifier asked two ways, ranked under each arm. This is the evidence behind
+[`findings.md`](findings.md) §1.
 
 ```console
 $ uv run --extra es gctx eval --compare "rank_constant"
@@ -97,8 +91,6 @@ target: elastic-rrf chunk:1 — the chunk that defines the term
   hybrid   rank 1
 ```
 
-A second identifier, in a different document — `num_candidates`, defined on the kNN page:
-
 ```console
 $ uv run --extra es gctx eval --compare "num_candidates"
 query: 'num_candidates'
@@ -116,8 +108,6 @@ target: elastic-knn chunk:7 — the chunk that defines the term
   bm25     rank 5
   hybrid   rank 1
 ```
-
-A third from the other vendor, to show the pattern is not an Elastic-docs artifact:
 
 ```console
 $ uv run --extra es gctx eval --compare "anthropic-ratelimit-tokens-reset"
@@ -137,9 +127,6 @@ target: anthropic-rate-limits chunk:12 — the chunk that defines the term
   hybrid   rank 1
 ```
 
-And the counter-example, kept because it is the one that constrains the claim. Here BM25 alone
-beats the hybrid on **both** phrasings:
-
 ```console
 $ uv run --extra es gctx eval --compare "rank_window_size"
 query: 'rank_window_size'
@@ -158,16 +145,13 @@ target: elastic-rrf chunk:1 — the chunk that defines the term
   hybrid   rank 3
 ```
 
-Across these eight lookups the hybrid is never worse than the weaker arm, and in six of eight it
-matches or beats the stronger one — but `rank_window_size` shows it does not always beat the
-stronger arm. Note also that `rank_window_size` is defined in the *same* chunk as
-`rank_constant`, so it is a second query against a shared target rather than a fully independent
-case.
+All eight lookups are recorded in [`data/arms.json`](data/arms.json) by
+`scripts/publish_arms.py`, which also derives the two claims §1 argues from — that fusion is never
+worse than the weaker arm, and how many of the eight it matches or beats the stronger one on.
 
-## What the analyzer actually does
+## 4. Inspect the analyzers
 
-Finding 2. This is the call that disproved the original claim — the standard analyzer keeps
-underscores and splits hyphens, not the reverse.
+Why `content` and `content.exact` disagree about a hyphenated identifier — [`findings.md`](findings.md) §2.
 
 ```console
 $ uv run --extra es python -c "
@@ -184,10 +168,9 @@ claude-opus-5      content=['claude', 'opus', '5']                content.exact=
 claude-haiku-4-5   content=['claude', 'haiku', '4', '5']          content.exact=['claude-haiku-4-5']
 ```
 
-## The corpus-wide figures
+## 5. Measure the corpus-wide figures
 
-Findings 2 and 3 quote aggregates over the whole index rather than single queries. This is the
-script that computes them, run end to end. It is the answer to "where did 44 of 149 come from?"
+Findings 2 and 3 quote aggregates over the whole index rather than single queries.
 
 ```console
 $ uv run --extra es python scripts/measure_findings.py
@@ -247,42 +230,13 @@ Finding 3 — the floor on held-out probes (floor = 8.0, applied not fitted)
   separability  AUC 1.000   margin 59.8%
 ```
 
-Read the two score columns against each other, because that is the whole of Finding 3.
+Recorded in [`data/measurements.json`](data/measurements.json) by `scripts/publish_figures.py`.
 
-<!--figures:on-->
-**`sparse` separates.** Nine of the ten off-topic questions sit at <!--fig:probes.tuning.off_topic.sparse.min-->1.56<!--/-->–<!--fig:probes.tuning.off_topic.sparse_max_excluding_marathon-->6.01<!--/-->; all six genuine
-ones sit at <!--fig:probes.tuning.in_domain.sparse.min-->14.02<!--/-->–<!--fig:probes.tuning.in_domain.sparse.max-->19.25<!--/-->. Nothing lands in between. That gap is
-what the floor of 8 is cutting.
+## 6. Check the fusion math against the formula
 
-**`fused` does not.** Off-topic spans <!--fig:probes.tuning.off_topic.fused.min-->0.0476<!--/-->–<!--fig:probes.tuning.off_topic.fused.max-->0.0952<!--/--> and genuine spans <!--fig:probes.tuning.in_domain.fused.min-->0.0707<!--/-->–<!--fig:probes.tuning.in_domain.fused.max-->0.0931<!--/--> — the
-off-topic range now *contains* the genuine one. "What are the symptoms of vitamin D deficiency?"
-fuses to <!--fig:probes.tuning.vitamin_d.fused-->0.0952<!--/--> and beats all six genuine
-questions, including "how do I stream responses from the API?" at <!--fig:probes.tuning.streaming.fused-->0.0729<!--/-->. A confidence threshold on the fused score
-would prefer the vitamin question to every real one.
-
-The two summary rows put a number on that. On the same probes, `sparse` scores AUC <!--fig:probes.tuning.sparse.auc-->0.983<!--/--> and `fused` <!--fig:probes.tuning.fused.auc-->0.758<!--/-->: the fused score is not noise<!--figures:off--> — it orders a genuine question above an off-topic one
-about three times in four — but three in four is not a guarantee, and the margin column shows why
-no threshold rescues it. Both columns have a negative margin here, and for opposite reasons:
-`fused` because the two classes genuinely overlap, `sparse` because of one probe. Which one is the
-subject of the next paragraph.
-
-<!--figures:on-->
-The last two exceptions are the floor's declared limits, not noise. The wrong-entity question
-scores <!--fig:probes.tuning.wrong_entity.sparse-->18.84<!--/--> on `sparse` because the
-corpus really does discuss pricing, just Anthropic's. The marathon question scores <!--fig:probes.tuning.marathon.sparse-->16.11<!--/--> because Elastic's `semantic_text` page
-teaches the feature with running and exercise sample documents — the retrieval is correct, only
-the subject is a surprise. Marathon is also the whole of `sparse`'s <!--fig:probes.tuning.sparse.margin_pct-->−14.9<!--/-->% margin: drop it and the margin is <!--fig:probes.tuning.sparse.margin_pct_excluding_marathon-->+57.1<!--/-->%, which is why the AUC
-of <!--fig:probes.tuning.sparse.auc-->0.983<!--/--> is the more honest summary of the same ten
-probes.<!--figures:off-->
-
-## The fusion math, checked against the formula
-
-Finding 3 argues from how RRF is defined: a fused score is `Σ 1/(k + rank)` over the arms, so it
-carries rank agreement rather than match quality. Everywhere else that claim is read *out of*
-Elasticsearch. This checks it *against* the formula.
-
-For each document the hybrid returns, take its rank in each arm separately, compute the sum, and
-compare to the score Elasticsearch reported. `k` is `RANK_CONSTANT`, 20.
+[`findings.md`](findings.md) §3 argues from how RRF is *defined*. This checks the definition
+holds: take each returned document's rank in the two arms separately, compute `Σ 1/(k + rank)`,
+and compare to the score Elasticsearch reported.
 
 ```console
 $ uv run --extra es python scripts/rrf_audit.py
@@ -306,60 +260,13 @@ anthropic-batch-processing:11          9     16   0.062261  0.062261  3.60e-09
 anthropic-batch-processing:2          13     31   0.049911  0.049911  4.40e-10
 ```
 
-Agreement to about 1e-9 on every row — floating-point noise. The fused score is exactly the sum
-of reciprocal ranks, and nothing else. No similarity, no magnitude.
+Recorded in [`data/rrf_audit.json`](data/rrf_audit.json) by `scripts/rrf_audit.py`.
 
-Two things fall out of this that are worth stating.
+## 7. Re-measure the single-call candidate
 
-**It explains the ceiling, and corrected a claim.** A document ranked 1 by both arms scores
-`2/(k+1)` = 0.0952. On the first index the best score across the sixteen probes was 0.0931, so
-the ceiling looked unreachable — but it is not. The query `reciprocal rank fusion` ranks
-`elastic-rrf:0` first in both arms and scores exactly 0.095238. What 0.0931 means is
-`1/21 + 1/22`: first in one arm, second in the other. The score reports how much the two arms
-agree and nothing else. On this index the probe set reaches the ceiling on its own: "what are the
-symptoms of vitamin D deficiency?" scores 0.0952, so the highest fused score in the table belongs
-to a question the corpus cannot answer.
-
-**It explains the sourdough number.** The off-topic top hit scored 0.0635, quoted in Finding 3.
-That is `1/(20+3) + 1/(20+30)` — a chunk of the batch-processing page ranked 3rd by BM25 and 30th
-by ELSER, which is to say two arms that found nothing better. A confidence threshold reading that
-number sees 0.0635 and cannot tell it apart from a genuine answer, because the number never
-described relevance in the first place.
-
-
-## The single-call candidate
-
-Finding 4. Three tables: the four scoring configurations over the sixteen tuning probes, the
-lexical-arm weight sweep scored against those probes and against the thirty held-out ones, and the
-other single-call shape — `min_score` pushed into the ELSER arm of the shipped RRF.
-
-The first table is the whole argument against `minmax`. Its range is [1.0000, 2.0000] and the
-endpoints are exact, because minmax pins the top document of each arm to 1.0 whatever it scored —
-so the sum reports arm agreement, which is the quantity RRF already failed to threshold on.
-<!--figures:on-->Its AUC of <!--fig:single_call.normalizers.minmax.auc-->0.658<!--/--> is worse than the <!--fig:single_call.normalizers.rrf.auc-->0.758<!--/--> of the RRF it was meant to replace.<!--figures:off-->
-
-The second is the argument against the whole candidate, and it needs both metric columns to read
-correctly. <!--figures:on-->**AUC** says the incumbent, w=<!--lit-->0.25<!--/--> and w=<!--lit-->0.1<!--/--> all order the held-out probes perfectly at
-<!--fig:single_call.sweep.elser_raw.heldout_auc-->1.000<!--/--> — so the candidate is not broken, and any claim that it "fails to separate" is false.
-**margin** says what separates them anyway: how much room the threshold has, <!--fig:single_call.sweep.elser_raw.heldout_margin_pct-->59.8<!--/-->% against <!--fig:single_call.sweep.w0_25.heldout_margin_pct-->21.9<!--/-->%.
-And the two columns together are what convict the weight. w=<!--lit-->1.0<!--/--> is a perfect <!--fig:single_call.sweep.w1_0.tuning_auc-->1.000<!--/--> on the probes
-it was tuned against and <!--fig:single_call.sweep.w1_0.heldout_auc-->0.855<!--/--> on probes it has not seen; applying its own tuning floor of <!--fig:single_call.sweep.w1_0.floor-->50.39<!--/-->
-to the held-out set answers one off-topic question and refuses four genuine ones. The tuning set
-could not have told you that.<!--figures:off-->
-
-<!--figures:on-->Two figures in that table deserve to be read slowly. The incumbent's tuning margin is **<!--fig:probes.tuning.sparse.margin_pct-->−14.9<!--/-->%**, not the <!--fig:probes.tuning.sparse.margin_pct_excluding_marathon-->57.1<!--/-->% quoted elsewhere: that
-figure excludes the marathon probe, and every candidate row here includes all ten.<!--figures:off--> And its floor is marked *published* rather than *midpoint* because no midpoint
-exists — marathon sits inside the genuine band, so 8.0 was chosen from the other nine. The
-incumbent is a fitted constant too, and the comparison is more honest for saying so.
-
-The third table is the construction that nearly worked. Gating the ELSER arm with `min_score`
-inside one call refuses every off-topic probe in both sets and answers every genuine one — 46 for
-46, better than the shipped floor, which lets marathon through. The two columns that kill it are
-<!--figures:on-->the last ones. **`distinct scores` is <!--fig:single_call.nested_gate.off_topic.distinct_scores-->1<!--/-->**: every refused query
-reports the same `<!--fig:single_call.nested_gate.off_topic.refused_score-->0.047619<!--/-->`, the score of a document
-ranked first by BM25 with nothing surviving the gate beside it. And the **true ELSER range** those
-single scores stand for is <!--fig:single_call.nested_gate.off_topic.elser_min-->1.54<!--/--> – <!--fig:single_call.nested_gate.off_topic.elser_max-->16.11<!--/-->.<!--figures:off--> The refusals are correct and
-completely undifferentiated, which is exactly the signal `relevance_score` exists to carry.
+The three tables behind [`findings.md`](findings.md) §4 and
+[`specs/single-call-retrieval.md`](specs/single-call-retrieval.md): the normalizer comparison, the
+lexical-arm weight sweep, and `min_score` pushed into the ELSER arm.
 
 ```console
 $ uv run --extra es python scripts/single_call_probe.py
@@ -400,3 +307,13 @@ tuning     in-domain      6        0               0                -   14.02 �
 held-out   off-topic     20       20       0                        1   1.54 – 5.34
 held-out   in-domain     10        0               0                -   13.28 – 19.18
 ```
+
+## 8. Verify everything
+
+```bash
+uv run --extra es --extra mcp python scripts/verify.py
+```
+
+Read-only. It re-measures every record against the index, re-runs the suite, and reports whether
+any published number moved. `--update` regenerates instead, which is the mode for the other side
+of a reindex. See [`maintenance.md`](maintenance.md).

@@ -211,8 +211,10 @@ strengthen it.
   two-corpora governance split, the core tradeoff, and the observability plan.
 - **[docs/findings.md](docs/findings.md)** — three things that surfaced while building the
   hybrid path, including a hypothesis the cluster contradicted and what replaced it.
-- **[docs/eval-output.md](docs/eval-output.md)** — the captured runs behind every number in the
-  findings, so the claims are checkable without my cluster.
+- **[docs/eval-how-to.md](docs/eval-how-to.md)** — how to reproduce every number in the findings,
+  with illustrative output. The numbers themselves are records under
+  **[docs/data/](docs/data/)**, written by the publishing scripts and asserted by the suite, so
+  the claims are checkable without my cluster.
 - **[grounded-context-jvm](https://github.com/cdevarenne/grounded-context-jvm)** — the same
   architecture in Java and Spring, for teams whose stack is the JVM. **Which to use:** this repo
   is the reference implementation and holds the corpus tooling — the fetch script, the specs, and

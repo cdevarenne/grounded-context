@@ -75,22 +75,26 @@ uv run --extra es python scripts/index_corpus.py --recreate # rebuild the index 
 ```
 
 Two consequences worth knowing before you do it. Re-fetching changes the source text, so chunk
-boundaries can move — and the figures published in [`findings.md`](findings.md) and
-[`eval-output.md`](eval-output.md) are properties of the corpus as fetched. If the counts move,
-the published numbers must be regenerated rather than left to disagree with the index. Adding or
-removing a page in `corpus/manifest.yml` has the same effect.
+boundaries can move — and the figures published in [`findings.md`](findings.md) are properties of
+the corpus as fetched. If the counts move, the records must be regenerated rather than left to
+disagree with the index. Adding or removing a page in `corpus/manifest.yml` has the same effect.
 
-Regenerating is two commands, and the suite tells you if you forgot:
+Regenerating is one command per record, and the suite tells you if you forgot:
 
 ```bash
 uv run --extra es python scripts/publish_figures.py   # docs/data/measurements.json
 uv run --extra es python scripts/publish_eval.py      # docs/data/eval.json
-uv run --extra es python scripts/capture.py           # docs/captures/*.txt + eval-output.md
+uv run --extra es python scripts/publish_arms.py      # docs/data/arms.json
+uv run --extra es python scripts/rrf_audit.py         # docs/data/rrf_audit.json
 ```
 
-`capture.py` re-runs every command `eval-output.md` publishes and splices the output back into
-the fence it belongs in, so no console block is ever pasted by hand. `--only NAME` regenerates one
-block; `--check` re-runs everything and reports what moved without writing.
+One record per producing script, so a change invalidates only what it touches: the eval depends on
+the bundle as well as the cluster, and a bundle edit should not appear to move a corpus figure.
+Each takes `--check`, which re-measures and reports what moved without writing.
+
+Nothing here writes a `.txt` artifact and no test parses console output. Example output for a
+reader lives in [`eval-how-to.md`](eval-how-to.md), is labeled illustrative, and is asserted
+against nothing — see [`CLAUDE.md`](../CLAUDE.md) on why those are separate documents.
 
 ## Verifying everything at once
 
@@ -111,15 +115,15 @@ so the verdict can be quoted rather than just believed. **Measured 2026-08-29: 7
 
 ```
   ok   compatibility matrix      0.3s   ok: compatibility-matrix.md matches the bundle
-  ok   test suite              149.6s   439 passed
+  ok   test suite              152.4s   485 passed
   ok   published figures       127.7s   every figure reproduces
   ok   eval result               4.0s   the eval reproduces
-  ok   console captures        147.0s   all 9 captures reproduce
+  ok   retrieval arms           40.9s   every arm rank reproduces
+  ok   fusion audit              6.1s   the fusion audit reproduces
 ```
 
-The figures and the captures both re-run the measurement scripts, which is where most of the time
-goes. That is not waste: one checks the recorded numbers and the other checks the published
-console text, and they can disagree.
+One stage per record, so a stage that passes means every document quoting that record is true of
+the index as it stands. Most of the time is the cluster.
 
 A stage list that falls behind would be worse than no command at all — `verify` would report
 success over an artifact it never looked at. `tests/test_verify.py` derives the list instead of

@@ -3,7 +3,7 @@
 The docs used to carry numbers that were typed. No arithmetic was ever wrong — the scripts have
 never produced an incorrect value — but a typed number cannot be re-derived, so it drifts the
 moment the index is rebuilt, and nothing notices. Seven pre-reindex figures once sat in
-`eval-output.md` directly beneath the capture that refuted them.
+the documents directly beneath the run that refuted them.
 
 So the numbers live here instead, computed once, and the docs reference them by key:
 
@@ -148,7 +148,7 @@ def single_call_figures(report: dict[str, Any]) -> dict[str, Any]:
         "ceiling": report["single_arm_ceiling"],
         "normalizers": normalizers,
         "sweep": {_slug(row["config"]): row for row in report["sweep"]},
-        # findings.md pools the two probe sets per class; the capture keeps them apart.
+        # findings.md pools the two probe sets per class; the record keeps them apart.
         "nested_gate": {
             kind.replace("-", "_"): {
                 "n": sum(r["n"] for r in gate if r["class"] == kind),

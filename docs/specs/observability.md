@@ -204,7 +204,7 @@ gctx telemetry summary
 ```
 
 Shape (illustrative — the real numbers come from the committed sample fixture, the way
-[eval-output.md](../eval-output.md) captures real runs, not hand-written figures):
+the records under [data/](../data/) hold real runs, not hand-written figures):
 
 ```
 events: N   window: <first> .. <last>
@@ -256,7 +256,7 @@ verified-by-breaking-it standard.
 | `test_index_projection_roundtrip` | *(gated on ES, skips without creds)* sample log → index → read back → same field values |
 
 The sample fixture makes the summary and dashboard numbers checkable without the cluster, exactly
-as `eval-output.md` makes the findings checkable without it.
+as the records under `docs/data/` make the findings checkable without it.
 
 ## Constants
 

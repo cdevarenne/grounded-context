@@ -186,7 +186,7 @@ def build_report(es: Any) -> dict[str, Any]:
 
 
 def render(report: dict[str, Any]) -> None:
-    """The three tables, in the shape docs/eval-output.md captures them."""
+    """The three tables, in the shape docs/eval-how-to.md shows them."""
     print("=== normalizer comparison, 16 tuning probes ===")
     print(f"{'config':<22}{'off-topic':>20}{'genuine':>20}{'gap':>10}{'AUC':>8}")
     for row in report["normalizers"]:
