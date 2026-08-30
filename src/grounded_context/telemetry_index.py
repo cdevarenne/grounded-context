@@ -34,6 +34,7 @@ MAPPING: dict[str, Any] = {
         "canonical_hit": {"type": "boolean"},
         "relevance_floor_passed": {"type": "boolean"},
         "relevance_score": {"type": "float"},
+        "semantic_unavailable": {"type": "boolean"},
         "refused": {"type": "boolean"},
         "cites": {"type": "integer"},
         "latency_ms": {

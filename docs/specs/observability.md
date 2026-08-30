@@ -79,7 +79,7 @@ filtered without saying so.
 ```json
 {
   "@timestamp": "2026-08-18T15:04:23.117Z",
-  "schema_version": 2,
+  "schema_version": 3,
   "query": "What does the rank_constant parameter do?",
   "route": "BOTH",
   "rationale": "no exact entity+field; 'what does' -> SEMANTIC signals; ambiguous -> BOTH",
@@ -87,6 +87,7 @@ filtered without saying so.
   "canonical_hit": null,
   "relevance_floor_passed": true,
   "relevance_score": 16.8,
+  "semantic_unavailable": false,
   "refused": false,
   "cites": 5,
   "latency_ms": { "deterministic": 1.8, "semantic": 214.6, "total": 216.9 }
@@ -104,6 +105,7 @@ filtered without saying so.
 | `canonical_hit` | deterministic lookup | `true` = returned a value; `false` = consulted, `NOT_FOUND`; **absent** = deterministic path not consulted — **signal 2, the curation backlog** |
 | `relevance_floor_passed` | semantic probe | `true/false` when the pre-fusion probe ran against `RELEVANCE_FLOOR`; absent when semantic not consulted — ties the refusal to [findings.md](../findings.md) §3 |
 | `relevance_score` | semantic probe | the score behind that verdict, absent whenever the verdict is. A query at 7.9 against a floor of 8.0 is a **curation gap**; one at 1.7 is off topic. Both refuse, and the boolean alone cannot tell them apart afterwards |
+| `semantic_unavailable` | `service.semantic_citations` | `true` the cluster was configured and unreachable, `false` it answered, **absent** no request was attempted. An outage and a curation gap both produce a refusal with no citations, so without this the corpus-state signal counts the first as the second and a broken cluster reads as a corpus that needs writing |
 | `refused` | answer envelope | `true` when the answer is "Not found in the grounded sources." — **signal 5** |
 | `cites` | answer envelope | citation count on the answer |
 | `latency_ms` | timers in `service.py` | wall-clock per path; a path not taken is `null`; `total` on `route: BOTH` is the cost of running both — **signal 6** |
@@ -171,6 +173,8 @@ field and no custom `_id` — so it drops into a data-stream index template unch
       "retrieval_path":         { "type": "keyword" },
       "canonical_hit":          { "type": "boolean" },
       "relevance_floor_passed": { "type": "boolean" },
+      "relevance_score":        { "type": "float" },
+      "semantic_unavailable":   { "type": "boolean" },
       "refused":                { "type": "boolean" },
       "cites":                  { "type": "integer" },
       "latency_ms": {

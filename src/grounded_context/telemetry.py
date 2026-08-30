@@ -20,7 +20,7 @@ from typing import Any
 from .provenance import DETERMINISTIC, NOT_FOUND
 from .router import SEMANTIC as ROUTE_SEMANTIC
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 TELEMETRY_INDEX = "grounded-context-telemetry"
 
@@ -75,6 +75,7 @@ def event(
     semantic_ms: float | None = None,
     relevance_floor_passed: bool | None = None,
     relevance_score: float | None = None,
+    semantic_unavailable: bool | None = None,
 ) -> dict[str, Any]:
     """Build one event from a finished envelope.
 
@@ -94,6 +95,10 @@ def event(
         "canonical_hit": _canonical_hit(envelope),
         "relevance_floor_passed": relevance_floor_passed,
         "relevance_score": _ms(relevance_score),
+        # An outage and a curation gap both end in a refusal with no citations. Without this
+        # field the corpus-state signal in observability-corpus-state.md counts the first as
+        # the second, and a broken cluster reads in Kibana as a corpus that needs writing.
+        "semantic_unavailable": semantic_unavailable,
         "refused": envelope["answer"] == NOT_FOUND,
         "cites": len(envelope["citations"]),
         "latency_ms": {
@@ -232,6 +237,7 @@ def summary(path: Path) -> str:
     refused = sum(1 for e in events if e["refused"])
     cleared = sum(1 for e in events if e["relevance_floor_passed"] is True)
     blocked = sum(1 for e in events if e["relevance_floor_passed"] is False)
+    outages = sum(1 for e in events if e.get("semantic_unavailable") is True)
     both = [e["latency_ms"]["total"] for e in events if e["route"] == "BOTH"]
 
     warning = _schema_warning(events)
@@ -256,6 +262,9 @@ def summary(path: Path) -> str:
             f"blocked {blocked}      (of {cleared + blocked} semantic-consulted)",
         ),
         _row("floor scores", *_score_cells(events)),
+        # Printed only when it happened. A permanent "outages 0" row invites reading a zero as
+        # proof of health on a log that predates the field, where it means nothing.
+        *([_row("outages", f"{outages}      semantic path unreachable")] if outages else []),
         _latency(events, 50),
         _latency(events, 95),
     ]

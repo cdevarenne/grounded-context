@@ -9,6 +9,7 @@ from typing import Any
 
 from . import telemetry
 from .bundle import BundleError
+from .es_client import ElasticsearchNotConfigured
 from .provenance import render
 from .router import route
 from .service import as_of_date, ask, load_bundle, lookup_field
@@ -170,12 +171,43 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _from_the_cluster(exc: BaseException) -> bool:
+    """True when `exc` came from the Elasticsearch client, without importing it to find out.
+
+    The bare install has no `elasticsearch` package, and importing one here would put the `es`
+    extra on the critical path of a CLI whose entire claim is that it runs without a cluster. It
+    cannot have raised what it cannot import, so the missing case is simply False.
+    """
+    try:
+        from .es_client import transport_errors
+
+        return isinstance(exc, transport_errors())
+    except ImportError:
+        return False
+
+
 def main(argv: list[str] | None = None) -> int:
+    """Run one subcommand. Every expected failure leaves as a message, not a traceback.
+
+    `gctx eval` reaches the cluster directly rather than through the service layer, so it used to
+    exit on a raw `ElasticsearchNotConfigured` stack trace while `gctx telemetry index` printed a
+    usable sentence for the identical condition. A CLI that reports one class of missing
+    configuration and dumps a traceback for another is telling the reader the second one is a bug
+    in the tool.
+    """
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
-    except (BundleError, ValueError) as exc:
+    except (BundleError, ValueError, ElasticsearchNotConfigured) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        # A refused connection, a rotated key, a 500. `gctx eval` and `gctx telemetry index` reach
+        # the cluster directly rather than through the service layer, so this is the only place
+        # those can be turned into a sentence. Anything else still raises.
+        if not _from_the_cluster(exc):
+            raise
+        print(f"error: Elasticsearch: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
 
 

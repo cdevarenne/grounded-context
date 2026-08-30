@@ -305,3 +305,76 @@ def test_an_ambiguous_both_still_falls_back_to_passages(
 
     assert envelope["answer"] == PASSAGE["snippet"]
     assert len(envelope["citations"]) == 1
+
+
+# --- an unreachable cluster (ELX-51) --------------------------------------------------------
+
+
+class _Unreachable(Exception):
+    """Stands in for a transport failure without needing the `es` extra installed."""
+
+
+def _cluster_is_down(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Configured, and every request to it raises. The one state `is_configured()` cannot see."""
+    from grounded_context import es_client
+
+    monkeypatch.setattr(es_client, "is_configured", lambda: True)
+    monkeypatch.setattr(es_client, "transport_errors", lambda: (_Unreachable,))
+    monkeypatch.setattr(
+        es_client, "client", lambda **kw: (_ for _ in ()).throw(_Unreachable("Connection error"))
+    )
+
+
+def test_an_unreachable_cluster_degrades_instead_of_raising(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """It used to propagate: `gctx ask` died on a traceback and the MCP tool call failed.
+
+    An outage has the same *outcome* as an unconfigured cluster — no passages, so the refusal —
+    and it has to arrive the same way. What differs is that it is reported.
+    """
+    _cluster_is_down(monkeypatch)
+
+    result = service.semantic_citations("explain hybrid search")
+
+    assert result.citations == []
+    assert result.unavailable is True
+    assert "semantic path unavailable" in capsys.readouterr().err
+
+
+def test_an_outage_is_not_recorded_as_an_unconfigured_cluster(
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`None` is not `False`. A deployment with no cluster and one with a broken cluster return
+    the same empty citation list, and the corpus-state signal must not merge them."""
+    monkeypatch.setattr("grounded_context.es_client.is_configured", lambda: False)
+    assert service.semantic_citations("q").unavailable is None
+
+    _cluster_is_down(monkeypatch)
+    assert service.semantic_citations("q").unavailable is True
+
+
+def test_an_outage_reaches_telemetry(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _cluster_is_down(monkeypatch)
+    monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(tmp_path / "t.ndjson"))
+
+    ask(bundle, "how do I stream responses from the API?", as_of_date("2026-08-20"))
+
+    events = [json.loads(line) for line in (tmp_path / "t.ndjson").read_text().splitlines()]
+    assert [e["semantic_unavailable"] for e in events] == [True]
+    assert events[0]["refused"] is True, "no passages, so the refusal — the envelope is unchanged"
+
+
+def test_an_outage_still_returns_the_exact_hit_on_a_both_query(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the semantic arm is lost. The deterministic path never touched the network."""
+    _cluster_is_down(monkeypatch)
+
+    envelope = ask(bundle, "Compare claude-opus-5 and claude-sonnet-5 on max output tokens.",
+                   as_of_date("2026-08-20"))
+
+    assert envelope["answer"] != NOT_FOUND
+    assert [c["path"] for c in envelope["citations"]] == ["deterministic"]

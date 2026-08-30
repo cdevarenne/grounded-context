@@ -53,8 +53,8 @@ def test_the_event_carries_every_field_the_spec_names() -> None:
 
     assert set(record) == {
         "@timestamp", "schema_version", "query", "route", "rationale", "retrieval_path",
-        "canonical_hit", "relevance_floor_passed", "relevance_score", "refused", "cites",
-        "latency_ms",
+        "canonical_hit", "relevance_floor_passed", "relevance_score", "semantic_unavailable",
+        "refused", "cites", "latency_ms",
     }
     assert record["schema_version"] == telemetry.SCHEMA_VERSION
     assert record["@timestamp"].endswith("Z")
@@ -243,7 +243,7 @@ def test_the_score_behind_the_floor_verdict_is_recorded() -> None:
         relevance_floor_passed=False, relevance_score=7.94,
     )
     assert record["relevance_score"] == 7.9
-    assert record["schema_version"] == 2
+    assert record["schema_version"] == telemetry.SCHEMA_VERSION
 
 
 def test_no_probe_means_no_score() -> None:

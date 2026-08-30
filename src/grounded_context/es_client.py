@@ -101,6 +101,20 @@ CONNECTION_OPTIONS: dict[str, Any] = {
 }
 
 
+def transport_errors() -> tuple[type[BaseException], ...]:
+    """Every way a request to a configured cluster can fail. Imported lazily, like the client.
+
+    Two roots, and both are needed. `TransportError` covers the network — a refused connection, a
+    timeout, a DNS failure, a response that will not deserialize. `ApiError` covers a cluster that
+    answered and said no: a 401 on a rotated key, a 403, a 500. Neither is a subclass of the
+    other, and `is_configured()` sees neither, because it reads the environment rather than the
+    wire.
+    """
+    from elasticsearch import ApiError, TransportError
+
+    return (ApiError, TransportError)
+
+
 def client(**kwargs: Any) -> Any:
     """Build an Elasticsearch client. Import is local so the core install stays lean.
 

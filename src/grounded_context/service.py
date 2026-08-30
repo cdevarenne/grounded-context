@@ -7,6 +7,7 @@ product here, so it lives in one place rather than being re-implemented per surf
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime
@@ -107,6 +108,11 @@ class SemanticResult:
     #: The pre-fusion score behind that verdict, so a near miss is distinguishable from a
     #: query that was never in domain. `None` whenever `floor_passed` is.
     floor_score: float | None = None
+    #: `True` the cluster was configured and could not be reached, `False` it answered, `None`
+    #: no request was attempted because nothing is configured. `None` is not `False`, for the
+    #: same reason it is not on `canonical_hit`: a deployment that never had a cluster and one
+    #: whose cluster is down produce the same empty citation list and are not the same fact.
+    unavailable: bool | None = None
 
 
 def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> SemanticResult:
@@ -124,16 +130,30 @@ def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> SemanticResu
         # The probe never ran, so there is no verdict: absent, which is not the same as blocked.
         return SemanticResult()
 
-    from .es_client import client
+    from .es_client import client, transport_errors
     from .semantic import probe, search
 
-    es = client()
-    cleared, score = probe(query, es=es)
-    if not cleared:
-        return SemanticResult(floor_passed=False, floor_score=score)
-    return SemanticResult(
-        search(query, size=size, es=es, floor=None), floor_passed=True, floor_score=score
-    )
+    try:
+        es = client()
+        cleared, score = probe(query, es=es)
+        if not cleared:
+            return SemanticResult(floor_passed=False, floor_score=score, unavailable=False)
+        return SemanticResult(
+            search(query, size=size, es=es, floor=None),
+            floor_passed=True,
+            floor_score=score,
+            unavailable=False,
+        )
+    except transport_errors() as error:
+        # An unreachable cluster is the same outcome as an unconfigured one — no passages, so the
+        # refusal — and it must arrive the same way. Letting it propagate killed `gctx ask` on a
+        # traceback and failed the MCP tool call instead of answering it, which turns a degraded
+        # retrieval path into a broken agent.
+        #
+        # Only the semantic arm is lost. A BOTH query still returns its exact hit, and the
+        # deterministic path never touched the network to begin with.
+        print(f"semantic path unavailable: {type(error).__name__}: {error}", file=sys.stderr)
+        return SemanticResult(unavailable=True)
 
 
 def _semantic_answer(
@@ -189,6 +209,7 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
             semantic_ms=semantic_ms,
             relevance_floor_passed=result.floor_passed,
             relevance_score=result.floor_score,
+            semantic_unavailable=result.unavailable,
         )
         return envelope
 
@@ -220,6 +241,7 @@ def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
         deterministic_ms=deterministic_ms,
         semantic_ms=semantic_ms,
         relevance_floor_passed=result.floor_passed,
-            relevance_score=result.floor_score,
+        relevance_score=result.floor_score,
+        semantic_unavailable=result.unavailable,
     )
     return envelope

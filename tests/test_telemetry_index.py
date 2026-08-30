@@ -6,6 +6,8 @@ which is the drift that would otherwise surface as a silently unqueryable field 
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,9 @@ import pytest
 from grounded_context import telemetry, telemetry_index
 from grounded_context.es_client import is_configured
 from grounded_context.provenance import DETERMINISTIC, grounded_answer
+from grounded_context.telemetry_index import MAPPING
+
+ROOT = Path(__file__).resolve().parents[1]
 
 requires_elasticsearch = pytest.mark.skipif(
     not is_configured(), reason="no ES_URL / ES_API_KEY — the projection cannot run"
@@ -107,3 +112,26 @@ def test_the_projection_is_rebuildable_from_the_log() -> None:
     finally:
         if es.indices.exists(index=SCRATCH_INDEX):
             es.indices.delete(index=SCRATCH_INDEX)
+
+
+# --- the spec and the mapping (ELX-51) ------------------------------------------------------
+
+
+def _spec_mapping() -> dict:
+    """The mapping `docs/specs/observability.md` publishes, parsed out of its JSON block."""
+    spec = (ROOT / "docs" / "specs" / "observability.md").read_text(encoding="utf-8")
+    block = re.search(r'```json\n(\{\n  "mappings".*?\n\})\n```', spec, re.DOTALL)
+    assert block, "observability.md no longer publishes a mappings block"
+    return json.loads(block.group(1))["mappings"]
+
+
+def test_the_published_mapping_matches_the_one_that_is_written() -> None:
+    """The spec is the contract; `MAPPING` is what actually reaches Elasticsearch.
+
+    They had already drifted: `relevance_score` was added to the code and never to the spec, so
+    the published mapping was missing a field for three commits and nothing said so. A document
+    that describes the index has to be checked against the index it describes, or it is a
+    comment.
+    """
+    assert _spec_mapping() == MAPPING
+

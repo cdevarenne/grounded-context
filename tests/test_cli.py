@@ -131,3 +131,52 @@ def test_telemetry_needs_a_subcommand(capsys):
     with pytest.raises(SystemExit) as exit_code:
         main(["telemetry"])
     assert exit_code.value.code == 2
+
+
+# --- errors are reported, not raised (ELX-47) -----------------------------------------------
+
+
+class _ClusterError(Exception):
+    """Stands in for anything the Elasticsearch client raises."""
+
+
+def test_a_missing_configuration_is_a_message_not_a_traceback(capsys, monkeypatch):
+    """`gctx eval` reaches the cluster directly, so `is_configured()` never guards it.
+
+    It exited on a raw `ElasticsearchNotConfigured` stack trace while `gctx telemetry index`
+    printed a usable sentence for the identical condition. Reporting one and dumping a traceback
+    for the other tells the reader the second is a bug in the tool.
+    """
+    from grounded_context import es_client
+
+    def unconfigured():
+        raise es_client.ElasticsearchNotConfigured("missing ES_URL")
+
+    monkeypatch.setattr(es_client, "credentials", unconfigured)
+
+    assert main(["eval", "--compare", "rank_constant"]) == 2
+    assert capsys.readouterr().err.strip() == "error: missing ES_URL"
+
+
+def test_a_cluster_failure_is_a_message_not_a_traceback(capsys, monkeypatch):
+    from grounded_context import cli, es_client
+
+    monkeypatch.setattr(es_client, "transport_errors", lambda: (_ClusterError,))
+    monkeypatch.setattr(
+        cli, "cmd_eval", lambda args: (_ for _ in ()).throw(_ClusterError("Connection error"))
+    )
+
+    assert main(["eval"]) == 2
+    assert capsys.readouterr().err.strip() == (
+        "error: Elasticsearch: _ClusterError: Connection error"
+    )
+
+
+def test_an_unexpected_error_still_raises(monkeypatch):
+    """Only the cluster's failures are turned into a sentence. A bug must still be a traceback."""
+    from grounded_context import cli
+
+    monkeypatch.setattr(cli, "cmd_route", lambda args: (_ for _ in ()).throw(KeyError("bug")))
+
+    with pytest.raises(KeyError):
+        main(["route", "anything"])
