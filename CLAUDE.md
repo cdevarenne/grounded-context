@@ -46,6 +46,11 @@ grounded answer with a citation block.
 - **Canonical data is governed:** the compatibility matrix is date-stamped and sourced from
   live docs; treat it as versioned truth. A stale "authoritative" layer undercuts the thesis.
 - **Small + composable:** small scripts, clear interfaces, always demoable.
+- **Write in ASD-STE100 Simplified Technical English.** This applies to documents, docstrings,
+  comments and commit messages. Write short sentences. Write one idea in one sentence. Use the
+  active voice and the simple present tense. Use one word for one meaning. Keep noun clusters to
+  three words. Do not use idioms. A long sentence can hide an unverified claim in a subordinate
+  clause. A short sentence shows it.
 - **Reproduction and results are different documents.** A page that teaches someone to re-run a
   measurement wants example output; a published figure wants a machine-readable record. One file
   being both is what made a documented rank recoverable only by regular expression from console

@@ -22,7 +22,12 @@ from grounded_context.router import SEMANTIC as ROUTE_SEMANTIC
 from grounded_context.service import as_of_date, ask, load_bundle, lookup_field
 
 # Cross-entity, so the router sends it to BOTH, and the bundle holds no single exact answer.
-BOTH_QUERY = "Which of these models support vision?"
+#: An ambiguous question: it names no entity, no canonical field and no precision signal, so the
+#: router returns BOTH and the deterministic path finds nothing. It used to be "which of these
+#: models support vision?", which stopped being a deterministic miss when `query_entities` began
+#: answering rollups. A fixture has to keep the property it was chosen for.
+BOTH_QUERY = "Tell me about batch processing"
+ROLLUP_QUERY = "Which of these models support vision?"
 
 # Also BOTH, but this one names an entity and a field the bundle does hold, so the merge runs.
 MIXED_QUERY = "Compare the context window of claude-opus-5 and GPT-5."
@@ -292,6 +297,27 @@ def test_a_precision_miss_refuses_instead_of_ranking(
 
     assert envelope["answer"] == NOT_FOUND
     assert envelope["citations"] == []
+
+
+def test_a_rollup_leads_with_the_exact_answer_and_keeps_the_passages(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A rollup routes BOTH, so both engines run. The exact answer must lead.
+
+    This is the case that retired eval Q3's declared deviation. The question has an exact answer
+    for every model, and the canonical layer now gives it with one citation each. Passages still
+    follow, because the router asked for both and provenance is never dropped.
+    """
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult([PASSAGE], floor_passed=True, floor_score=19.0),
+    )
+    envelope = ask(bundle, ROLLUP_QUERY, as_of_date())
+
+    assert envelope["answer"] == "Claude Haiku 4.5: yes; Claude Opus 5: yes; Claude Sonnet 5: yes"
+    assert envelope["retrieval_path"] == MIXED
+    paths = [c["path"] for c in envelope["citations"]]
+    assert paths == ["deterministic"] * 3 + ["semantic"], "exact hits lead, passages follow"
 
 
 def test_an_ambiguous_both_still_falls_back_to_passages(

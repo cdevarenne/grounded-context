@@ -168,3 +168,64 @@ def test_contains_matches_a_whole_term_only():
     assert not contains("a revision number", "vision")
     assert not contains("provisioning", "vision")
     assert contains("claude-haiku-4-5-20251001", "claude-haiku-4-5"), "hyphen is not a word char"
+
+
+# --- rollups and injectable vocabulary (ELX-56, ELX-58) ---------------------------------------
+
+
+def test_a_rollup_answers_one_field_for_every_entity(bundle):
+    """`lookup` answers one entity at a time. A rollup asks the same field of every entity.
+
+    The question had no engine before this. It fell through to ranked passages, which discuss
+    the topic and do not answer the question. Each result keeps its own concept, so each keeps
+    its own provenance: a rollup is a list of exact facts, not a summary of them.
+    """
+    from grounded_context.lookup import query_entities
+
+    results = query_entities(bundle, "vision")
+
+    assert [r.concept.id for r in results] == [
+        "anthropic.claude-haiku-4-5",
+        "anthropic.claude-opus-5",
+        "anthropic.claude-sonnet-5",
+    ], "concept-id order, so a rendered list is stable between runs"
+    assert all(r.value is True for r in results)
+    assert all(r.locator == "canonical.vision" for r in results)
+    assert all(r.concept.trust_tier == "human-reviewed" for r in results)
+
+
+def test_a_rollup_on_a_field_no_concept_holds_is_empty(bundle):
+    from grounded_context.lookup import query_entities
+
+    assert query_entities(bundle, "rate_limit_rpm") == []
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("Which of these models support vision?", True),
+        ("Which models support vision?", True),
+        ("every model that does vision", True),
+        # Names one entity, so the single-entity path is correct and must win.
+        ("Does Opus 5 support vision?", False),
+        ("What is the context window of claude-opus-5?", False),
+    ],
+)
+def test_a_rollup_is_recognised_only_when_no_single_entity_is_named(question, expected):
+    """Narrow on purpose. A rollup that fires on the wrong question is worse than one that does
+    not fire, because the single-entity path and the refusal are both correct fallbacks."""
+    from grounded_context.lookup import is_rollup
+
+    assert is_rollup(question) is expected
+
+
+def test_an_adopter_can_supply_their_own_synonyms(bundle):
+    """Matching vocabulary is not canonical truth, so it is a parameter and not a bundle field.
+
+    An OKF file is governed by a verification date and a trust tier. A query synonym has neither.
+    Putting one in the bundle would give it a governance model it does not need and cannot honour.
+    """
+    assert find_field(bundle, "whats the token limit for opus") is None
+    assert find_field(
+        bundle, "whats the token limit for opus", synonyms={"token limit": "max_output_tokens"}
+    ) == "max_output_tokens"

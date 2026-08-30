@@ -10,7 +10,7 @@ Columns: id · question · expected_path · correct answer shape · notes
 |----|----------|---------------|----------------------|-------|
 | Q1 | What is the exact context window of \<model X\>? | deterministic | exact number + provenance | canonical field lookup |
 | Q2 | What is the endpoint path for Anthropic's Messages API? | deterministic | `/v1/messages` + provenance | |
-| Q3 | Which of these models support vision? | deterministic | list + per-model provenance | matrix traversal |
+| Q3 | Which of these models support vision? | mixed | list + per-model provenance | rollup over the canonical layer |
 | Q4 | What is the max output tokens for \<model Y\>? | deterministic | exact number + provenance | |
 | Q5 | How do I stream responses from the API? | semantic | grounded prose + cited doc | |
 | Q6 | What's the recommended way to do hybrid search in Elasticsearch? | semantic | grounded prose + cited doc | |
@@ -83,7 +83,13 @@ counted apart from a pass and never reads as green.
 `known_deviation` silences a failure, so the set of cases allowed to carry one is pinned in
 `tests/test_evaluation.py` as `DECLARED_DEVIATIONS`. Adding a deviation therefore means editing a
 test, which is a visible act, rather than turning the suite green quietly. Today the set is
-exactly **Q3** and **Q20**, and both are explained where they appear.
+exactly **Q20**, and it is explained where it appears.
+
+Q3 was in this set until `lookup.query_entities` was added. The deviation said that lookup
+answers one entity at a time, so a rollup had no engine. That is no longer true. The canonical
+layer answers the question for every model at once and cites each one, so the case passes and the
+deviation is deleted. A declared deviation is retired when its reason stops being true, not when
+the case starts to look acceptable.
 
 ### Two cases that must keep working
 

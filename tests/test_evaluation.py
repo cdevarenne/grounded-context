@@ -192,7 +192,7 @@ EVAL_DATA = json.loads((ROOT / "docs" / "data" / "eval.json").read_text(encoding
 #: cases carrying one is pinned here rather than in the module it excuses: adding a deviation
 #: then requires editing a test, which is a visible act, instead of turning the suite green
 #: quietly. Both are documented in docs/specs/eval.md.
-DECLARED_DEVIATIONS = {"Q3", "Q20"}
+DECLARED_DEVIATIONS = {"Q20"}
 
 def test_only_the_declared_cases_carry_a_known_deviation() -> None:
     """A new deviation must be added here deliberately, not discovered later in a green suite."""

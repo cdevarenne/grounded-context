@@ -1,15 +1,15 @@
 {
   "run": {
-    "measured_at": "2026-08-29",
+    "measured_at": "2026-08-30",
     "bundle": "knowledge",
     "concepts": 4,
     "index": "grounded-context-corpus",
     "elasticsearch_configured": true,
-    "git_sha": "b04def7"
+    "git_sha": "591caa5"
   },
   "totals": {
-    "pass": 18,
-    "known": 2,
+    "pass": 19,
+    "known": 1,
     "fail": 0
   },
   "cases": [
@@ -38,13 +38,13 @@
     {
       "id": "Q3",
       "question": "Which of these models support vision?",
-      "expected": "semantic",
-      "actual": "semantic",
+      "expected": "mixed",
+      "actual": "mixed",
       "expected_route": "BOTH",
       "route": "BOTH",
       "rationale": "no decisive signal \u2014 defaulting to BOTH, which is the safe side",
-      "citations": 5,
-      "verdict": "KNOWN"
+      "citations": 8,
+      "verdict": "PASS"
     },
     {
       "id": "Q4",
