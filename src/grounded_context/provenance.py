@@ -7,7 +7,7 @@ it is what makes a dual engine read as one auditable system.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import TypedDict
 
 from .lookup import LookupResult
 
@@ -18,7 +18,57 @@ SEMANTIC = "semantic"
 MIXED = "mixed"
 
 
-def citation(result: LookupResult, as_of: date) -> dict[str, Any]:
+class Citation(TypedDict):
+    """One citation, in the shape `docs/specs/provenance.md` publishes.
+
+    Thirteen keys, produced in two places — `citation()` here for an exact hit, and
+    `semantic.citation()` for a retrieved passage — and read in five: `render()`,
+    `telemetry.event()`, `service._merge()`, the CLI, and the MCP server. That is a contract with
+    two writers and five readers and, until this was declared, nothing but tests stopping a key
+    from being misspelled on one side of it.
+
+    Deliberately a `TypedDict` rather than a dataclass. The value stays a plain `dict`, so the
+    JSON the MCP server returns, the envelope the CLI prints, and every existing test are
+    unchanged — this adds a check at the type level and nothing at runtime.
+
+    Every key is always present. A field that does not apply to a path is `None`, never absent:
+    the two paths emit the same shape, and that sameness is what makes a dual engine read as one
+    auditable system.
+    """
+
+    #: `deterministic` or `semantic` — which engine produced this citation.
+    path: str
+    source_id: str
+    source_url: str | None
+    locator: str
+    method: str
+    #: `None` on the deterministic path: an exact lookup is not ranked, so it has no score.
+    score: float | None
+    verified_at: str | None
+    #: OKF-derived, so `None` on the semantic path — a fetched page has no trust tier.
+    trust_tier: str | None
+    status: str | None
+    stale_after: str | None
+    is_stale: bool
+    #: The concepts traversed to reach the value. Empty on the semantic path.
+    hops: list[str]
+    snippet: str
+
+
+class AnswerEnvelope(TypedDict):
+    """What every surface returns: an answer, the path that produced it, and its citations.
+
+    `router` is `None` for a lookup that named its entity and field outright, because no routing
+    decision was made — absent, which is not the same as a decision with no rationale.
+    """
+
+    answer: str
+    retrieval_path: str
+    router: dict[str, str] | None
+    citations: list[Citation]
+
+
+def citation(result: LookupResult, as_of: date) -> Citation:
     """Build one citation from a deterministic hit, inheriting its OKF provenance."""
     concept = result.concept
     return {
@@ -40,10 +90,10 @@ def citation(result: LookupResult, as_of: date) -> dict[str, Any]:
 
 def grounded_answer(
     answer: str,
-    citations: list[dict[str, Any]],
+    citations: list[Citation],
     retrieval_path: str,
     router: dict[str, str] | None = None,
-) -> dict[str, Any]:
+) -> AnswerEnvelope:
     """Assemble the answer envelope. An empty citation list forces the refusal."""
     if not citations:
         answer = NOT_FOUND
@@ -55,7 +105,7 @@ def grounded_answer(
     }
 
 
-def render(envelope: dict[str, Any]) -> str:
+def render(envelope: AnswerEnvelope) -> str:
     """Render the envelope for a terminal, per docs/specs/provenance.md."""
     lines = []
     router = envelope.get("router")
@@ -102,7 +152,7 @@ def render(envelope: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _freshness(cite: dict[str, Any]) -> str:
+def _freshness(cite: Citation) -> str:
     stale_after = cite.get("stale_after")
     if not stale_after:
         return "freshness: no stale_after set"

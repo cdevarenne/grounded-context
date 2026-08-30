@@ -5,17 +5,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any
 
 from . import telemetry
 from .bundle import BundleError
 from .es_client import ElasticsearchNotConfigured
-from .provenance import render
+from .provenance import AnswerEnvelope, render
 from .router import route
 from .service import as_of_date, ask, load_bundle, lookup_field
 
 
-def _emit(envelope: dict[str, Any], as_json: bool) -> int:
+def _emit(envelope: AnswerEnvelope, as_json: bool) -> int:
     if as_json:
         print(json.dumps(envelope, indent=2, default=str))
     else:

@@ -18,7 +18,15 @@ from typing import Any
 from . import telemetry
 from .bundle import Bundle
 from .lookup import find_entity, find_field, resolve
-from .provenance import DETERMINISTIC, MIXED, SEMANTIC, citation, grounded_answer
+from .provenance import (
+    DETERMINISTIC,
+    MIXED,
+    SEMANTIC,
+    AnswerEnvelope,
+    Citation,
+    citation,
+    grounded_answer,
+)
 from .router import BOTH as ROUTE_BOTH
 from .router import SEMANTIC as ROUTE_SEMANTIC
 from .router import Route, route
@@ -65,7 +73,7 @@ def _lookup_envelope(
     field: str,
     as_of: date,
     decision: Route | None = None,
-) -> dict[str, Any]:
+) -> AnswerEnvelope:
     """Envelope for one exact field, or the refusal when the bundle doesn't hold it."""
     result = resolve(bundle, entity_id, field)
     router = decision.as_dict() if decision else None
@@ -82,7 +90,7 @@ def lookup_field(
     field: str,
     as_of: date,
     decision: Route | None = None,
-) -> dict[str, Any]:
+) -> AnswerEnvelope:
     """Envelope for one exact field, or the refusal when the bundle doesn't hold it.
 
     This is the entry point for a lookup that names its entity and field outright — `gctx lookup`
@@ -102,7 +110,7 @@ def lookup_field(
 class SemanticResult:
     """Citations, plus what the relevance floor did — which the envelope has no field for."""
 
-    citations: list[dict[str, Any]] = dataclass_field(default_factory=list)
+    citations: list[Citation] = dataclass_field(default_factory=list)
     #: `True` cleared, `False` blocked, `None` the probe never ran.
     floor_passed: bool | None = None
     #: The pre-fusion score behind that verdict, so a near miss is distinguishable from a
@@ -157,8 +165,8 @@ def semantic_citations(query: str, size: int = SEMANTIC_RESULTS) -> SemanticResu
 
 
 def _semantic_answer(
-    citations: list[dict[str, Any]], decision: Route, path: str = SEMANTIC
-) -> dict[str, Any]:
+    citations: list[Citation], decision: Route, path: str = SEMANTIC
+) -> AnswerEnvelope:
     """Grounded passages, best first. The caller writes prose; this supplies the ground.
 
     Takes citations rather than fetching them, so a caller that has already retrieved cannot
@@ -168,7 +176,7 @@ def _semantic_answer(
     return grounded_answer(answer, citations, path, decision.as_dict())
 
 
-def _merge(exact: dict[str, Any], extra: list[dict[str, Any]], decision: Route) -> dict[str, Any]:
+def _merge(exact: AnswerEnvelope, extra: list[Citation], decision: Route) -> AnswerEnvelope:
     """router.md: query both, prefer an exact hit where one exists, never drop provenance.
 
     One exception, and it is the point of the whole design: when the router identified a
@@ -188,7 +196,7 @@ def _merge(exact: dict[str, Any], extra: list[dict[str, Any]], decision: Route) 
     )
 
 
-def ask(bundle: Bundle, query: str, as_of: date) -> dict[str, Any]:
+def ask(bundle: Bundle, query: str, as_of: date) -> AnswerEnvelope:
     """Route a natural-language question, then answer it on the path chosen.
 
     Records one event per answered question, built from the finished envelope and emitted after

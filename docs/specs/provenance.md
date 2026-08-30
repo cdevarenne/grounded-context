@@ -6,22 +6,33 @@ replies **"Not found in the grounded sources"** — it does NOT answer from mode
 is the auditability guarantee and the visual signature of the whole artifact.
 
 ## Structured form (returned by every retrieval + attached to every answer)
+
+Thirteen citation keys, all always present — a field that does not apply to a path is `null`,
+never absent, because the two paths emitting the same shape is what makes a dual engine read as
+one system. `router` is `null` for a lookup that named its entity and field outright, since no
+routing decision was made. The shape is declared as `provenance.Citation` and
+`provenance.AnswerEnvelope`, and `tests/test_provenance.py` asserts this block against those
+declarations — a spec that shows a shape the code does not emit is worse than no spec, and this
+one was missing `status`, `hops` and `router` until it was checked.
 ```json
 {
   "answer": "…",
   "retrieval_path": "deterministic | semantic | mixed",
+  "router": {"route": "DETERMINISTIC | SEMANTIC | BOTH", "rationale": "…"},
   "citations": [
     {
       "path": "deterministic | semantic",
       "source_id": "anthropic.claude-opus | <es_doc_id>",
-      "source_url": "https://…",   // deterministic: from OKF sources[].resource
+      "source_url": "https://…",
       "locator": "canonical.context_window_tokens | section:Hybrid search | chunk:12",
       "method": "exact-lookup | hybrid(bm25+elser,rrf)",
-      "score": null,          // null for exact deterministic; float for semantic
-      "verified_at": "2026-08-01 | <index_time>",   // OKF verified[].at (latest)
-      "trust_tier": "human-reviewed",               // OKF-derived; null on the semantic path
-      "stale_after": "2026-09-01",                  // OKF lifecycle; null on the semantic path
-      "is_stale": false,                            // today >= stale_after
+      "score": null,
+      "verified_at": "2026-08-01 | <index_time>",
+      "trust_tier": "human-reviewed",
+      "status": "stable",
+      "stale_after": "2026-09-01",
+      "is_stale": false,
+      "hops": ["anthropic.claude-opus-5", "anthropic.messages"],
       "snippet": "…"
     }
   ]

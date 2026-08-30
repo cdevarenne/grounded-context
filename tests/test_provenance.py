@@ -1,3 +1,5 @@
+import json
+import re
 from datetime import date
 from pathlib import Path
 
@@ -9,13 +11,16 @@ from grounded_context.provenance import (
     DETERMINISTIC,
     NOT_FOUND,
     SEMANTIC,
+    AnswerEnvelope,
+    Citation,
     citation,
     grounded_answer,
     render,
 )
 from grounded_context.router import route
 
-BUNDLE = Path(__file__).resolve().parents[1] / "knowledge"
+ROOT = Path(__file__).resolve().parents[1]
+BUNDLE = ROOT / "knowledge"
 FRESH = date(2026, 8, 11)
 LATER = date(2026, 10, 1)
 
@@ -123,3 +128,36 @@ def test_both_paths_share_one_citation_shape(bundle):
         "snippet": "…",
     }
     assert set(deterministic) == set(semantic)
+
+
+# --- the declared shape, against the spec that publishes it (ELX-46) ------------------------
+
+
+def _spec_envelope() -> dict:
+    """The structured form `docs/specs/provenance.md` publishes, parsed out of its JSON block."""
+    spec = (ROOT / "docs" / "specs" / "provenance.md").read_text(encoding="utf-8")
+    block = re.search(r'```json\n(\{\n  "answer".*?\n\})\n```', spec, re.DOTALL)
+    assert block, "provenance.md no longer publishes a structured-form block"
+    return json.loads(block.group(1))
+
+
+def test_the_published_envelope_matches_the_declared_shape() -> None:
+    """The spec is the contract; `AnswerEnvelope` is what the code returns.
+
+    They had drifted: the published block was missing `status`, `hops` and `router` — three keys
+    every answer has carried for months. A spec that shows a shape the code does not emit is
+    worse than no spec, which the document itself says two paragraphs further down.
+    """
+    assert set(_spec_envelope()) == set(AnswerEnvelope.__annotations__)
+
+
+def test_the_published_citation_matches_the_declared_shape() -> None:
+    published = _spec_envelope()["citations"][0]
+    assert set(published) == set(Citation.__annotations__)
+
+
+def test_both_producers_emit_exactly_the_declared_citation(bundle) -> None:
+    """Two writers, one shape. The deterministic producer is checked here directly; the semantic
+    one is checked in `test_semantic.py`, which has a hit fixture to build from."""
+    result = resolve(bundle, "anthropic.claude-opus-5", "context_window_tokens")
+    assert set(citation(result, date(2026, 8, 20))) == set(Citation.__annotations__)

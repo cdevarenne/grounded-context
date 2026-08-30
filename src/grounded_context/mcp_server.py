@@ -14,7 +14,7 @@ from typing import Any
 from mcp.server import MCPServer
 
 from .bundle import Bundle
-from .provenance import render
+from .provenance import AnswerEnvelope, render
 from .service import as_of_date, ask, load_bundle, lookup_field
 
 INSTRUCTIONS = """Grounded context layer over a curated, provenance-carrying knowledge bundle.
@@ -35,7 +35,7 @@ def _bundle() -> Bundle:
     return load_bundle()
 
 
-def _with_citation_block(envelope: dict[str, Any]) -> dict[str, Any]:
+def _with_citation_block(envelope: AnswerEnvelope) -> dict[str, Any]:
     return {**envelope, "rendered": render(envelope)}
 
 

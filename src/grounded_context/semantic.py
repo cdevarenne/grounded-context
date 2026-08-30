@@ -12,10 +12,13 @@ is deliberate: a dual engine should read as one auditable system.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .es_client import INDEX, client
-from .provenance import SEMANTIC
+
+if TYPE_CHECKING:
+    from elasticsearch import Elasticsearch
+from .provenance import SEMANTIC, Citation
 
 # RRF tuning. rank_constant sets how much influence lower-ranked documents keep; a higher
 # value flattens the contribution curve. rank_window_size is how deep each retriever is read
@@ -108,7 +111,7 @@ def hybrid_retriever(query: str) -> dict[str, Any]:
     }
 
 
-def citation(hit: dict[str, Any], method: str = METHOD) -> dict[str, Any]:
+def citation(hit: dict[str, Any], method: str = METHOD) -> Citation:
     """Build a citation from one search hit, key-for-key identical to a deterministic one."""
     source = hit["_source"]
     text = source.get("content", "")
@@ -131,7 +134,8 @@ def citation(hit: dict[str, Any], method: str = METHOD) -> dict[str, Any]:
     }
 
 
-def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> bool:
+def is_relevant(query: str, es: Elasticsearch | None = None,
+                floor: float = RELEVANCE_FLOOR) -> bool:
     """Probe whether anything in the index genuinely matches, before fusing.
 
     RRF scores cannot answer this. They are computed from rank position — `1/(k+rank)` — so
@@ -160,7 +164,7 @@ def is_relevant(query: str, es: Any = None, floor: float = RELEVANCE_FLOOR) -> b
 
 
 def probe(
-    query: str, es: Any = None, floor: float = RELEVANCE_FLOOR
+    query: str, es: Elasticsearch | None = None, floor: float = RELEVANCE_FLOOR
 ) -> tuple[bool, float | None]:
     """The floor verdict *and* the score behind it. `None` when nothing came back at all.
 
@@ -181,10 +185,10 @@ def probe(
 def search(
     query: str,
     size: int = DEFAULT_SIZE,
-    es: Any = None,
+    es: Elasticsearch | None = None,
     retriever: Any = None,
     floor: float | None = RELEVANCE_FLOOR,
-) -> list[dict[str, Any]]:
+) -> list[Citation]:
     """Run the hybrid search and return citations, best first.
 
     Returns nothing when the floor is not cleared — an empty list becomes the refusal, and
@@ -199,14 +203,18 @@ def search(
     return [citation(hit, method) for hit in response["hits"]["hits"]]
 
 
-def search_lexical_only(query: str, size: int = DEFAULT_SIZE, es: Any = None) -> list[dict[str, Any]]:
+def search_lexical_only(
+    query: str, size: int = DEFAULT_SIZE, es: Elasticsearch | None = None
+) -> list[Citation]:
     """BM25 alone — one comparison arm for the retrieval-arm table in docs/findings.md."""
     es = es or client()
     response = es.search(index=INDEX, retriever=_lexical(query), size=size)
     return [citation(hit, METHOD_LEXICAL) for hit in response["hits"]["hits"]]
 
 
-def search_semantic_only(query: str, size: int = DEFAULT_SIZE, es: Any = None) -> list[dict[str, Any]]:
+def search_semantic_only(
+    query: str, size: int = DEFAULT_SIZE, es: Elasticsearch | None = None
+) -> list[Citation]:
     """ELSER alone — the arm that plausibly-but-wrongly answers an exact-token question."""
     es = es or client()
     response = es.search(index=INDEX, retriever=_sparse(query), size=size)

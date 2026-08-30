@@ -10,7 +10,13 @@ from __future__ import annotations
 import importlib.util
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    # Only ever imported by a type checker, never at runtime. The whole point of the `es` extra
+    # is that a bare install has no `elasticsearch` package, so a real import here would make the
+    # deterministic path — which needs none of this — fail on import.
+    from elasticsearch import Elasticsearch
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = ROOT / ".env"
@@ -115,7 +121,7 @@ def transport_errors() -> tuple[type[BaseException], ...]:
     return (ApiError, TransportError)
 
 
-def client(**kwargs: Any) -> Any:
+def client(**kwargs: Any) -> Elasticsearch:
     """Build an Elasticsearch client. Import is local so the core install stays lean.
 
     Keyword arguments override :data:`CONNECTION_OPTIONS`, which is how a caller supplies a
