@@ -52,6 +52,10 @@ grounded answer with a citation block.
   text. `docs/eval-how-to.md` is the instructions, with illustrative output nothing asserts.
   `docs/data/*.json` is the result. No script writes a `.txt` artifact, and no test parses a
   console line.
+- **Illustrative output is pasted from a run, never typed.** `eval-how-to.md`, `quickstart.md`
+  and `maintenance.md` show console output that nothing asserts — that is deliberate, and it is
+  not a licence to invent it. A sample stage table in `maintenance.md` was once written from
+  estimates that looked plausible and were not from any run. Paste it, and date it.
 - **Published numbers are generated, never typed.** Every figure quoted in `findings.md` and
   `docs/specs/single-call-retrieval.md` lives in a record under `docs/data/`, and is referenced
   inline: `<!--fig:probes.heldout.auc-->1.000<!--/-->`. `measurements.json` resolves at the root
