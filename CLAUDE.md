@@ -70,7 +70,7 @@ grounded answer with a citation block.
   once. Derive a claim like that from the record — `ArmReport.matches_or_beats_the_stronger_arm` —
   and assert the sentence against it, so a reindex that moves a rank moves the prose too.
 - **One command verifies all of it:** `uv run --extra es --extra mcp python scripts/verify.py`
-  — matrix, suite, and one stage per record, read-only, ~7 min. `--update` regenerates instead.
+  — matrix, suite, and one stage per record, read-only, ~5 min. `--update` regenerates instead.
   Run it before publishing anything and after any reindex. `tests/test_verify.py` derives the
   stage list from every script declaring `--check`, so a new publisher that is not wired in fails.
   See `docs/maintenance.md`.

@@ -111,19 +111,21 @@ last thing wanted before a demo is a command that quietly edits published docume
 
 It prints what it ran against before it runs anything — index, chunk count, Elasticsearch version,
 inference endpoint, commit and whether the tree is clean, plus the dates on the two data files —
-so the verdict can be quoted rather than just believed. **Measured 2026-08-29: 7.1 minutes.**
+so the verdict can be quoted rather than just believed. **Measured 2026-08-30: 5.0 minutes.**
 
 ```
   ok   compatibility matrix      0.3s   ok: compatibility-matrix.md matches the bundle
-  ok   test suite              152.4s   485 passed
-  ok   published figures       127.7s   every figure reproduces
-  ok   eval result               4.0s   the eval reproduces
-  ok   retrieval arms           40.9s   every arm rank reproduces
-  ok   fusion audit              6.1s   the fusion audit reproduces
+  ok   test suite              151.8s   447 passed
+  ok   published figures       136.1s   every figure reproduces
+  ok   eval result               4.1s   the eval reproduces
+  ok   retrieval arms            8.5s   every arm rank reproduces
+  ok   fusion audit              1.4s   the fusion audit reproduces
 ```
 
 One stage per record, so a stage that passes means every document quoting that record is true of
-the index as it stands. Most of the time is the cluster.
+the index as it stands. Most of the time is the cluster, and nearly all of that is the two stages
+that sweep every chunk. The run got faster when the captures went: re-running nine commands to
+compare their console text cost more than measuring the two records that replaced them.
 
 A stage list that falls behind would be worse than no command at all — `verify` would report
 success over an artifact it never looked at. `tests/test_verify.py` derives the list instead of
