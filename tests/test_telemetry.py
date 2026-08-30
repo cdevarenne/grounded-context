@@ -8,6 +8,7 @@ to the emit site and is tested there.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -115,19 +116,55 @@ def test_the_sink_creates_its_directory(tmp_path: Path, monkeypatch: pytest.Monk
 
 
 def test_a_failing_sink_never_raises(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """An unavailable sink is a no-op. The answer that was going to return still returns."""
+    """An unavailable sink is a no-op. The answer that was going to return still returns.
+
+    Reported through `logging` rather than `print`, so a host application embedding this package
+    can route or silence it. What must not change is that it is reported *once* and never raised.
+    """
     blocked = tmp_path / "blocked"
     blocked.mkdir()  # a directory where the log should be, so the append cannot succeed
     monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(blocked))
 
-    telemetry.emit({"n": 1})
+    with caplog.at_level(logging.WARNING, logger="grounded_context.telemetry"):
+        telemetry.emit({"n": 1})
 
-    stderr = capsys.readouterr().err.strip()
-    # Reported, so a broken sink is visible — but reported once, and not raised.
-    assert stderr.startswith("telemetry: IsADirectoryError")
-    assert stderr.count("\n") == 0, "at most one line on stderr"
+    assert len(caplog.records) == 1, "at most one report per failure"
+    assert caplog.records[0].levelno == logging.WARNING
+    assert caplog.records[0].exc_info is None, (
+        "no traceback: a stack trace printed under a successful answer reads like a crash, and "
+        "`emit` promises at most one line"
+    )
+    assert caplog.records[0].getMessage() == (
+        f"telemetry: IsADirectoryError: [Errno 21] Is a directory: '{blocked}'"
+    )
+
+
+def test_a_broken_log_handler_still_does_not_break_the_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The reason the broad `except` stays after the move to `logging`.
+
+    `print` could only fail on a closed stream. `logging` runs whatever handlers the host
+    installed, and one of those can raise — at which point the telemetry call is inside the
+    failure it was reporting. An answer must survive that too.
+    """
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    monkeypatch.setenv("GCTX_TELEMETRY_SINK", str(blocked))
+
+    class Exploding(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            raise RuntimeError("the host's handler is broken")
+
+    handler = Exploding()
+    logging.getLogger("grounded_context.telemetry").addHandler(handler)
+    monkeypatch.setattr(logging, "raiseExceptions", True)
+    try:
+        telemetry.emit({"n": 1})  # must not raise
+    finally:
+        logging.getLogger("grounded_context.telemetry").removeHandler(handler)
 
 
 def test_turning_telemetry_off_writes_nothing(sink: Path, monkeypatch: pytest.MonkeyPatch) -> None:

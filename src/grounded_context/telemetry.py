@@ -10,15 +10,82 @@ it, never the reverse.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
-from .provenance import DETERMINISTIC, NOT_FOUND
+from .provenance import DETERMINISTIC, NOT_FOUND, AnswerEnvelope
 from .router import SEMANTIC as ROUTE_SEMANTIC
+
+#: Reported through `logging`, not `print`, so a host application embedding this package can
+#: filter, route or silence it. With no handler configured — the CLI's situation — logging's
+#: last-resort handler still writes a WARNING to stderr, so what a `gctx` user sees is unchanged.
+log = logging.getLogger(__name__)
+
+
+def _report(message: str, error: BaseException) -> None:
+    """Report a telemetry failure, and survive the reporting failing too.
+
+    `print` could only fail on a closed stream. `logging` runs whatever handlers the host
+    installed, and `Handler.handle` does not guard `emit` — a handler that raises propagates
+    straight back through the `log.warning` call. That call sits inside the `except` block of the
+    failure it is describing, so an unguarded one would turn a best-effort write into the
+    exception the whole design promises an answer will never see.
+
+    One line, no traceback. `emit` promises at most one line on stderr, and a stack trace under a
+    successful answer reads like a crash — which is the opposite of what a best-effort write
+    should look like. The exception type and message are in the text; a host that wants the
+    traceback attaches a handler and raises the level.
+    """
+    try:
+        log.warning("%s: %s: %s", message, type(error).__name__, error)
+    except Exception:  # noqa: BLE001, S110 - the swallow is the point; see the docstring
+        # Nothing left to report to. Silence is the correct last resort for an observer.
+        pass
+
+
+class LatencyMs(TypedDict):
+    """Wall-clock per path. A path not taken is `None`, which is not zero."""
+
+    deterministic: float | None
+    semantic: float | None
+    total: float | None
+
+
+#: `@timestamp` is not a Python identifier, so this uses the functional form rather than the
+#: class body. The key name is Elasticsearch's, and renaming it to suit the syntax would break
+#: the Kibana time field — the declaration bends, not the contract.
+TelemetryEvent = TypedDict("TelemetryEvent", {
+    # UTC, milliseconds, `Z`-suffixed — the Kibana time field.
+    "@timestamp": str,
+    "schema_version": int,
+    "query": str,
+    "route": str,
+    "rationale": str,
+    "retrieval_path": str,
+    # `None` is not `False`: the deterministic path was not consulted at all.
+    "canonical_hit": bool | None,
+    "relevance_floor_passed": bool | None,
+    "relevance_score": float | None,
+    # `None` no request was attempted, `False` the cluster answered, `True` it was unreachable.
+    "semantic_unavailable": bool | None,
+    "refused": bool,
+    "cites": int,
+    "latency_ms": LatencyMs,
+})
+"""One event, in the shape `docs/specs/observability.md` publishes and `telemetry_index` maps.
+
+Declared because this dict has three consumers that must agree on it and cannot check each other:
+the summary reads it back, the Elasticsearch mapping types it, and the spec documents it. The
+mapping and the spec had already drifted apart once.
+
+A `TypedDict`, so the value stays a plain dict and `json.dumps` still writes one line per event
+with no encoder.
+"""
+
 
 SCHEMA_VERSION = 3
 
@@ -48,7 +115,7 @@ def is_enabled() -> bool:
     return os.environ.get("GCTX_TELEMETRY", "1").strip().lower() not in _DISABLED
 
 
-def _canonical_hit(envelope: dict[str, Any]) -> bool | None:
+def _canonical_hit(envelope: AnswerEnvelope) -> bool | None:
     """Whether the deterministic path was consulted, and whether it held the fact.
 
     `None` is not `False`. A precision query the bundle could not answer and a query that never
@@ -68,7 +135,7 @@ def _ms(value: float | None) -> float | None:
 
 def event(
     query: str,
-    envelope: dict[str, Any],
+    envelope: AnswerEnvelope,
     *,
     total_ms: float,
     deterministic_ms: float | None = None,
@@ -76,7 +143,7 @@ def event(
     relevance_floor_passed: bool | None = None,
     relevance_score: float | None = None,
     semantic_unavailable: bool | None = None,
-) -> dict[str, Any]:
+) -> TelemetryEvent:
     """Build one event from a finished envelope.
 
     Every field that can be read off the envelope is read off it rather than recomputed, so the
@@ -109,7 +176,7 @@ def event(
     }
 
 
-def record(query: str, envelope: dict[str, Any], **fields: Any) -> None:
+def record(query: str, envelope: AnswerEnvelope, **fields: Any) -> None:
     """Build and emit one event — the single call an answer path makes, and it cannot raise.
 
     `fields` are the keyword arguments of :func:`event`. Building is inside the guard as well as
@@ -120,15 +187,17 @@ def record(query: str, envelope: dict[str, Any], **fields: Any) -> None:
     try:
         emit(event(query, envelope, **fields))
     except Exception as error:  # noqa: BLE001
-        print(f"telemetry: {type(error).__name__}: {error}", file=sys.stderr)
+        # The broad catch is the contract, not an oversight.
+        _report("telemetry", error)
 
 
-def emit(entry: dict[str, Any], sink: str | None = None) -> None:
+def emit(entry: TelemetryEvent, sink: str | None = None) -> None:
     """Append one event to the log, best-effort.
 
-    Every failure is swallowed to at most one line on stderr. An unavailable telemetry sink is a
-    no-op, the same way an unavailable engine is a refusal rather than a crash: an answer that was
-    going to return still returns. The broad `except` is the requirement, not an oversight.
+    Every failure is swallowed to at most one logged line — stderr by default, wherever the host
+    routes it otherwise. An unavailable telemetry sink is a no-op, the same way an unavailable
+    engine is a refusal rather than a crash: an answer that was going to return still returns. The
+    broad `except` is the requirement, not an oversight.
     """
     if not is_enabled():
         return
@@ -138,7 +207,7 @@ def emit(entry: dict[str, Any], sink: str | None = None) -> None:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
     except Exception as error:  # noqa: BLE001
-        print(f"telemetry: {type(error).__name__}: {error}", file=sys.stderr)
+        _report("telemetry", error)
 
 
 # --- readback -------------------------------------------------------------------------

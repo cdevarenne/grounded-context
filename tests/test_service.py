@@ -212,7 +212,7 @@ def test_an_answer_with_no_cloud_still_records(
 
 
 def test_the_answer_survives_an_unbuildable_event(
-    bundle: Bundle, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """The guard covers building as well as writing — a malformed event is not an outage.
 
@@ -230,7 +230,9 @@ def test_the_answer_survives_an_unbuildable_event(
     )
 
     assert envelope["answer"] == "1,000,000"
-    assert capsys.readouterr().err.strip().startswith("telemetry: KeyError")
+    assert [r.getMessage() for r in caplog.records] == [
+        "telemetry: KeyError: 'retrieval_path'"
+    ], "reported once, through logging, and the answer still returned"
 
 
 def test_the_floor_score_reaches_the_event(
