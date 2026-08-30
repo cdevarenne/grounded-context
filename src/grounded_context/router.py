@@ -1,13 +1,17 @@
 """The router: which engine should answer this question?
 
-Rule-based on purpose. The interface is what matters — an LLM classifier can replace
-`route()` without any caller changing, and the rationale is part of the audit trail
-either way.
+The rules are heuristics on purpose. The interface is what matters. A different classifier
+replaces `route()` and no caller changes. The rationale stays part of the audit trail either way.
+
+`QueryRouter` is the name of that interface. `service.ask()` accepts one and uses `route` as the
+default. Before this, the claim above was true of the design and false of the code: `ask()` called
+`route()` directly, so no caller could supply a classifier and no test could substitute one.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 DETERMINISTIC = "DETERMINISTIC"
@@ -87,6 +91,12 @@ class Route:
 
     def as_dict(self) -> dict[str, str]:
         return {"route": self.route, "rationale": self.rationale}
+
+
+#: A router takes a query and returns a decision. `route` below satisfies it as written, so a
+#: replacement is a function, not a subclass. A stateful classifier that holds a client or a
+#: threshold satisfies it as a callable object.
+QueryRouter = Callable[[str], "Route"]
 
 
 def route(query: str) -> Route:

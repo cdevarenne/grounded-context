@@ -88,3 +88,59 @@ def test_an_ambiguous_both_is_not_marked_precision() -> None:
 def test_precision_is_not_serialized() -> None:
     """The envelope's router block is a published contract; its shape does not change."""
     assert set(route("compare a and b").as_dict()) == {"route", "rationale"}
+
+
+# --- the router port (ELX-49) ----------------------------------------------------------------
+
+
+def test_the_default_router_satisfies_the_port() -> None:
+    """`QueryRouter` is a callable type, so `route` satisfies it as written."""
+    from grounded_context.router import QueryRouter, route
+
+    classifier: QueryRouter = route
+    assert classifier("What is the context window of claude-opus-5?").route == "DETERMINISTIC"
+
+
+def test_ask_uses_the_router_it_is_given() -> None:
+    """The claim router.py makes in its own docstring, now true of the code.
+
+    A caller supplies a classifier and the engine follows it. Nothing else changes: the envelope
+    carries the supplied decision and its rationale, so the audit trail names what actually
+    decided.
+    """
+    from datetime import date
+
+    from grounded_context.router import SEMANTIC, Route
+    from grounded_context.service import ask, load_bundle
+
+    def always_semantic(query: str) -> Route:
+        return Route(SEMANTIC, "a stand-in classifier that sends everything to the semantic arm")
+
+    envelope = ask(
+        load_bundle(),
+        "What is the exact context window of claude-opus-5?",
+        date(2026, 8, 20),
+        router=always_semantic,
+    )
+
+    # The heuristic router sends this to DETERMINISTIC and it resolves. The substitute sends it
+    # to the semantic arm, so with no cluster it refuses. Either way the decision is recorded.
+    assert envelope["router"]["route"] == "SEMANTIC"
+    assert envelope["router"]["rationale"].startswith("a stand-in classifier")
+
+
+def test_a_stateful_classifier_also_satisfies_the_port() -> None:
+    """A callable object, not only a function. An LLM classifier holds a client and a threshold."""
+    from grounded_context.router import BOTH, QueryRouter, Route
+
+    class Recording:
+        def __init__(self) -> None:
+            self.seen: list[str] = []
+
+        def __call__(self, query: str) -> Route:
+            self.seen.append(query)
+            return Route(BOTH, "recorded")
+
+    classifier: QueryRouter = Recording()
+    classifier("a question")
+    assert classifier.seen == ["a question"]
