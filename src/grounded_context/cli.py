@@ -67,9 +67,25 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0
 
 
+#: Seven of the twenty eval cases need a cluster. Without one they fail rather than skip, and a
+#: fresh clone therefore reports failures against a README that quotes a full-cluster run. Say so
+#: before the table rather than let the reader infer the published numbers do not reproduce.
+NO_CLUSTER = (
+    "note: no Elasticsearch configured — no ES_URL / ES_API_KEY, or the `es` extra is not "
+    "installed.\nThe semantic and mixed cases below will FAIL rather than skip. The published "
+    "verdicts in\ndocs/data/eval.json come from a run with a cluster. See docs/quickstart.md.\n"
+)
+
+
 def cmd_eval(args: argparse.Namespace) -> int:
     """Run the eval set, or compare retrieval arms on one query."""
+    from .es_client import is_configured
     from .evaluation import compare_arms, run_all
+
+    # `--compare` needs a cluster and has nothing to degrade to, so it is left to `client()`,
+    # which raises ElasticsearchNotConfigured that `main()` turns into a sentence and exit 2.
+    if not args.compare and not is_configured():
+        print(NO_CLUSTER, file=sys.stderr)
 
     if args.compare:
         from .evaluation import target_for

@@ -173,7 +173,12 @@ class Bundle:
     def load(cls, root: Path) -> Bundle:
         root = Path(root)
         if not root.is_dir():
-            raise BundleError(f"bundle root not found: {root}")
+            raise BundleError(
+                f"bundle root not found: {root}\n"
+                "The default is resolved relative to the package, which only holds for a source "
+                "checkout or an editable install (`pip install -e .`). A non-editable install "
+                "does not ship knowledge/. Pass --bundle PATH or set GC_BUNDLE."
+            )
 
         concepts: dict[str, Concept] = {}
         for path in sorted(root.rglob("*.md")):

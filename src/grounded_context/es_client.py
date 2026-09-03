@@ -127,7 +127,16 @@ def client(**kwargs: Any) -> Elasticsearch:
     Keyword arguments override :data:`CONNECTION_OPTIONS`, which is how a caller supplies a
     corporate CA bundle (`ca_certs=...`) or tightens a timeout for one call.
     """
-    from elasticsearch import Elasticsearch
+    try:
+        from elasticsearch import Elasticsearch
+    except ModuleNotFoundError as exc:  # the `es` extra is not installed
+        # `is_configured()` already counts a missing module as unavailable. Raising the domain
+        # error here makes `client()` agree with it, and `main()` turns this into a sentence
+        # instead of letting a ModuleNotFoundError traceback reach a reader who just cloned.
+        raise ElasticsearchNotConfigured(
+            "the `es` extra is not installed — "
+            'uv sync --extra dev --extra es, or pip install -e ".[dev,es]"'
+        ) from exc
 
     url, api_key = credentials()
     return Elasticsearch(url, api_key=api_key, **{**CONNECTION_OPTIONS, **kwargs})

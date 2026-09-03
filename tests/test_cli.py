@@ -180,3 +180,59 @@ def test_an_unexpected_error_still_raises(monkeypatch):
 
     with pytest.raises(KeyError):
         main(["route", "anything"])
+
+
+# --- the no-cluster guard on `gctx eval` -------------------------------------------------------
+
+
+def test_eval_says_so_when_no_cluster_is_configured(monkeypatch, capsys) -> None:
+    """A fresh clone runs `gctx eval` before anything else, and seven cases fail without a cluster.
+
+    The README quotes a full-cluster run. Without this banner the only conclusion available to
+    someone who just cloned the repo is that the published numbers do not reproduce.
+    """
+    monkeypatch.setattr("grounded_context.es_client.is_configured", lambda: False)
+    # Exit 1, not 0: seven cases really do fail. The banner explains the failures, it does not
+    # excuse them — a green exit on a half-run eval would be the worse lie.
+    assert main(["eval"]) == 1
+    err = capsys.readouterr().err
+    assert "no Elasticsearch configured" in err
+    assert "docs/data/eval.json" in err
+
+
+def test_a_missing_es_extra_is_a_message_not_a_traceback(monkeypatch, capsys) -> None:
+    """A bare install has no `elasticsearch`, and `gctx eval --compare` dumped the import error.
+
+    A fresh clone hit this: `ModuleNotFoundError: No module named 'elasticsearch'` with a full
+    stack, while `gctx telemetry index` printed a usable sentence for the same missing extra.
+    `client()` now raises the domain error that `main()` already knows how to report.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def no_elasticsearch(name, *args, **kwargs):
+        if name == "elasticsearch":
+            raise ModuleNotFoundError("No module named 'elasticsearch'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_elasticsearch)
+    assert main(["eval", "--compare", "rank_constant"]) == 2
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert "es` extra is not installed" in err
+
+
+def test_a_missing_bundle_names_the_way_out(tmp_path) -> None:
+    """The default bundle path assumes a source checkout. When that is false, say what to do.
+
+    A non-editable `pip install` resolves the default to a directory inside site-packages that
+    does not exist, because knowledge/ is not package data.
+    """
+    from grounded_context.bundle import Bundle, BundleError
+
+    with pytest.raises(BundleError) as excinfo:
+        Bundle.load(tmp_path / "absent")
+    message = str(excinfo.value)
+    assert "--bundle" in message and "GC_BUNDLE" in message
+    assert "editable" in message
