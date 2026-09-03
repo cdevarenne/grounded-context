@@ -246,8 +246,14 @@ cp .env.example .env      # then fill in ES_URL and ES_API_KEY
 install:
 
 ```bash
-uv sync --extra dev --extra es
+uv sync --extra dev --extra es                # uv
+.venv/bin/pip install -e ".[dev,es]"          # venv + pip
 ```
+
+On the venv path, drop the `uv run --extra es` prefix from every command below. `gctx …` becomes
+`.venv/bin/gctx …`, and `python scripts/…` becomes `.venv/bin/python scripts/…`. Installing the
+extra is not enough on its own — step 2 must also be done, or the commands report the semantic
+path as unavailable.
 
 **4. A corpus on disk, then an index built from it.** The corpus is *not* committed — third-party
 documentation prose does not belong in this repo. The manifest is committed, and the fetcher
@@ -391,6 +397,9 @@ a broken clone — the report says which ran and which did not.
 | Exit code `1` | A grounded refusal. Not an error. |
 | Exit code `2` | A real error — a malformed bundle, or a path that does not resolve. |
 | `⚠ STALE` in a citation | The `stale_after` date has passed. Follow [`docs/maintenance.md`](maintenance.md); do not edit the date to silence it. |
+| `error: the `es` extra is not installed` | A bare install is PyYAML-only by design. `uv sync --extra dev --extra es`, or `.venv/bin/pip install -e ".[dev,es]"`. |
+| `gctx eval` reports the semantic cases as `FAIL`, after a `note:` about no cluster | Expected without Elasticsearch. Seven of the twenty cases need it, and they fail rather than skip. Do steps 2 and 3. The published verdicts in [`docs/data/eval.json`](data/eval.json) come from a run with a cluster. |
+| `bundle root not found: …/site-packages/…` or `…/lib/python3.x/knowledge` | The install is not editable, and `knowledge/` is not shipped as package data. Reinstall with `pip install -e .`, or pass `--bundle PATH` / set `GC_BUNDLE`. |
 | `gctx: command not found` | The install did not put the console script on PATH. Use `uv run gctx …`, or `.venv/bin/gctx`. |
 | ELSER errors on a self-managed cluster | `ES_INFERENCE_ID` still points at the Serverless default. Set it to your own endpoint and rebuild the index. |
 

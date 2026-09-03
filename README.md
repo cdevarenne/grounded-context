@@ -107,7 +107,7 @@ The semantic half needs a cloud endpoint and an API key in a gitignored `.env`, 
 extra. [`.env.example`](.env.example) is the template — `cp .env.example .env` and fill it in:
 
 ```bash
-uv sync --extra dev --extra es
+uv sync --extra dev --extra es                # uv; venv + pip: pip install -e ".[dev,es]"
 uv run python scripts/fetch_corpus.py                  # 25 curated pages → corpus/raw/ (gitignored)
 uv run --extra es python scripts/index_corpus.py --recreate
 uv run --extra es gctx ask "How should I chunk documents for retrieval?"
