@@ -3,9 +3,9 @@
 A grounded, composable, **deterministic-where-it-matters** context layer for LLM agents —
 built on Elasticsearch, reached over MCP, model-agnostic.
 
-**Write-up:** [A Grounded Context Layer for Agents — and Three Things Hybrid Search Won't Tell
+**Write-up:** [A Grounded Context Layer for Agents — and Four Things Hybrid Search Won't Tell
 You](https://medium.com/@claude.devarenne/a-grounded-context-layer-for-agents-and-three-things-hybrid-search-wont-tell-you-e71fdc334773)
-— the design and the three findings behind it.
+— the design and the four findings behind it.
 
 > **Thesis:** Elasticsearch isn't just a vector store for agents. It's the authoritative,
 > auditable context layer that makes an agent's reasoning explainable and verifiable. A
@@ -212,7 +212,7 @@ strengthen it.
   and the telemetry readback.
 - **[docs/design.md](docs/design.md)** — the five design properties, OKF grounding, the
   two-corpora governance split, the core tradeoff, and the observability plan.
-- **[docs/findings.md](docs/findings.md)** — three things that surfaced while building the
+- **[docs/findings.md](docs/findings.md)** — four things that surfaced while building the
   hybrid path, including a hypothesis the cluster contradicted and what replaced it.
 - **[docs/eval-how-to.md](docs/eval-how-to.md)** — how to reproduce every number in the findings,
   with illustrative output. The numbers themselves are records under

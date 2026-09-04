@@ -410,6 +410,6 @@ a broken clone — the report says which ran and which did not.
 
 - [`docs/design.md`](design.md) — why it is built this way: the five design properties, the
   governance split, and the central tradeoff.
-- [`docs/findings.md`](findings.md) — three things that surfaced while building the hybrid path.
+- [`docs/findings.md`](findings.md) — four things that surfaced while building the hybrid path.
 - [`docs/specs/`](specs/) — the contracts the implementation follows.
 - [`README.md`](../README.md#out-of-scope) — what this deliberately is not.
