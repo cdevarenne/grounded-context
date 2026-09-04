@@ -201,6 +201,40 @@ When you rebuild the **real** index rather than a scratch one, the same three `-
 become the acceptance test, and then both publishers must be run for real so
 `docs/data/*.json` describe the index that now exists.
 
+## Keeping the architecture diagram current
+
+[`docs/architecture.mmd`](architecture.mmd) is the source. It is text, it renders inline on
+GitHub, and an agent or a developer can read it. It shows every route the code has, including the
+relevance floor, the BOTH route and its refusal on a precision miss, and the DIRECT route of
+`lookup_canonical_fact`.
+
+`docs/grounded-context-diagram.png` is a render of that source, and it is the image the README
+shows. Nothing was drawn by hand, so the picture cannot say something the source does not.
+
+Regenerate it after any edit to the source:
+
+```bash
+npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -c docs/mermaid-render.json \
+    -o docs/grounded-context-diagram.png -w 1800 -s 2 -b white
+```
+
+Then set `GENERATED_FROM` in `tests/test_diagram.py` to the new digest —
+`shasum -a 256 docs/architecture.mmd`.
+
+**The test detects drift; it cannot repair it.** The render needs node and a headless browser,
+which the rest of this repo does not, so no CI job regenerates the image. The pin is over the
+source rather than over the PNG bytes: mermaid renders through a browser, so the same source on a
+different chromium or font set produces a different file, and a byte comparison would fail for
+reasons that have nothing to do with the diagram.
+
+The ELK layout and theme live in [`docs/mermaid-render.json`](mermaid-render.json) rather than in
+the `.mmd` front matter. GitHub and Medium render mermaid with their own build, which does not
+load the ELK layout package. A source that demanded it would degrade where developers read it.
+The source stays portable; the polish stays in the render step.
+
+`-s 2` renders at twice the scale. The same file is then legible projected as well as in a
+browser, which is the only reason the image is 3878 pixels tall.
+
 ## What is automated today, and what is not
 
 Automated — these fail a build:
@@ -210,6 +244,7 @@ Automated — these fail a build:
 | `scripts/build_matrix.py --check` | a compatibility matrix that no longer matches the bundle |
 | `pytest` bundle tests | malformed front matter, dangling links, a non-date `stale_after` |
 | `BundleParityTest` (JVM) | the two `knowledge/` copies diverging |
+| `tests/test_diagram.py` | the architecture source moving without the published image being regenerated |
 
 **Not automated: nothing warns you that a date is approaching.** `is_stale` is evaluated per
 answer, so you find out when a citation says `STALE` — correct behaviour, late notice. Closing

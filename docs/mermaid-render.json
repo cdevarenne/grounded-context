@@ -1,0 +1,11 @@
+{
+  "_comment": "Print-quality render settings for docs/architecture.mmd. Kept out of the .mmd front-matter on purpose: GitHub and Medium render mermaid with their own build, which does not load the ELK layout package, so a diagram that demanded it would degrade where developers actually read it. The source stays portable; the polish lives here.",
+  "layout": "elk",
+  "look": "neo",
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Helvetica Neue, Helvetica, Arial, sans-serif",
+    "fontSize": "15px",
+    "lineColor": "#5b6b7c"
+  }
+}

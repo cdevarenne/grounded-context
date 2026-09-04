@@ -36,16 +36,19 @@ This project separates them, routes between them, and makes every answer show it
 - **Semantic path** — BM25 + ELSER on Elasticsearch, fused with reciprocal rank fusion (RRF),
   for open questions.
 - **Router** — sends exact-fact queries to the deterministic path and open questions to
-  semantic; on ambiguity it runs both and lets the exact hit win. Its decision and rationale are
-  part of the audit trail.
+  semantic; on ambiguity it runs both and lets the exact hit win. A precision question the bundle
+  cannot answer refuses rather than falling back to ranking — a curation gap is not an invitation
+  to rank. Its decision and rationale are part of the audit trail.
 - **Provenance, always** — every answer carries a citation block. If retrieval finds nothing,
   the answer is "Not found in the grounded sources" — never a fallback to model memory.
 
-<img title="Architecture Overview" alt="Architecture Overview" src="docs/grounded-context-diagram.jpeg">
+<img title="Architecture Overview" alt="Architecture Overview" src="docs/grounded-context-diagram.png">
+
+*Rendered from [`docs/architecture.mmd`](docs/architecture.mmd), which is the source. A test fails
+if the two part company.*
 
 Why it's built this way — the five design properties, OKF grounding, the governance split, and
-the central tradeoff — is in **[docs/design.md](docs/design.md)**. Diagram :
-[`docs/architecture.mmd`](docs/architecture.mmd).
+the central tradeoff — is in **[docs/design.md](docs/design.md)**.
 
 ---
 

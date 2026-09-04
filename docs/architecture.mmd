@@ -1,9 +1,20 @@
 %% Grounded Context Layer — reference architecture
-%% Left-to-right request path. Two consumers prove model-agnosticism via one MCP tool.
-%% The router sends exact facts to the deterministic path and exploration to Elasticsearch;
-%% on ambiguity it queries BOTH and lets the exact hit win.
+%% Top-to-bottom request path. Three consumers prove model-agnosticism via one MCP server.
+%% Router: exact facts go to the deterministic path, exploration to Elasticsearch. An ambiguous
+%% or cross-entity question queries BOTH and prefers the exact hit. But a PRECISION question the
+%% bundle cannot answer refuses, and does not fall back to ranking (`service._merge`). A curation
+%% gap is not an invitation to rank. That refusal is the thesis, not an edge case.
+%% Semantic path: the ELSER score is probed before fusion. Below RELEVANCE_FLOOR (8.0) the search
+%% returns nothing, and the empty result becomes the refusal (`semantic.search`).
+%% `lookup_canonical_fact` names its entity and field outright, so no router runs. Telemetry
+%% records that route as DIRECT.
 %% Agent Builder and Workflows/SOAR are described, not built (dashed).
-flowchart LR
+%% This file is the source. `grounded-context-diagram.png` is rendered from it and is the image
+%% the README shows. Regenerate it after any edit here, or tests/test_diagram.py fails:
+%%   npx @mermaid-js/mermaid-cli -i docs/architecture.mmd -c docs/mermaid-render.json \
+%%     -o docs/grounded-context-diagram.png -w 1800 -s 2 -b white
+%% See docs/maintenance.md.
+flowchart TB
     U["User / calling app"]
 
     subgraph AGENT["Agent layer — model-agnostic"]
@@ -13,7 +24,7 @@ flowchart LR
         AV["Antigravity<br/>(third consumer)"]
     end
 
-    M["MCP server<br/>retrieval tool"]
+    M["MCP server<br/>ask_grounded · lookup_canonical_fact"]
     R{"Router<br/>exact fact, or exploration?"}
 
     subgraph DET["Deterministic path — no cloud dependency"]
@@ -25,33 +36,50 @@ flowchart LR
 
     subgraph ES["Elasticsearch — semantic path"]
         direction TB
+        FL{"Relevance floor<br/>ELSER score >= 8.0?"}
         BM["BM25<br/>lexical"]
         EL["ELSER<br/>learned sparse"]
         HF["RRF<br/>rank fusion"]
+        FL -->|clears| BM
+        FL -->|clears| EL
         BM --> HF
         EL --> HF
     end
 
-    G["Grounded context + provenance<br/>source · locator · path · method · score · verified · stale_after"]
+    G["Grounded context + provenance<br/>source · locator · path · method · score<br/>verified_at · trust_tier · status · stale_after"]
     A["Answer WITH citation block<br/>or 'Not found in the grounded sources'"]
 
     AB["Agent Builder<br/>native productization"]
     WF["Workflows / SOAR<br/>action execution"]
 
     U --> CL
+    U --> CX
     U --> AV
-    CL -->|MCP| M
-    CX -->|MCP| M
-    AV -->|MCP| M
+    CL --> M
+    CX --> M
+    AV --> M
     M --> R
-    R -->|"canonical / precision"| DET
-    R -->|"exploratory"| ES
+    M -->|"lookup_canonical_fact — no routing (DIRECT)"| KB
+    R -->|"canonical / precision · ambiguous (both)"| KB
+    R -->|"exploratory · ambiguous (both)"| FL
     LK --> G
     HF --> G
     R -.->|"decision + rationale (audit trail)"| G
+    LK -.->|"precision miss — refuse, never rank"| A
+    FL -.->|"below floor — refuse"| A
     G --> A
     A -.->|described, not built| AB
     A -.->|described, not built| WF
 
+    classDef agent fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a;
+    classDef det fill:#fce7f3,stroke:#ec4899,color:#831843;
+    classDef sem fill:#cffafe,stroke:#06b6d4,color:#164e63;
+    classDef gate fill:#fef3c7,stroke:#f59e0b,color:#78350f;
+    classDef out fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     classDef notbuilt fill:#f7f7f7,stroke:#999,stroke-dasharray:5 5,color:#666;
+    class CL,CX,AV agent;
+    class KB,LK det;
+    class BM,EL,HF sem;
+    class R,FL gate;
+    class U,M,G,A out;
     class AB,WF notbuilt;
