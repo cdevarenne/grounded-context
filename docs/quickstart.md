@@ -396,6 +396,7 @@ a broken clone — the report says which ran and which did not.
 | `Not found in the grounded sources.` on an exploratory question | No Elasticsearch reachable, or an empty index. Check `.env`, then re-run `index_corpus.py`. |
 | Exit code `1` | A grounded refusal. Not an error. |
 | Exit code `2` | A real error — a malformed bundle, or a path that does not resolve. |
+| `model_deployment_timeout_exception … waiting for trained model deployment [.elser-2-elasticsearch] to start` | The ELSER deployment scales to zero and takes longer to start than the client timeout allows. Re-run the command; the second attempt succeeds once the model is up. Warm it before a demo. |
 | `⚠ STALE` in a citation | The `stale_after` date has passed. Follow [`docs/maintenance.md`](maintenance.md); do not edit the date to silence it. |
 | `error: the `es` extra is not installed` | A bare install is PyYAML-only by design. `uv sync --extra dev --extra es`, or `.venv/bin/pip install -e ".[dev,es]"`. |
 | `gctx eval` reports the semantic cases as `FAIL`, after a `note:` about no cluster | Expected without Elasticsearch. Seven of the twenty cases need it, and they fail rather than skip. Do steps 2 and 3. The published verdicts in [`docs/data/eval.json`](data/eval.json) come from a run with a cluster. |
