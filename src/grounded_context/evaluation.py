@@ -131,11 +131,11 @@ CASES: tuple[EvalCase, ...] = (
     # (scripts/measure_findings.py); these two are what check it end to end, including the one
     # question it is known to get wrong.
     EvalCase("Q19", "How do I bake sourdough bread?", REFUSAL,
-             ROUTE_SEMANTIC, "the floor doing its job: routed SEMANTIC, scores 2.05 against a floor of 8, "
-             "and the empty result becomes the refusal"),
+             ROUTE_SEMANTIC, "the floor doing its job: routed SEMANTIC, scored far below the floor, "
+             "and the empty result becomes the refusal. The score is in findings.md finding 3"),
     EvalCase("Q20", "What is the best way to train for a marathon?", REFUSAL,
              ROUTE_SEMANTIC, "the floor's documented false positive",
-             known_deviation="findings.md finding 3: this clears the floor at 16.11 because "
+             known_deviation="findings.md finding 3: this clears the floor because "
                              "Elastic's semantic_text page teaches the feature with running "
                              "and exercise sample documents. The retrieval is correct and the "
                              "passages are real; only the subject is a surprise. The floor "

@@ -9,12 +9,13 @@ the protocol.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from mcp.server import MCPServer
 
 from .provenance import AnswerEnvelope, render
-from .service import as_of_date, ask, load_bundle, lookup_field
+from .service import as_of_date, ask, bundle_root, load_bundle, lookup_field
 from .store import KnowledgeStore
 
 INSTRUCTIONS = """Grounded context layer over a curated, provenance-carrying knowledge bundle.
@@ -29,10 +30,37 @@ filling the gap yourself. When a citation reports staleness, pass that warning o
 server = MCPServer(name="grounded-context", instructions=INSTRUCTIONS)
 
 
-@lru_cache(maxsize=1)
-def _bundle() -> KnowledgeStore:
-    """Load the bundle once per process. Markdown on disk stays the source of truth."""
+def _fingerprint(root: Path) -> tuple[tuple[str, int, int], ...]:
+    """What the bundle looks like on disk right now: every file, its size and its mtime."""
+    return tuple(sorted(
+        (str(path.relative_to(root)), info.st_size, info.st_mtime_ns)
+        for path in root.rglob("*.md")
+        for info in (path.stat(),)
+    ))
+
+
+@lru_cache(maxsize=2)
+def _load(fingerprint: tuple[tuple[str, int, int], ...]) -> KnowledgeStore:
+    """Parse the bundle. The argument is never read — it is what makes the cache expire."""
     return load_bundle()
+
+
+def _bundle() -> KnowledgeStore:
+    """The bundle as it is on disk, parsed once per version of it.
+
+    The CLI exits between questions, so it never had this problem. A long-running MCP server
+    does: cached unconditionally, it answers from the bundle as it was when the process started,
+    for as long as the process lives.
+
+    That is not a slow refresh, it is a wrong answer with provenance attached. Re-verification —
+    the procedure in docs/maintenance.md — is precisely when the file changes, so the moment the
+    layer is corrected is the moment a running server begins serving the value that was just
+    found to be wrong, still carrying the old `verified` date and trust tier.
+
+    Stat is cheap and parsing four Markdown files is not expensive either; the cache is kept
+    because it is free, not because it is needed.
+    """
+    return _load(_fingerprint(bundle_root()))
 
 
 def _with_citation_block(envelope: AnswerEnvelope) -> dict[str, Any]:

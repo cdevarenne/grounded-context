@@ -8,6 +8,7 @@ So these go through `server.call_tool` / `server.list_tools` the way a client do
 from __future__ import annotations
 
 import asyncio
+import shutil
 from datetime import date
 from typing import Any
 
@@ -179,3 +180,51 @@ def test_list_entities_tool_exposes_the_bundle() -> None:
     opus = next(e for e in entities if e["id"] == "anthropic.claude-opus-5")
     assert "context_window_tokens" in opus["canonical_fields"]
     assert opus["trust_tier"] == "human-reviewed"
+
+
+# --- the bundle cache expires when the bundle changes (ELX-52) -------------------------------
+
+
+def test_a_corrected_bundle_reaches_a_running_server(
+    tmp_path: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The CLI exits between questions. A server does not, and used to answer from a snapshot.
+
+    Cached unconditionally, a long-running server serves the bundle as it was when the process
+    started. That is not a slow refresh, it is a wrong answer with a citation, a trust tier and a
+    verification date attached.
+
+    The scenario is not hypothetical. On 2026-09-09 re-verification found Claude Sonnet 5's price
+    had moved and corrected the file; a server started before that edit would have gone on
+    answering the old value indefinitely. Re-verification is exactly when the bundle changes, so
+    the moment the layer is corrected is the moment a cached server starts serving the value that
+    was just found to be wrong.
+    """
+    from grounded_context import mcp_server
+
+    bundle = tmp_path / "knowledge"
+    shutil.copytree(service.bundle_root(), bundle)
+    monkeypatch.setenv("GC_BUNDLE", str(bundle))
+    mcp_server._load.cache_clear()
+
+    priced = bundle / "models" / "anthropic-claude-sonnet-5.md"
+    field = "output_price_per_mtok_usd"
+    before = call("lookup_canonical_fact", entity_id="anthropic.claude-sonnet-5", field=field)
+    assert before["answer"] == "10.0"
+
+    priced.write_text(priced.read_text().replace(f"{field}: 10.0", f"{field}: 99.0"))
+
+    after = call("lookup_canonical_fact", entity_id="anthropic.claude-sonnet-5", field=field)
+    assert after["answer"] == "99.0", "a corrected bundle must reach a server that is already up"
+
+
+def test_an_unchanged_bundle_is_parsed_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Expiring on change must not mean re-parsing on every call."""
+    from grounded_context import mcp_server
+
+    mcp_server._load.cache_clear()
+    for _ in range(3):
+        call("list_entities")
+    info = mcp_server._load.cache_info()
+    assert info.misses == 1, f"parsed {info.misses} times for an unchanged bundle"
+    assert info.hits >= 2

@@ -474,3 +474,65 @@ def test_one_named_entity_is_still_a_plain_lookup(bundle: Bundle) -> None:
     envelope = ask(bundle, "What is the max output tokens for claude-sonnet-5?", as_of_date())
     assert envelope["answer"] == "128,000"
     assert len(envelope["citations"]) == 1
+
+
+# --- fields that answer correctly and were never pinned (ELX-68, ELX-69, ELX-71) -------------
+#
+# Found by running every query in the demo set rather than by a failure. All of these were right
+# already; nothing asserted them, in the resolver that has broken three times in three weeks.
+
+
+@pytest.mark.parametrize(
+    "question, expected, locator",
+    [
+        # ELX-68 — the endpoint concept carries six canonical fields and only `path` had a case.
+        ("What is the api version for the messages endpoint?", "2023-06-01", "api_version"),
+        ("What is the auth header the messages endpoint expects?", "x-api-key", "auth_header"),
+        ("What is the base url for the messages endpoint?",
+         "https://api.anthropic.com", "base_url"),
+        # ELX-69 — the two identity strings, which are different strings on Haiku.
+        ("What is the api alias for claude-opus-5?", "claude-opus-5", "api_alias"),
+        ("What is the model id for claude-haiku-4-5?",
+         "claude-haiku-4-5-20251001", "model_string"),
+    ],
+)
+def test_an_exact_field_answers_through_ask(
+    bundle: Bundle, question: str, expected: str, locator: str
+) -> None:
+    envelope = ask(bundle, question, as_of_date())
+    assert envelope["answer"] == expected
+    assert envelope["citations"][0]["locator"] == f"canonical.{locator}"
+
+
+def test_the_alias_and_the_pinned_id_are_not_interchangeable(bundle: Bundle) -> None:
+    """Haiku 4.5 is the case the bundle prose calls the point of the file.
+
+    `model_string` is `claude-haiku-4-5-20251001` and `api_alias` is `claude-haiku-4-5`. A
+    resolver that collapsed the two would answer the wrong string with a citation, which is the
+    ELX-44 and issue #11 failure shape a third time.
+    """
+    haiku = "anthropic.claude-haiku-4-5"
+    assert lookup_field(bundle, haiku, "model_string", as_of_date())["answer"] == (
+        "claude-haiku-4-5-20251001"
+    )
+    assert lookup_field(bundle, haiku, "api_alias", as_of_date())["answer"] == "claude-haiku-4-5"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What is the rate limit for claude-opus-5?",
+        "How many parameters does claude-sonnet-5 have?",
+    ],
+)
+def test_a_field_the_bundle_does_not_hold_refuses_through_ask(
+    bundle: Bundle, question: str
+) -> None:
+    """ELX-71. `gctx lookup` had this pinned; `ask` is the path an agent actually takes.
+
+    The entity is real and the field is not, which is the shape most likely to tempt a guess:
+    everything about the question looks answerable.
+    """
+    envelope = ask(bundle, question, as_of_date())
+    assert envelope["answer"] == NOT_FOUND
+    assert envelope["citations"] == []

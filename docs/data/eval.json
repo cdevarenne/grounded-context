@@ -5,7 +5,7 @@
     "concepts": 4,
     "index": "grounded-context-corpus",
     "elasticsearch_configured": true,
-    "git_sha": "a53a31d"
+    "git_sha": "5675c04"
   },
   "totals": {
     "pass": 19,
