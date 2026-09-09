@@ -1,11 +1,11 @@
 {
   "run": {
-    "measured_at": "2026-08-30",
+    "measured_at": "2026-09-09",
     "bundle": "knowledge",
     "concepts": 4,
     "index": "grounded-context-corpus",
     "elasticsearch_configured": true,
-    "git_sha": "591caa5"
+    "git_sha": "a53a31d"
   },
   "totals": {
     "pass": 19,
@@ -120,7 +120,7 @@
       "expected_route": "BOTH",
       "route": "BOTH",
       "rationale": "cross-entity comparison (\"compare\") \u2014 exact values are required, so a deterministic miss refuses rather than falling back to passages",
-      "citations": 6,
+      "citations": 7,
       "verdict": "PASS"
     },
     {

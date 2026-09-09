@@ -172,6 +172,35 @@ def find_entity(bundle: KnowledgeStore, text: str) -> str | None:
     return max(candidates)[1]
 
 
+def find_entities(bundle: KnowledgeStore, text: str) -> list[str]:
+    """Every concept the text names, in the order the text names them.
+
+    `find_entity` returns the single best match. That is right for a lookup and wrong for a
+    comparison: "compare A and B" names two concepts, and answering for one of them is not a
+    partial answer, it is the answer to a different question.
+
+    Order follows the query rather than concept id, so a rendered comparison reads in the order
+    it was asked. Matching is `contains`, so the whole-term rule that keeps `vision` out of
+    `revision` applies here too.
+    """
+    found: dict[str, int] = {}
+    for concept in bundle:
+        needles = {concept.id, *concept.aliases}
+        for key in ("model_string", "api_alias"):
+            if key in concept.canonical:
+                needles.add(str(concept.canonical[key]))
+        starts = [at for at in (_start(text, needle) for needle in needles) if at is not None]
+        if starts:
+            found[concept.id] = min(starts)
+    return sorted(found, key=lambda concept_id: found[concept_id])
+
+
+def _start(text: str, needle: str) -> int | None:
+    """Where `needle` begins in `text` as a whole term, or `None`."""
+    match = _whole(needle.lower()).search(text.lower())
+    return match.start() if match else None
+
+
 def find_field(
     bundle: KnowledgeStore,
     text: str,

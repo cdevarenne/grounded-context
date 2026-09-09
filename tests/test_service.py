@@ -405,4 +405,72 @@ def test_an_outage_still_returns_the_exact_hit_on_a_both_query(
                    as_of_date("2026-08-20"))
 
     assert envelope["answer"] != NOT_FOUND
-    assert [c["path"] for c in envelope["citations"]] == ["deterministic"]
+    # Every surviving citation is deterministic — that is the property. The count is two because
+    # this query is a comparison and both sides are answered (ELX-70); it was one before that.
+    assert {c["path"] for c in envelope["citations"]} == {"deterministic"}
+    assert len(envelope["citations"]) == 2
+
+
+# --- comparisons answer every side, or none (ELX-70) ----------------------------------------
+#
+# "Compare the max output tokens of A and B" used to answer 64,000 — B's value, cited to B, with
+# nothing saying A had been dropped. "Is A cheaper than B" refused. Same question shape, opposite
+# behaviour, and the difference was only whether a field synonym happened to match.
+
+COMPARISON_QUERY = "Compare the max output tokens of claude-sonnet-5 and claude-haiku-4-5."
+EXPLORATORY_COMPARISON = (
+    "What is the difference between claude-opus-5 and claude-sonnet-5 max output tokens?"
+)
+
+
+def _with_passages(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        service, "semantic_citations",
+        lambda query, size=5: service.SemanticResult(
+            [PASSAGE], floor_passed=True, floor_score=19.0
+        ),
+    )
+
+
+@pytest.mark.parametrize("query", [COMPARISON_QUERY, EXPLORATORY_COMPARISON])
+def test_a_comparison_answers_every_side_it_named(
+    bundle: Bundle, monkeypatch: pytest.MonkeyPatch, query: str
+) -> None:
+    """Both sides, each separately cited, whichever router branch the question arrived by.
+
+    `EXPLORATORY_COMPARISON` is the reason this is not gated on `decision.precision`: the router
+    reads "difference between" as exploratory, so that phrasing never sets the flag and would
+    have kept answering with one side.
+    """
+    envelope = ask(bundle, query, as_of_date())
+    exact = [c for c in envelope["citations"] if c["path"] == "deterministic"]
+    assert len(exact) == 2, "a two-sided question needs two exact citations"
+    assert {c["source_id"] for c in exact} == set(service.find_entities(bundle, query))
+    for concept_id in service.find_entities(bundle, query):
+        assert concept_id in {c["source_id"] for c in exact}
+    assert envelope["answer"].count(":") == 2, envelope["answer"]
+
+
+def test_a_comparison_refuses_when_one_side_cannot_be_answered(bundle: Bundle) -> None:
+    """Every side or none. A half-answered comparison is the answer to a different question.
+
+    `max_output_tokens_batch_api` is the case the bundle actually has: Opus 5 and Sonnet 5 carry
+    it and Haiku 4.5 does not. Answering Opus alone would be a cited number that reads as though
+    the comparison had been made.
+    """
+    envelope = service._comparison_envelope(
+        bundle,
+        ["anthropic.claude-opus-5", "anthropic.claude-haiku-4-5"],
+        "max_output_tokens_batch_api",
+        as_of_date(),
+        route(COMPARISON_QUERY),
+    )
+    assert envelope["answer"] == NOT_FOUND
+    assert envelope["citations"] == []
+
+
+def test_one_named_entity_is_still_a_plain_lookup(bundle: Bundle) -> None:
+    """The comparison path must not capture the single-entity question it sits beside."""
+    envelope = ask(bundle, "What is the max output tokens for claude-sonnet-5?", as_of_date())
+    assert envelope["answer"] == "128,000"
+    assert len(envelope["citations"]) == 1

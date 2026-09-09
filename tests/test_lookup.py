@@ -3,7 +3,13 @@ from pathlib import Path
 import pytest
 
 from grounded_context.bundle import Bundle
-from grounded_context.lookup import find_entity, find_field, lookup, resolve
+from grounded_context.lookup import (
+    find_entities,
+    find_entity,
+    find_field,
+    lookup,
+    resolve,
+)
 
 BUNDLE = Path(__file__).resolve().parents[1] / "knowledge"
 
@@ -337,3 +343,24 @@ def test_every_canonical_field_is_reachable_from_a_natural_question(bundle):
         name for name in fields if find_field(bundle, NATURAL_PHRASING[name]) != name
     )
     assert not unreachable, f"canonical fields no natural question reaches: {unreachable}"
+
+
+def test_find_entities_returns_every_concept_named_in_query_order(bundle):
+    """`find_entity` answers "which one"; a comparison needs "which ones", in asking order."""
+    assert find_entities(
+        bundle, "Compare the max output tokens of claude-sonnet-5 and claude-haiku-4-5."
+    ) == ["anthropic.claude-sonnet-5", "anthropic.claude-haiku-4-5"]
+    # Reversing the question reverses the answer, so the rendering follows the reader.
+    assert find_entities(bundle, "haiku 4.5 versus opus 5") == [
+        "anthropic.claude-haiku-4-5",
+        "anthropic.claude-opus-5",
+    ]
+    assert find_entities(bundle, "context window of claude-opus-5") == [
+        "anthropic.claude-opus-5"
+    ]
+    assert find_entities(bundle, "how do I chunk documents") == []
+
+
+def test_find_entities_keeps_the_whole_term_rule(bundle):
+    """Same matcher as `find_entity`, so `vision` inside `revision` stays out of both."""
+    assert find_entities(bundle, "what is the exact revision number") == []

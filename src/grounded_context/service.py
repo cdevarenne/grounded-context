@@ -17,7 +17,7 @@ from typing import Any
 
 from . import telemetry
 from .bundle import Bundle
-from .lookup import find_entity, find_field, is_rollup, query_entities, resolve
+from .lookup import find_entities, find_entity, find_field, is_rollup, query_entities, resolve
 from .provenance import (
     DETERMINISTIC,
     MIXED,
@@ -95,6 +95,35 @@ def _rollup_envelope(
     """
     results = query_entities(bundle, field)
     if not results:
+        return grounded_answer("", [], DETERMINISTIC, decision.as_dict())
+    answer = "; ".join(
+        f"{result.concept.title}: {format_value(result.value)}" for result in results
+    )
+    return grounded_answer(
+        answer, [citation(result, as_of) for result in results], DETERMINISTIC, decision.as_dict()
+    )
+
+
+def _comparison_envelope(
+    bundle: KnowledgeStore,
+    entity_ids: list[str],
+    field: str,
+    as_of: date,
+    decision: Route,
+) -> AnswerEnvelope:
+    """One field across the entities a comparison named — every side, or none.
+
+    A comparison asks about a relation between two concepts. Answering for one of them is not a
+    partial answer; it is the answer to a different question, and it arrives with a citation that
+    makes it look settled. So if the bundle cannot supply every side, this refuses, which is the
+    rule `_merge` already applies to any precision question the bundle cannot answer.
+
+    It is `_rollup_envelope` scoped to the named entities rather than to every concept holding
+    the field. The relation itself is still not computed — the reader compares the values — but
+    every value the question asked about is present and separately cited.
+    """
+    results = [resolve(bundle, entity_id, field) for entity_id in entity_ids]
+    if not all(results):
         return grounded_answer("", [], DETERMINISTIC, decision.as_dict())
     answer = "; ".join(
         f"{result.concept.title}: {format_value(result.value)}" for result in results
@@ -254,7 +283,14 @@ def ask(
     deterministic_started = perf_counter()
     entity = find_entity(bundle, query)
     field = find_field(bundle, query, entity)
-    if entity and field:
+    # What makes a question a comparison is that it names more than one concept and asks for one
+    # field of each — not which router branch fired. "Is A cheaper than B" is a comparison signal
+    # and "the difference between A and B" is an exploratory one, so gating on the route would
+    # answer one of them properly and the other with a single side.
+    named = find_entities(bundle, query)
+    if field and len(named) > 1:
+        exact = _comparison_envelope(bundle, named, field, as_of, decision)
+    elif entity and field:
         exact = _lookup_envelope(bundle, entity, field, as_of, decision)
     elif field and is_rollup(query):
         # No single entity, a known field, and a phrasing that asks about a set. That is a
