@@ -49,14 +49,14 @@ Deterministic (`gctx lookup anthropic.claude-opus-5 context_window_tokens`):
 Answer: 1,000,000
 
   ↳ source: anthropic.claude-opus-5 · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
-    fresh until 2026-09-09
+    path: deterministic (exact-lookup) · human-reviewed 2026-09-09
+    fresh until 2026-11-30
     https://platform.claude.com/docs/en/about-claude/models/overview
 ```
 When `today >= stale_after`, the freshness line becomes the warning
-(`gctx --as-of 2026-10-01 lookup …`):
+(`gctx --as-of 2027-01-01 lookup …`):
 ```
-    ⚠ STALE since 2026-09-09 — re-verify before relying on this
+    ⚠ STALE since 2026-11-30 — re-verify before relying on this
 ```
 Semantic — score and method (`gctx ask "What is reciprocal rank fusion?"`):
 ```

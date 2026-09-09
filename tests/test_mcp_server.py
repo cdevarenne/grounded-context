@@ -90,8 +90,8 @@ def test_lookup_tool_carries_the_citation_block() -> None:
         as_of=FRESH.isoformat(),
     )
     assert structured["answer"] == "1,000,000"
-    assert "human-reviewed 2026-08-10" in structured["rendered"]
-    assert "fresh until 2026-09-09" in structured["rendered"]
+    assert "human-reviewed 2026-09-09" in structured["rendered"]
+    assert "fresh until 2026-11-30" in structured["rendered"]
 
 
 def test_lookup_tool_traverses_one_hop() -> None:
@@ -162,10 +162,10 @@ def test_as_of_surfaces_staleness_over_mcp_too() -> None:
         "lookup_canonical_fact",
         entity_id="anthropic.claude-opus-5",
         field="context_window_tokens",
-        as_of="2026-10-01",
+        as_of="2027-01-01",
     )
     assert structured["citations"][0]["is_stale"] is True
-    assert "⚠ STALE since 2026-09-09" in structured["rendered"]
+    assert "⚠ STALE since 2026-11-30" in structured["rendered"]
 
 
 def test_list_entities_tool_exposes_the_bundle() -> None:

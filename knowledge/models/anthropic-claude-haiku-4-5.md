@@ -16,10 +16,10 @@ generated:
 
 verified:
   - by: human:cdevarenne
-    at: 2026-08-10T19:06:23-07:00
+    at: 2026-09-09T00:11:31-07:00
 
 status: stable
-stale_after: 2026-09-09
+stale_after: 2026-11-30
 
 # --- local extensions ---
 id: anthropic.claude-haiku-4-5

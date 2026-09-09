@@ -80,12 +80,19 @@ def test_find_field_sees_fields_one_hop_away(bundle):
     assert find_field(bundle, "the method", "anthropic.claude-opus-5") == "method"
 
 
-def test_sonnet_carries_both_standard_and_introductory_pricing(bundle):
-    """Both are exact; which applies depends on the date the question is asked."""
+def test_sonnet_carries_one_price_since_the_increase_was_cancelled(bundle):
+    """The introductory fields are gone, and a lookup for one must miss rather than answer.
+
+    Until 2026-09-09 this file modeled a scheduled price rise: standard $3/$15, introductory
+    $2/$10 through 2026-08-31. Anthropic cancelled the rise and $2/$10 became standard, so the
+    old data made the layer answer $3 with a citation. A removed field has to read as a canonical
+    miss — a stale value left in place is the failure this bundle exists to prevent.
+    """
     entity = "anthropic.claude-sonnet-5"
-    assert lookup(bundle, entity, "input_price_per_mtok_usd").value == 3.0
-    assert lookup(bundle, entity, "introductory_input_price_per_mtok_usd").value == 2.0
-    assert str(lookup(bundle, entity, "introductory_pricing_ends").value) == "2026-08-31"
+    assert lookup(bundle, entity, "input_price_per_mtok_usd").value == 2.0
+    assert lookup(bundle, entity, "output_price_per_mtok_usd").value == 10.0
+    assert lookup(bundle, entity, "introductory_input_price_per_mtok_usd") is None
+    assert lookup(bundle, entity, "introductory_pricing_ends") is None
 
 
 @pytest.mark.parametrize(

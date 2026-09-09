@@ -58,8 +58,8 @@ $ uv run gctx lookup anthropic.claude-opus-5 context_window_tokens
 Answer: 1,000,000
 
   ↳ source: anthropic.claude-opus-5 · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
-    fresh until 2026-09-09
+    path: deterministic (exact-lookup) · human-reviewed 2026-09-09
+    fresh until 2026-11-30
     https://platform.claude.com/docs/en/about-claude/models/overview
 ```
 
@@ -69,8 +69,8 @@ That block under the `↳` is the point of the project. Read it field by field:
 |---|---|
 | `source:` | the entity and the exact canonical field the value came from |
 | `path:` | which retrieval path answered — `deterministic` here, so nothing was ranked |
-| `human-reviewed 2026-08-10` | the trust tier and the date a human verified it against the live doc |
-| `fresh until 2026-09-09` | the governance date; after it, this citation prints `STALE` |
+| `human-reviewed 2026-09-09` | the trust tier and the date a human verified it against the live doc |
+| `fresh until 2026-11-30` | the governance date; after it, this citation prints `STALE` |
 | the URL | the source a reader can open and check |
 
 No answer is ever emitted without one. The full contract is
@@ -119,8 +119,8 @@ $ uv run gctx lookup anthropic.claude-opus-5 method
 Answer: POST
 
   ↳ source: anthropic.messages · canonical.method
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
-    fresh until 2026-09-09
+    path: deterministic (exact-lookup) · human-reviewed 2026-09-09
+    fresh until 2026-11-30
     traversed: anthropic.claude-opus-5 → anthropic.messages
     https://platform.claude.com/docs/en/get-started
 ```
@@ -137,8 +137,8 @@ router: DETERMINISTIC — precision phrasing ("context window", "exact") plus a 
 Answer: 1,000,000
 
   ↳ source: anthropic.claude-opus-5 · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
-    fresh until 2026-09-09
+    path: deterministic (exact-lookup) · human-reviewed 2026-09-09
+    fresh until 2026-11-30
     https://platform.claude.com/docs/en/about-claude/models/overview
 ```
 
@@ -174,12 +174,12 @@ design is protecting: the layer never falls back to a model's own memory.
 Every canonical fact carries a `stale_after` date. Ask again as if that date had passed:
 
 ```console
-$ uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens
+$ uv run gctx --as-of 2027-01-01 lookup anthropic.claude-opus-5 context_window_tokens
 Answer: 1,000,000
 
   ↳ source: anthropic.claude-opus-5 · canonical.context_window_tokens
-    path: deterministic (exact-lookup) · human-reviewed 2026-08-10
-    ⚠ STALE since 2026-09-09 — re-verify before relying on this
+    path: deterministic (exact-lookup) · human-reviewed 2026-09-09
+    ⚠ STALE since 2026-11-30 — re-verify before relying on this
     https://platform.claude.com/docs/en/about-claude/models/overview
 ```
 

@@ -45,7 +45,7 @@ def test_matrix_carries_provenance_not_just_values() -> None:
     table = render(load_bundle())
     assert "## Provenance" in table
     assert "human-reviewed" in table
-    assert "2026-09-09" in table
+    assert "2026-11-30" in table
 
 
 def test_output_is_deterministic() -> None:

@@ -13,13 +13,22 @@ system degrades into a warning, not into a wrong answer. That is the safety net,
 | | Value |
 |---|---|
 | Concepts in `knowledge/` | 4 — three models, one endpoint |
-| Last verified | `2026-08-10` (all four) |
-| `stale_after` | `2026-09-09` (all four) |
+| Last verified | `2026-09-09` (all four) |
+| `stale_after` | `2026-11-30` (all four) |
 
-Thirty days is the interval the committed bundle uses. It is a **convention, not a rule** — OKF
-defines `stale_after` as an absolute date and says nothing about how far ahead to set it, and
-neither does [`specs/okf-bundle.md`](specs/okf-bundle.md). Thirty days suits model documentation,
-which changes on the vendor's schedule and not yours. A slower-moving corpus can justify longer.
+The first bundle used thirty days; the current one uses **82**. The interval is a **convention,
+not a rule** — OKF defines `stale_after` as an absolute date and says nothing about how far ahead
+to set it, and neither does [`specs/okf-bundle.md`](specs/okf-bundle.md). A shorter interval suits
+model documentation, which changes on the vendor's schedule and not yours. A longer one is a
+deliberate trade of freshness for review effort, and the cost of that trade is recorded below.
+
+**What the 2026-09-09 review found.** Three of the four concepts were correct in every field.
+Claude Sonnet 5 was not. The file modeled a scheduled price rise — standard $3/$15 per MTok with
+an introductory $2/$10 through 2026-08-31 — and Anthropic cancelled the rise, making $2/$10 the
+standard price. From 2026-09-01 the layer therefore answered $3, with a citation, for nine days.
+Nothing internal could detect it: the bundle was self-consistent and the tests passed. Only the
+comparison against the live source finds an error of this shape, which is the whole argument for
+scheduling one.
 
 Check where a concept stands without waiting for the date to arrive — the deterministic path
 already time-travels:

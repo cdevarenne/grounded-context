@@ -35,9 +35,6 @@ FIELDS: tuple[tuple[str, str], ...] = (
     ("extended_thinking", "Extended thinking"),
     ("input_price_per_mtok_usd", "Input $/Mtok"),
     ("output_price_per_mtok_usd", "Output $/Mtok"),
-    ("introductory_input_price_per_mtok_usd", "Introductory input $/Mtok"),
-    ("introductory_output_price_per_mtok_usd", "Introductory output $/Mtok"),
-    ("introductory_pricing_ends", "Introductory pricing ends"),
     ("default_endpoint", "Default endpoint"),
 )
 

@@ -18,17 +18,14 @@ uv run python scripts/build_matrix.py
 | `vision`<br/>Vision | yes | yes | yes |
 | `adaptive_thinking`<br/>Adaptive thinking | no | yes | yes |
 | `extended_thinking`<br/>Extended thinking | yes | no | no |
-| `input_price_per_mtok_usd`<br/>Input $/Mtok | 1.0 | 5.0 | 3.0 |
-| `output_price_per_mtok_usd`<br/>Output $/Mtok | 5.0 | 25.0 | 15.0 |
-| `introductory_input_price_per_mtok_usd`<br/>Introductory input $/Mtok | — | — | 2.0 |
-| `introductory_output_price_per_mtok_usd`<br/>Introductory output $/Mtok | — | — | 10.0 |
-| `introductory_pricing_ends`<br/>Introductory pricing ends | — | — | 2026-08-31 |
+| `input_price_per_mtok_usd`<br/>Input $/Mtok | 1.0 | 5.0 | 2.0 |
+| `output_price_per_mtok_usd`<br/>Output $/Mtok | 5.0 | 25.0 | 10.0 |
 | `default_endpoint`<br/>Default endpoint | /v1/messages | /v1/messages | /v1/messages |
 
 ## Provenance
 
 | Model | Trust tier | Verified | Stale after | Source |
 |---|---|---|---|---|
-| `anthropic.claude-haiku-4-5` | human-reviewed | 2026-08-10 | 2026-09-09 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |
-| `anthropic.claude-opus-5` | human-reviewed | 2026-08-10 | 2026-09-09 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |
-| `anthropic.claude-sonnet-5` | human-reviewed | 2026-08-10 | 2026-09-09 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |
+| `anthropic.claude-haiku-4-5` | human-reviewed | 2026-09-09 | 2026-11-30 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |
+| `anthropic.claude-opus-5` | human-reviewed | 2026-09-09 | 2026-11-30 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |
+| `anthropic.claude-sonnet-5` | human-reviewed | 2026-09-09 | 2026-11-30 | [link](https://platform.claude.com/docs/en/about-claude/models/overview) |

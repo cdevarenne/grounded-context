@@ -24,7 +24,7 @@ def test_lookup_exact_fact(capsys):
     out = capsys.readouterr().out
     assert "Answer: 1,000,000" in out
     assert "canonical.context_window_tokens" in out
-    assert "fresh until 2026-09-09" in out
+    assert "fresh until 2026-11-30" in out
 
 
 def test_lookup_traverses_one_hop(capsys):
@@ -76,7 +76,7 @@ def test_as_of_surfaces_staleness_without_faking_data(capsys):
         main(
             [
                 "--as-of",
-                "2026-10-01",
+                "2027-01-01",
                 "lookup",
                 "anthropic.claude-opus-5",
                 "context_window_tokens",
@@ -84,7 +84,7 @@ def test_as_of_surfaces_staleness_without_faking_data(capsys):
         )
         == 0
     )
-    assert "⚠ STALE since 2026-09-09" in capsys.readouterr().out
+    assert "⚠ STALE since 2026-11-30" in capsys.readouterr().out
 
 
 def test_json_envelope_is_machine_readable(capsys):
