@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 
-from . import telemetry
+from . import corpus_state, telemetry
 from .bundle import BundleError
 from .es_client import ElasticsearchNotConfigured
 from .provenance import AnswerEnvelope, render
@@ -45,6 +45,19 @@ def cmd_telemetry_index(args: argparse.Namespace) -> int:
     from .telemetry_index import run
 
     return run(telemetry.sink_path(args.log), index=args.index, recreate=args.recreate)
+
+
+def cmd_telemetry_snapshot(args: argparse.Namespace) -> int:
+    """Scan the bundle's governance state. Needs no cluster; projects only when asked."""
+    from . import corpus_state
+
+    return corpus_state.run(
+        load_bundle(args.bundle),
+        as_of_date(args.as_of),
+        log=args.log,
+        index=args.index,
+        recreate=args.recreate,
+    )
 
 
 def cmd_entities(args: argparse.Namespace) -> int:
@@ -174,6 +187,22 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--index", default=telemetry.TELEMETRY_INDEX, help="target index")
     q.add_argument("--recreate", action="store_true", help="delete and rebuild the index first")
     q.set_defaults(func=cmd_telemetry_index)
+
+    q = telemetry_sub.add_parser(
+        "snapshot", help="scan knowledge/ for staleness and trust tiers — no cloud needed"
+    )
+    q.add_argument("--log", metavar="PATH", help="the ndjson log (default: the configured sink)")
+    # Opt-in and optional-valued: bare `--index` projects into the default index, `--index NAME`
+    # into another, and omitting it prints and records without touching a cluster at all.
+    q.add_argument(
+        "--index",
+        nargs="?",
+        const=corpus_state.CORPUS_STATE_INDEX,
+        metavar="NAME",
+        help="also project the log into Elasticsearch",
+    )
+    q.add_argument("--recreate", action="store_true", help="delete and rebuild the index first")
+    q.set_defaults(func=cmd_telemetry_snapshot)
 
     p = sub.add_parser("eval", help="run the eval set from docs/specs/eval.md")
     p.add_argument(
