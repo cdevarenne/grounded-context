@@ -261,3 +261,79 @@ def test_an_adopter_can_supply_their_own_synonyms(bundle):
     assert find_field(
         bundle, "whats the token limit for opus", synonyms={"token limit": "max_output_tokens"}
     ) == "max_output_tokens"
+
+
+# One natural question per canonical field. Derived against the bundle rather than pinned as a
+# list, so a field added later without a way to ask for it fails here instead of shipping mute.
+NATURAL_PHRASING: dict[str, str] = {
+    "model_string": "What is the model id for claude-haiku-4-5?",
+    "api_alias": "What is the api alias for claude-opus-5?",
+    "context_window_tokens": "What is the context window of claude-opus-5?",
+    "max_output_tokens": "What is the max output tokens for claude-sonnet-5?",
+    "max_output_tokens_batch_api": (
+        "What is the max output tokens for the batch api on claude-opus-5?"
+    ),
+    "adaptive_thinking": "Does claude-opus-5 support adaptive thinking?",
+    "extended_thinking": "Does claude-haiku-4-5 support extended thinking?",
+    "vision": "Does claude-opus-5 support vision?",
+    "default_endpoint": "What endpoint does claude-sonnet-5 use by default?",
+    "input_price_per_mtok_usd": "What is the input price of claude-opus-5?",
+    "output_price_per_mtok_usd": "How much does claude-sonnet-5 cost per million output tokens?",
+    "path": "What is the path for the messages endpoint?",
+    "method": "What method does the messages endpoint use?",
+    "base_url": "What is the base url for the messages endpoint?",
+    "api_version_header": "What is the api version header for the messages endpoint?",
+    "api_version": "What is the api version for the messages endpoint?",
+    "auth_header": "What is the auth header the messages endpoint expects?",
+}
+
+
+@pytest.mark.parametrize(
+    "question, expected",
+    [
+        pytest.param(
+            "What is the exact max output tokens for the batch api on claude-opus-5?",
+            "max_output_tokens_batch_api",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="issue #11: the 'max output' synonym outranks the specific field",
+            ),
+        ),
+        pytest.param(
+            "Is claude-sonnet-5 less expensive than claude-opus-5 for output tokens?",
+            "output_price_per_mtok_usd",
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="issue #11: the 'output tokens' synonym outranks the price field",
+            ),
+        ),
+    ],
+)
+def test_a_specific_field_is_not_lost_to_a_shorter_synonym(bundle, question, expected):
+    """Both cases answer a cited number of the wrong kind — issue #11.
+
+    The batch question returns 128,000 rather than 300,000. The price question returns a token
+    count rather than dollars. One root cause: synonyms rank by phrase length, so a shorter,
+    more general phrase beats the specific field the question names.
+    """
+    assert find_field(bundle, question) == expected
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="issue #11: max_output_tokens_batch_api has no natural phrasing that reaches it",
+)
+def test_every_canonical_field_is_reachable_from_a_natural_question(bundle):
+    """A canonical field nobody can ask for is a fact the layer cannot deliver.
+
+    This is the property test the two cases above are instances of. It would have caught both
+    at once, and it catches the next field added without a way to reach it.
+    """
+    fields = {name for concept in bundle for name in concept.canonical}
+    missing_phrasing = sorted(fields - set(NATURAL_PHRASING))
+    assert not missing_phrasing, f"no natural phrasing declared for: {missing_phrasing}"
+
+    unreachable = sorted(
+        name for name in fields if find_field(bundle, NATURAL_PHRASING[name]) != name
+    )
+    assert not unreachable, f"canonical fields no natural question reaches: {unreachable}"
