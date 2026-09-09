@@ -297,38 +297,23 @@ NATURAL_PHRASING: dict[str, str] = {
 @pytest.mark.parametrize(
     "question, expected",
     [
-        pytest.param(
-            "What is the exact max output tokens for the batch api on claude-opus-5?",
-            "max_output_tokens_batch_api",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="issue #11: the 'max output' synonym outranks the specific field",
-            ),
-        ),
-        pytest.param(
-            "Is claude-sonnet-5 less expensive than claude-opus-5 for output tokens?",
-            "output_price_per_mtok_usd",
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="issue #11: the 'output tokens' synonym outranks the price field",
-            ),
-        ),
+        ("What is the exact max output tokens for the batch api on claude-opus-5?",
+         "max_output_tokens_batch_api"),
+        ("Is claude-sonnet-5 less expensive than claude-opus-5 for output tokens?",
+         "output_price_per_mtok_usd"),
     ],
 )
 def test_a_specific_field_is_not_lost_to_a_shorter_synonym(bundle, question, expected):
-    """Both cases answer a cited number of the wrong kind — issue #11.
+    """Both once answered a cited number of the wrong kind — issue #11, fixed.
 
-    The batch question returns 128,000 rather than 300,000. The price question returns a token
-    count rather than dollars. One root cause: synonyms rank by phrase length, so a shorter,
-    more general phrase beats the specific field the question names.
+    The batch question returned 128,000 rather than 300,000, and the price question returned a
+    token count rather than dollars. One root cause: ranking by phrase length, so a shorter and
+    more general phrase beat the specific field the question named. Word scoring fixes the first
+    and the price family fixes the second; both stay pinned here.
     """
     assert find_field(bundle, question) == expected
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="issue #11: max_output_tokens_batch_api has no natural phrasing that reaches it",
-)
 def test_every_canonical_field_is_reachable_from_a_natural_question(bundle):
     """A canonical field nobody can ask for is a fact the layer cannot deliver.
 

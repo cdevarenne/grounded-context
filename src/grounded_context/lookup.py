@@ -201,6 +201,80 @@ def _start(text: str, needle: str) -> int | None:
     return match.start() if match else None
 
 
+#: Field-name words that carry no discriminating signal. Every price field contains `per` and
+#: `usd`, and nobody types either, so counting them rewards a field for words the question
+#: cannot have used to mean it.
+_NOISE_WORDS = frozenset({"per", "usd"})
+
+#: A question using any of these is asking about money, whatever else it says. Without this,
+#: "is A less expensive than B for output tokens" scores `max_output_tokens` above
+#: `output_price_per_mtok_usd`, because the token field's name holds both "output" and "tokens"
+#: while the price field's holds only "output". Length ranking could never fix that; the signal
+#: is intent, and it is in a word neither field name contains.
+PRICE_SIGNALS = (
+    "price", "prices", "pricing", "cost", "costs", "cheap", "cheaper", "cheapest",
+    "expensive", "dollar", "dollars", "usd", "mtok",
+)
+
+
+def _words(phrase: str) -> list[str]:
+    """The scoring words of a field name or a synonym, noise removed."""
+    return [w for w in re.split(r"[^a-z0-9]+", phrase.lower()) if w and w not in _NOISE_WORDS]
+
+
+def _name_score(text: str, name: str, min_words: int) -> tuple[int, int, int] | None:
+    """How completely `text` names the field `name`, word by word.
+
+    Words may be interleaved: "max output tokens for the batch api" names every word of
+    `max_output_tokens_batch_api` without ever containing it as a phrase, which is the case
+    substring matching could not reach at all.
+
+    Ranked on matched words first, then on how few of the name's words went unmatched, then on
+    characters. Completeness before length is what stops "endpoint" claiming a question about
+    `path`: both match one word, but `default_endpoint` leaves one word of its name unaccounted
+    for and `path` leaves none.
+
+    `min_words` is the floor, and it exists because one word is usually not evidence. "Does the
+    provisioning API need claude-opus-5?" contains `api`, which is a word of `api_alias`, of
+    `api_version` and of `max_output_tokens_batch_api`. A generic word shared by several names
+    identifies none of them, so a multi-word name needs at least two.
+    """
+    words = _words(name)
+    hits = [w for w in words if contains(text, w)]
+    if len(hits) < min(min_words, len(words)):
+        return None
+    return (len(hits), -(len(words) - len(hits)), sum(len(w) for w in hits))
+
+
+def _synonym_score(text: str, phrase: str, name: str) -> tuple[int, int, int] | None:
+    """A synonym still has to appear whole — it is an idiom, not a bag of words.
+
+    It is scored on the same scale as a field name so the two compete once, rather than the
+    old two passes where any name match short-circuited every synonym.
+    """
+    if not contains(text, phrase):
+        return None
+    words = _words(phrase)
+    named = _words(name)
+    return (len(words), -(len(named) - len([w for w in named if contains(text, w)])),
+            sum(len(w) for w in words))
+
+
+def _narrow_to_the_family_the_question_names(text: str, fields: set[str]) -> set[str]:
+    """A price word restricts the answer to price fields, when the scope holds any.
+
+    This is the veto that phrase length cannot express. It is deliberately one-directional:
+    asking about money rules out a token count, while asking about tokens rules out nothing,
+    because "max output tokens" is a perfectly good way to reach a limit and no price word
+    appears in it.
+    """
+    if any(contains(text, signal) for signal in PRICE_SIGNALS):
+        priced = {f for f in fields if "price" in _words(f)}
+        if priced:
+            return priced
+    return fields
+
+
 def find_field(
     bundle: KnowledgeStore,
     text: str,
@@ -215,6 +289,12 @@ def find_field(
     users say "token limit" needs to add that phrase. They must not have to edit this package, and
     they must not put it in the bundle: an OKF file is governed by verification dates and trust
     tiers, and a query synonym has neither. The two belong to different lifecycles.
+
+    Candidates are scored, not ordered by string length. Length was standing in for specificity
+    and the proxy failed three times: `vision` inside `revision` (ELX-44), `output tokens` beating
+    `output price`, and `max output` beating `max_output_tokens_batch_api` — each one a cited
+    answer of the wrong kind. Ties break on the field name so the result is stable rather than
+    dependent on set iteration order.
     """
     table = SYNONYMS if synonyms is None else synonyms
     scope = [bundle.get(entity_id)] if entity_id else list(bundle)
@@ -222,19 +302,25 @@ def find_field(
     if entity_id:
         for neighbour in bundle.linked(entity_id):
             fields.update(neighbour.canonical)
+    narrowed = _narrow_to_the_family_the_question_names(text, fields)
+    # Inside a family the question already chose, one word is evidence again: "less expensive ...
+    # for output tokens" has said "price" by saying "expensive", so `output` is not a generic
+    # word any more — it is the only thing left to decide, and it decides between two fields.
+    min_words = 1 if narrowed != fields else 2
+    fields = narrowed
 
-    best: tuple[int, str] | None = None
-    for name in fields:
-        for phrase in (name, name.replace("_", " ")):
-            if contains(text, phrase) and (best is None or len(phrase) > best[0]):
-                best = (len(phrase), name)
-    if best is not None:
-        return best[1]
-
-    for phrase in sorted(table, key=len, reverse=True):
-        if contains(text, phrase) and table[phrase] in fields:
-            return table[phrase]
-    return None
+    best: tuple[tuple[int, int, int], str] | None = None
+    for name in sorted(fields):
+        scores = [_name_score(text, name, min_words)]
+        scores += [
+            _synonym_score(text, phrase, name)
+            for phrase, target in table.items()
+            if target == name
+        ]
+        for score in scores:
+            if score is not None and (best is None or score > best[0]):
+                best = (score, name)
+    return best[1] if best else None
 
 
 # Phrasings that don't contain the field name. Matched longest-phrase-first, so
