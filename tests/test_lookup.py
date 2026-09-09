@@ -96,6 +96,31 @@ def test_sonnet_carries_one_price_since_the_increase_was_cancelled(bundle):
 
 
 @pytest.mark.parametrize(
+    "question, expected",
+    [
+        # The regression: this phrasing answered 128,000 — a token count, cited, to a
+        # question about dollars. The router was right and the field resolver was wrong.
+        ("How much does claude-sonnet-5 cost per million output tokens?",
+         "output_price_per_mtok_usd"),
+        ("What is the price per million input tokens of claude-opus-5?",
+         "input_price_per_mtok_usd"),
+        ("What is the output price of claude-sonnet-5?", "output_price_per_mtok_usd"),
+        # The other side of the same fence: a token question must stay a token question.
+        ("What is the max output tokens for claude-sonnet-5?", "max_output_tokens"),
+        ("How many output tokens can claude-opus-5 produce?", "max_output_tokens"),
+    ],
+)
+def test_a_price_question_never_resolves_to_a_token_count(bundle, question, expected):
+    """Synonyms rank by phrase length, so a longer token phrase can outrank a price one.
+
+    `output tokens` is thirteen characters and `output price` is twelve, which is why the
+    price phrases below it in SYNONYMS have to be longer still. Length is standing in for
+    specificity here; these cases pin both directions so the proxy cannot drift.
+    """
+    assert find_field(bundle, question) == expected
+
+
+@pytest.mark.parametrize(
     "phrasing, expected",
     [
         ("Opus 5", "anthropic.claude-opus-5"),

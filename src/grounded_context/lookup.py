@@ -226,6 +226,13 @@ SYNONYMS: dict[str, str] = {
     "output price": "output_price_per_mtok_usd",
     "input cost": "input_price_per_mtok_usd",
     "output cost": "output_price_per_mtok_usd",
+    # Longer than "output tokens" on purpose. "How much does X cost per million output
+    # tokens?" contains that phrase, so without these it resolved to `max_output_tokens`
+    # and answered a token count to a question about dollars — cited, and wrong.
+    "cost per million input": "input_price_per_mtok_usd",
+    "cost per million output": "output_price_per_mtok_usd",
+    "price per million input": "input_price_per_mtok_usd",
+    "price per million output": "output_price_per_mtok_usd",
     "adaptive thinking": "adaptive_thinking",
     "extended thinking": "extended_thinking",
     "vision": "vision",
