@@ -68,6 +68,8 @@ uv run gctx lookup anthropic.claude-opus-5 method        # traverses model → e
 uv run gctx --as-of 2026-10-01 lookup anthropic.claude-opus-5 context_window_tokens   # staleness
 uv run gctx entities
 uv run gctx telemetry summary   # what the layer recorded about its own decisions
+uv run gctx telemetry snapshot  # what the bundle's governance looks like today
+uv run gctx --as-of 2026-12-01 telemetry snapshot   # ...and on a date you have not reached
 
 uv run pytest -q         # cluster and MCP tests skip without ES / the `mcp` extra
 ```
@@ -196,10 +198,10 @@ strengthen it.
 | Elasticsearch hybrid path (BM25 + ELSER, RRF) | ✅ Serverless 9.6, 320 chunks, ELSER |
 | MCP server (3 tools, stdio) | ✅ driven from Claude, Gemini/Antigravity and OpenAI/Codex, unchanged |
 | Eval harness (`gctx eval`) | ✅ 20 questions, 19 pass + 1 declared deviation |
-| Observability — per-query telemetry + local summary | ✅ 4 of 6 signals emitting, schema v3, readback is cloud-free |
+| Observability — per-query telemetry + local summary | ✅ the 4 per-query signals, schema v3, readback is cloud-free |
 | Observability — ES projection (`gctx telemetry index`) | ✅ data-stream-ready mapping, rebuildable from the log |
 | Observability — Kibana dashboard | ✅ 6 panels, exported to [`docs/kibana/`](docs/kibana/) |
-| Observability — corpus-state snapshot (2 remaining signals) | ⬜ [#5](https://github.com/cdevarenne/grounded-context/issues/5) |
+| Observability — corpus-state snapshot (`gctx telemetry snapshot`) | ✅ the 2 governance signals, scanned with no cloud; [#5](https://github.com/cdevarenne/grounded-context/issues/5) tracks the Kibana panels |
 
 **What's next.** Work to be done is tracked in [GitHub issues](https://github.com/cdevarenne/grounded-context/issues).
 

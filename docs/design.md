@@ -177,9 +177,11 @@ observations of a single query being answered, so one event per answer carries a
 last two are not about a query at all — they are a scan over `knowledge/` describing the bundle's
 governance state at a moment, on a much slower cadence.
 
-**Status: the four per-query signals emit; the two snapshot signals do not yet.** Every answered
-query appends one event to a local log, and `gctx telemetry summary` aggregates it with no cluster
-involved. The contracts are written down in [`specs/observability.md`](specs/observability.md) and
+**Status: all six signals are instrumented.** Every answered query appends one event to a local
+log, and `gctx telemetry summary` aggregates it with no cluster involved. The two snapshot signals
+are scanned on demand by `gctx telemetry snapshot`, which honours `--as-of` — so a governance
+cliff is visible before it arrives rather than after. What remains is the pair of Kibana
+time-series panels over the projected snapshots. The contracts are written down in [`specs/observability.md`](specs/observability.md) and
 [`specs/observability-corpus-state.md`](specs/observability-corpus-state.md).
 
 The guarantee that matters most for a layer whose pitch is determinism: telemetry is built and
